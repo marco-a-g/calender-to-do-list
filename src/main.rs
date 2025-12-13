@@ -7,6 +7,6 @@ fn main() {
 #[component]
 fn App() -> Element {
     rsx! {
-           "Hello World!"
+           "Hello Fellas!"
     }
 }
