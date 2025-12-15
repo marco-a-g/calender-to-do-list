@@ -2,12 +2,11 @@
 
 mod auth;
 mod calendar;
-mod chat;
 mod dashboard;
 mod database;
 mod groups;
 mod navbar;
-mod tasks;
+mod todos;
 mod user;
 
 use dioxus::prelude::*;
