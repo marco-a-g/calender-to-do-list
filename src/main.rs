@@ -1,4 +1,3 @@
-#![allow(non_snake_case)]
 
 mod auth;
 mod calendar;
@@ -10,14 +9,71 @@ mod todos;
 mod user;
 
 use dioxus::prelude::*;
+use dioxus_router::{Router, Routable};
+
+static CSS:  Asset = asset!("/assets/tailwind.css");
 
 fn main() {
     dioxus::launch(App);
 }
 
+#[derive(Routable, Clone, PartialEq)]
+enum Route {
+    #[layout(navbar::ui::Navbar)]
+    #[route("/")]
+    DashboardView ,
+
+    #[route("/todos")]
+    ToDoView ,
+
+    #[route("/Calendar")]
+    Calendar ,
+
+
+    #[route("/Groups")]
+    Groups ,
+}
+
 #[component]
 fn App() -> Element {
     rsx! {
-        "Hello World!"
+        document::Stylesheet { href: CSS }
+        Router::<Route> {}
+    }
+}
+
+#[component]
+fn DashboardView() -> Element {
+    rsx! {
+        div {
+            "Dashboard"
+        }
+    }
+}
+
+#[component]
+fn ToDoView() -> Element {
+    rsx! {
+        div {
+            "ToDos"
+        }
+    }
+}
+
+#[component]
+fn Calendar() -> Element {
+    rsx! {
+        div {
+            "Calendar"
+        }
+    }
+}
+
+#[component]
+fn Groups() -> Element {
+    rsx! {
+        div {
+            "Groups"
+        }
     }
 }
