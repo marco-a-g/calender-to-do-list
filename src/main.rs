@@ -7,7 +7,6 @@ mod navbar;
 mod todos;
 mod user;
 
-use crate::navbar::ui::*;
 use crate::todos::ui::*;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
@@ -46,9 +45,25 @@ fn App() -> Element {
 fn DashboardView() -> Element {
     rsx! {
         div {
-            class: "flex flex-col items-center justify-center h-full text-white gap-4",
-            h1 { class: "text-3xl font-bold", "Willkommen bei Plantify" }
-            p { class: "text-gray-400", "Wähle links im Menü eine Funktion aus." }
+            "Dashboard"
+        }
+    }
+}
+
+#[component]
+fn Calendar() -> Element {
+    rsx! {
+        div {
+            "Calendar"
+        }
+    }
+}
+
+#[component]
+fn Groups() -> Element {
+    rsx! {
+        div {
+            "Groups"
         }
     }
 }

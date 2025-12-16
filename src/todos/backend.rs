@@ -8,7 +8,7 @@ pub async fn fetch_my_groups() -> Result<Vec<(i32, String)>, ServerFnError> {
 
     //MOCK===========================
     let groups = MOCK_GROUPS.lock().unwrap();
-    Ok(groups.clone())
+    Ok(groups.iter().map(|g| (g.0, g.1.clone())).collect())
     //MOCK===========================
 }
 
@@ -20,13 +20,11 @@ pub async fn fetch_todos_filtered(filter_mode: i32) -> Result<Vec<ToDoTransfer>,
     //MOCK===========================
     let todos = MOCK_TODOS.lock().unwrap();
 
-    let filtered_data = todos.iter().filter(|t| {
-        match filter_mode {
-            0 => !t.completed,                                // All (nur offene)
-            -1 => !t.completed && t.group_id == 0,            // Personal
-            id if id > 0 => !t.completed && t.group_id == id, // Specific Group
-            _ => false,
-        }
+    let filtered_data = todos.iter().filter(|t| match filter_mode {
+        0 => !t.completed,
+        -1 => !t.completed && t.group_id == 0,
+        id if id > 0 => !t.completed && t.group_id == id,
+        _ => false,
     });
 
     Ok(filtered_data.map(|t| to_transfer(t.clone())).collect())
@@ -56,10 +54,14 @@ pub async fn create_todo(title: String, group_id: i32) -> Result<(), ServerFnErr
 
     let new_id = todos.iter().map(|t| t.id).max().unwrap_or(0) + 1;
 
-    let group_name = if group_id > 0 {
-        groups.iter().find(|g| g.0 == group_id).map(|g| g.1.clone())
+    let (group_name, group_color) = if group_id > 0 {
+        if let Some(g) = groups.iter().find(|g| g.0 == group_id) {
+            (Some(g.1.clone()), Some(g.2.clone()))
+        } else {
+            (None, None)
+        }
     } else {
-        None
+        (None, None)
     };
 
     let new_task = ToDo {
@@ -70,10 +72,12 @@ pub async fn create_todo(title: String, group_id: i32) -> Result<(), ServerFnErr
         completed: false,
         group_id,
         group_name,
+        group_color,
     };
 
     todos.push(new_task);
     Ok(())
+    //MOCK===========================
 }
 
 #[server]
@@ -90,14 +94,23 @@ pub async fn complete_task(id: i32) -> Result<(), ServerFnError> {
     }
 
     Ok(())
+    //MOCK===========================
 }
 
 //=========================
 // Mock Daten Struktur und funktionen
 //=========================
 
-// Transfer Type: (id, title, due_date, is_group, completed, group_id, group_name)
-type ToDoTransfer = (i32, String, String, bool, bool, i32, Option<String>);
+type ToDoTransfer = (
+    i32,
+    String,
+    String,
+    bool,
+    bool,
+    i32,
+    Option<String>,
+    Option<String>,
+);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ToDo {
@@ -108,6 +121,7 @@ pub struct ToDo {
     pub completed: bool,
     pub group_id: i32,
     pub group_name: Option<String>,
+    pub group_color: Option<String>,
 }
 
 fn to_transfer(todo: ToDo) -> ToDoTransfer {
@@ -119,17 +133,22 @@ fn to_transfer(todo: ToDo) -> ToDoTransfer {
         todo.completed,
         todo.group_id,
         todo.group_name,
+        todo.group_color,
     )
 }
 
-static MOCK_GROUPS: LazyLock<Mutex<Vec<(i32, String)>>> = LazyLock::new(|| {
+// (ID, Name, HexColor)
+static MOCK_GROUPS: LazyLock<Mutex<Vec<(i32, String, String)>>> = LazyLock::new(|| {
     Mutex::new(vec![
-        (10, "Marketing Team".to_string()),
-        (11, "Dev Squad".to_string()),
+        (10, "Marketing Team".to_string(), "#A855F7".to_string()),
+        (11, "Dev Squad".to_string(), "#3A6BFF".to_string()),
+        (12, "Design Crew".to_string(), "#EC4899".to_string()),
+        (13, "Finance & Ops".to_string(), "#10B981".to_string()),
+        (14, "HR & People".to_string(), "#F59E0B".to_string()),
+        (15, "Customer Support".to_string(), "#06B6D4".to_string()),
     ])
 });
 
-// GLOBALE VARIABLE für ToDos (Mutable State)
 static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
     Mutex::new(vec![
         ToDo {
@@ -140,6 +159,7 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             completed: false,
             group_id: 0,
             group_name: None,
+            group_color: None,
         },
         ToDo {
             id: 2,
@@ -149,6 +169,7 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             completed: false,
             group_id: 0,
             group_name: None,
+            group_color: None,
         },
         ToDo {
             id: 3,
@@ -157,7 +178,8 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             is_group: true,
             completed: false,
             group_id: 10,
-            group_name: Some("Marketing".into()),
+            group_name: Some("Marketing Team".into()),
+            group_color: Some("#A855F7".into()),
         },
         ToDo {
             id: 4,
@@ -167,6 +189,47 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             completed: false,
             group_id: 11,
             group_name: Some("Dev Squad".into()),
+            group_color: Some("#3A6BFF".into()),
+        },
+        ToDo {
+            id: 5,
+            title: "Website Mockups".into(),
+            due_date: "22.12.2025".into(),
+            is_group: true,
+            completed: false,
+            group_id: 12,
+            group_name: Some("Design Crew".into()),
+            group_color: Some("#EC4899".into()),
+        },
+        ToDo {
+            id: 6,
+            title: "Jahresabschluss prüfen".into(),
+            due_date: "31.12.2025".into(),
+            is_group: true,
+            completed: false,
+            group_id: 13,
+            group_name: Some("Finance & Ops".into()),
+            group_color: Some("#10B981".into()),
+        },
+        ToDo {
+            id: 7,
+            title: "Weihnachtsfeier Planen".into(),
+            due_date: "15.12.2025".into(),
+            is_group: true,
+            completed: false,
+            group_id: 14,
+            group_name: Some("HR & People".into()),
+            group_color: Some("#F59E0B".into()),
+        },
+        ToDo {
+            id: 8,
+            title: "Ticket #4092 Eskalation".into(),
+            due_date: "Heute".into(),
+            is_group: true,
+            completed: false,
+            group_id: 15,
+            group_name: Some("Customer Support".into()),
+            group_color: Some("#06B6D4".into()),
         },
         ToDo {
             id: 9,
@@ -176,6 +239,17 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             completed: true,
             group_id: 0,
             group_name: None,
+            group_color: None,
+        },
+        ToDo {
+            id: 99,
+            title: "Onboarding Prozess fixen".into(),
+            due_date: "10.12.2025".into(),
+            is_group: true,
+            completed: true,
+            group_id: 11,
+            group_name: Some("Dev Squad".into()),
+            group_color: Some("#3A6BFF".into()),
         },
     ])
 });
