@@ -1,11 +1,9 @@
+use chrono::{Local, NaiveDate};
 use dioxus::prelude::*;
-use std::sync::{LazyLock, Mutex}; // für globalen State
+use std::sync::{LazyLock, Mutex}; // NaiveDate für Sortierung wichtig
 
 #[server]
-pub async fn fetch_my_groups() -> Result<Vec<(i32, String)>, ServerFnError> {
-    // eigentliche Signatur: pub async fn fetch_my_groups() -> Result<Vec<(i32, String)>, ServerFnError>
-    // Hier dann SQL Anfrage an Server
-
+pub async fn fetch_groups() -> Result<Vec<(i32, String)>, ServerFnError> {
     //MOCK===========================
     let groups = MOCK_GROUPS.lock().unwrap();
     Ok(groups.iter().map(|g| (g.0, g.1.clone())).collect())
@@ -14,9 +12,6 @@ pub async fn fetch_my_groups() -> Result<Vec<(i32, String)>, ServerFnError> {
 
 #[server]
 pub async fn fetch_todos_filtered(filter_mode: i32) -> Result<Vec<ToDoTransfer>, ServerFnError> {
-    // eigentliche Signatur: pub async fn fetch_todos_filtered(filter_mode: i32) -> Result<Vec<ToDo>, ServerFnError>
-    // Hier dann SQL Anfrage an Server
-
     //MOCK===========================
     let todos = MOCK_TODOS.lock().unwrap();
 
@@ -33,21 +28,40 @@ pub async fn fetch_todos_filtered(filter_mode: i32) -> Result<Vec<ToDoTransfer>,
 
 #[server]
 pub async fn fetch_completed_history() -> Result<Vec<ToDoTransfer>, ServerFnError> {
-    // eigentliche Signatur: pub async fn fetch_completed_history() -> Result<Vec<ToDo>, ServerFnError>
-    // Hier dann SQL Anfrage an Server
-
     //MOCK===========================
     let todos = MOCK_TODOS.lock().unwrap();
-    let history = todos.iter().filter(|t| t.completed);
-    Ok(history.map(|t| to_transfer(t.clone())).collect())
+
+    // Wir holen uns die erledigten Tasks
+    let mut history: Vec<ToDo> = todos.iter().filter(|t| t.completed).cloned().collect();
+
+    // SORTIERUNG: Absteigend nach completed_date (Neueste zuerst)
+    history.sort_by(|a, b| {
+        let date_a = parse_date_sortable(a.completed_date.as_deref());
+        let date_b = parse_date_sortable(b.completed_date.as_deref());
+        // b cmp a für absteigende Sortierung (descending)
+        date_b.cmp(&date_a)
+    });
+
+    Ok(history.into_iter().map(to_transfer).collect())
     //MOCK===========================
 }
 
-#[server]
-pub async fn create_todo(title: String, group_id: i32) -> Result<(), ServerFnError> {
-    // eigentliche Signatur: pub async fn create_todo(title: String, group_id: i32) -> Result<(), ServerFnError>
-    // Hier dann SQL Anfrage an Server
+// Hilfsfunktion zum Sortieren deutscher Daten (DD.MM.YYYY)
+fn parse_date_sortable(date_str: Option<&str>) -> NaiveDate {
+    match date_str {
+        Some("Heute") => Local::now().date_naive(),
+        Some(s) => NaiveDate::parse_from_str(s, "%d.%m.%Y")
+            .unwrap_or_else(|_| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+        None => NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
+    }
+}
 
+#[server]
+pub async fn create_todo(
+    title: String,
+    group_id: i32,
+    due_date: String,
+) -> Result<(), ServerFnError> {
     //MOCK===========================
     let mut todos = MOCK_TODOS.lock().unwrap();
     let groups = MOCK_GROUPS.lock().unwrap();
@@ -67,9 +81,10 @@ pub async fn create_todo(title: String, group_id: i32) -> Result<(), ServerFnErr
     let new_task = ToDo {
         id: new_id,
         title,
-        due_date: "Heute".to_string(),
+        due_date,
         is_group: group_id > 0,
         completed: false,
+        completed_date: None, // Neu: Beim Erstellen noch nicht erledigt
         group_id,
         group_name,
         group_color,
@@ -82,14 +97,13 @@ pub async fn create_todo(title: String, group_id: i32) -> Result<(), ServerFnErr
 
 #[server]
 pub async fn complete_task(id: i32) -> Result<(), ServerFnError> {
-    // eigentliche Signatur: pub async fn complete_task(id: i32) -> Result<(), ServerFnError>
-    // Hier dann SQL Anfrage an Server
-
     //MOCK===========================
     let mut todos = MOCK_TODOS.lock().unwrap();
 
     if let Some(task) = todos.iter_mut().find(|t| t.id == id) {
         task.completed = true;
+        // NEU: Setze das aktuelle Datum als Abschlussdatum
+        task.completed_date = Some(Local::now().format("%d.%m.%Y").to_string());
         println!("Completed task: {:?}", task);
     }
 
@@ -101,6 +115,8 @@ pub async fn complete_task(id: i32) -> Result<(), ServerFnError> {
 // Mock Daten Struktur und funktionen
 //=========================
 
+// Transfer Type Update: Index 8 ist jetzt completed_date
+// (id, title, due_date, is_group, completed, group_id, group_name, group_color, completed_date)
 type ToDoTransfer = (
     i32,
     String,
@@ -108,6 +124,7 @@ type ToDoTransfer = (
     bool,
     bool,
     i32,
+    Option<String>,
     Option<String>,
     Option<String>,
 );
@@ -119,6 +136,7 @@ pub struct ToDo {
     pub due_date: String,
     pub is_group: bool,
     pub completed: bool,
+    pub completed_date: Option<String>, // <--- NEU
     pub group_id: i32,
     pub group_name: Option<String>,
     pub group_color: Option<String>,
@@ -134,10 +152,10 @@ fn to_transfer(todo: ToDo) -> ToDoTransfer {
         todo.group_id,
         todo.group_name,
         todo.group_color,
+        todo.completed_date, // <--- NEU
     )
 }
 
-// (ID, Name, HexColor)
 static MOCK_GROUPS: LazyLock<Mutex<Vec<(i32, String, String)>>> = LazyLock::new(|| {
     Mutex::new(vec![
         (10, "Marketing Team".to_string(), "#A855F7".to_string()),
@@ -149,14 +167,17 @@ static MOCK_GROUPS: LazyLock<Mutex<Vec<(i32, String, String)>>> = LazyLock::new(
     ])
 });
 
+// GLOBALE VARIABLE für ToDos (Mutable State)
 static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
     Mutex::new(vec![
+        // ... (Offene Tasks bleiben gleich, completed_date ist None) ...
         ToDo {
             id: 1,
             title: "Zahnarzt Termin".into(),
             due_date: "16.12.2025".into(),
             is_group: false,
             completed: false,
+            completed_date: None,
             group_id: 0,
             group_name: None,
             group_color: None,
@@ -167,6 +188,7 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             due_date: "18.12.2025".into(),
             is_group: false,
             completed: false,
+            completed_date: None,
             group_id: 0,
             group_name: None,
             group_color: None,
@@ -177,6 +199,7 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             due_date: "20.12.2025".into(),
             is_group: true,
             completed: false,
+            completed_date: None,
             group_id: 10,
             group_name: Some("Marketing Team".into()),
             group_color: Some("#A855F7".into()),
@@ -187,56 +210,19 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             due_date: "21.12.2025".into(),
             is_group: true,
             completed: false,
+            completed_date: None,
             group_id: 11,
             group_name: Some("Dev Squad".into()),
             group_color: Some("#3A6BFF".into()),
         },
-        ToDo {
-            id: 5,
-            title: "Website Mockups".into(),
-            due_date: "22.12.2025".into(),
-            is_group: true,
-            completed: false,
-            group_id: 12,
-            group_name: Some("Design Crew".into()),
-            group_color: Some("#EC4899".into()),
-        },
-        ToDo {
-            id: 6,
-            title: "Jahresabschluss prüfen".into(),
-            due_date: "31.12.2025".into(),
-            is_group: true,
-            completed: false,
-            group_id: 13,
-            group_name: Some("Finance & Ops".into()),
-            group_color: Some("#10B981".into()),
-        },
-        ToDo {
-            id: 7,
-            title: "Weihnachtsfeier Planen".into(),
-            due_date: "15.12.2025".into(),
-            is_group: true,
-            completed: false,
-            group_id: 14,
-            group_name: Some("HR & People".into()),
-            group_color: Some("#F59E0B".into()),
-        },
-        ToDo {
-            id: 8,
-            title: "Ticket #4092 Eskalation".into(),
-            due_date: "Heute".into(),
-            is_group: true,
-            completed: false,
-            group_id: 15,
-            group_name: Some("Customer Support".into()),
-            group_color: Some("#06B6D4".into()),
-        },
+        // Erledigte Tasks mit Mock-Abschlussdatum
         ToDo {
             id: 9,
             title: "Milch kaufen".into(),
             due_date: "14.12.2025".into(),
             is_group: false,
             completed: true,
+            completed_date: Some("14.12.2025".into()), // <--- NEU: Datum gesetzt
             group_id: 0,
             group_name: None,
             group_color: None,
@@ -247,6 +233,7 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             due_date: "10.12.2025".into(),
             is_group: true,
             completed: true,
+            completed_date: Some("11.12.2025".into()), // <--- NEU: Datum gesetzt
             group_id: 11,
             group_name: Some("Dev Squad".into()),
             group_color: Some("#3A6BFF".into()),

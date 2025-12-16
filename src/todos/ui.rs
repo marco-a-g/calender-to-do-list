@@ -1,6 +1,5 @@
 use crate::todos::backend::{
-    ToDo, complete_task, create_todo, fetch_completed_history, fetch_my_groups,
-    fetch_todos_filtered,
+    ToDo, complete_task, create_todo, fetch_completed_history, fetch_groups, fetch_todos_filtered,
 };
 use chrono::*;
 use dioxus::prelude::*;
@@ -21,8 +20,10 @@ pub fn ToDoView() -> Element {
     let mut show_create_modal = use_signal(|| false);
     let mut new_task_title = use_signal(|| String::new());
     let mut new_task_group_id = use_signal(|| 0);
+    // Signal für das Datum
+    let mut new_task_due_date = use_signal(|| String::new());
 
-    let groups = use_resource(fetch_my_groups);
+    let groups = use_resource(fetch_groups);
 
     let current_groups = match &*groups.read() {
         Some(Ok(list)) => list.clone(),
@@ -119,6 +120,29 @@ pub fn ToDoView() -> Element {
                                 "font-size: 12px;
                                  color: #9ca3af;
                                  text-transform: uppercase;",
+                                "Due Date"
+                            }
+                            input {
+                                r#type: "date",
+                                style:
+                                "background: rgba(255,255,255,0.05);
+                                 border: 1px solid rgba(255,255,255,0.1);
+                                 padding: 10px;
+                                 border-radius: 8px;
+                                 color: white;
+                                 outline: none;
+                                 color-scheme: dark;",
+                                value: "{new_task_due_date}",
+                                oninput: move |evt| new_task_due_date.set(evt.value())
+                            }
+                        }
+
+                        div { class: "flex flex-col gap-2",
+                            label {
+                                style:
+                                "font-size: 12px;
+                                 color: #9ca3af;
+                                 text-transform: uppercase;",
                                 "Assign to Group"
                             }
 
@@ -163,6 +187,7 @@ pub fn ToDoView() -> Element {
                                 onclick: move |_| {
                                     show_create_modal.set(false);
                                     new_task_title.set(String::new());
+                                    new_task_due_date.set(String::new());
                                 },
                                 "Cancel"
                             }
@@ -178,8 +203,23 @@ pub fn ToDoView() -> Element {
                                  cursor: pointer;",
                                 onclick: move |_| async move {
                                     if !new_task_title().is_empty() {
-                                        let _ = create_todo(new_task_title(), new_task_group_id()).await;
+                                        // Datum formatieren
+                                        let raw_date = new_task_due_date();
+                                        let formatted_date = if raw_date.is_empty() {
+                                            "Heute".to_string()
+                                        } else {
+                                            let parts: Vec<&str> = raw_date.split('-').collect();
+                                            if parts.len() == 3 {
+                                                format!("{}.{}.{}", parts[2], parts[1], parts[0])
+                                            } else {
+                                                raw_date
+                                            }
+                                        };
+
+                                        let _ = create_todo(new_task_title(), new_task_group_id(), formatted_date).await;
+
                                         new_task_title.set(String::new());
+                                        new_task_due_date.set(String::new());
                                         new_task_group_id.set(0);
                                         show_create_modal.set(false);
                                         todos_resource.restart();
@@ -310,9 +350,15 @@ pub fn ToDoView() -> Element {
                                 for item in list {
                                     ToDoItem {
                                         todo: ToDo {
-                                            id: item.0, title: item.1.clone(), due_date: item.2.clone(),
-                                            is_group: item.3, completed: item.4, group_id: item.5,
-                                            group_name: item.6.clone(), group_color: item.7.clone()
+                                            id: item.0,
+                                            title: item.1.clone(),
+                                            due_date: item.2.clone(),
+                                            is_group: item.3,
+                                            completed: item.4,
+                                            group_id: item.5,
+                                            group_name: item.6.clone(),
+                                            group_color: item.7.clone(),
+                                            completed_date: item.8.clone() // <--- DAS HAT GEFEHLT
                                         },
                                         on_complete: handle_complete
                                     }
@@ -433,7 +479,8 @@ pub fn ToDoView() -> Element {
                                 for item in list {
                                     HistoryItem {
                                         title: item.1.clone(),
-                                        date: item.2.clone(),
+                                        // item.8 ist completed_date, Fallback item.2 (Due Date)
+                                        date: item.8.clone().unwrap_or(item.2.clone()),
                                         group_name: item.6.clone(),
                                         group_color: item.7.clone()
                                     }
@@ -448,6 +495,7 @@ pub fn ToDoView() -> Element {
     }
 }
 
+// ... FilterButton, ToDoItem, HistoryItem (unverändert wie im vorherigen Post) ...
 #[component]
 fn FilterButton(label: String, active: bool, onclick: EventHandler<MouseEvent>) -> Element {
     rsx! {
@@ -544,8 +592,6 @@ fn ToDoItem(todo: ToDo, on_complete: EventHandler<i32>) -> Element {
                     if let Some(name) = &todo.group_name {
                         if !name.is_empty() {
                             {
-                                // HIER IST DIE KORREKTUR:
-                                // Wir öffnen einen Block, definieren die Farbe und geben rsx zurück
                                 let color = todo.group_color.as_deref().unwrap_or("#3A6BFF");
                                 rsx! {
                                     span {
@@ -634,13 +680,12 @@ fn HistoryItem(
                         style:
                         "font-size: 10px;
                          color: #4b5563;",
-                        "completed at: {date}"
+                        "completed: {date}"
                     }
 
                     if let Some(name) = &group_name {
                         if !name.is_empty() {
                             {
-                                // HIER EBENFALLS:
                                 let color = group_color.as_deref().unwrap_or("#3A6BFF");
                                 rsx! {
                                     span {
