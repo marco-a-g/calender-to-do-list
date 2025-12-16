@@ -1,1 +1,144 @@
+use crate::Route;
+use dioxus::prelude::*;
+use dioxus_router::{Link, Outlet, use_route};
 
+#[component]
+pub fn Navbar() -> Element {
+    rsx! {
+        div {
+            style: "
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                background: #050609;
+            ",
+
+            div {
+                style: "
+                    width: 112px;
+                    background: linear-gradient(180deg, #11121b 0%, #05060b 100%);
+                    border-right: 1px solid rgba(255,255,255,0.06);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    padding: 18px 12px 22px 12px;
+                    gap: 20px;
+                ",
+
+                div {
+                    style: "
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 14px;
+                        background: radial-gradient(
+                            circle at 25% 0%,
+                            #6b8bff 0%,
+                            #24345e 40%,
+                            #151725 100%
+                        );
+                    ",
+                }
+
+
+                div {
+                    style: "
+                        width: 80%;
+                        flex: 1;
+                        border-radius: 26px;
+                        background: radial-gradient(circle at top, #181b24 0%, #080910 70%);
+                        padding: 20px 14px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 16px;
+                    ",
+
+                    NavButton {
+                        to: Route::DashboardView ,
+                        icon: "🏠",
+                    }
+
+                    NavButton {
+                        to: Route::ToDoView ,
+                        icon: "📝",
+                    }
+
+                    NavButton {
+                        to: Route::Calendar ,
+                        icon: "📅",
+                    }
+
+                    NavButton {
+                        to: Route::Groups ,
+                        icon: "👥",
+                    }
+                }
+            }
+
+            main {
+                style: "
+                    flex: 1;
+                    padding: 20px;
+                ",
+                Outlet::<Route> {}
+            }
+        }
+    }
+}
+
+#[component]
+fn NavButton(to: Route, icon: &'static str) -> Element {
+    let current = use_route::<Route>();
+    let is_active = current == to;
+
+    rsx! {
+        div {
+            style: "
+                position: relative;
+                width: 100%;
+                display: flex;
+                justify-content: center;
+            ",
+
+            if is_active {
+                div {
+                    style: "
+                        position: absolute;
+                        left: -12px;
+                        top: 6px;
+                        width: 4px;
+                        height: 32px;
+                        border-radius: 2px;
+                        background: linear-gradient(
+                            to bottom,
+                            #6b8bff,
+                            #4c6fff
+                        );
+                        box-shadow:
+                            0 0 12px rgba(107,139,255,0.6);
+                    "
+                }
+            }
+
+            Link {
+                to: to,
+                style: "
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 14px;
+                    background: rgba(255,255,255,0.04);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 18px;
+                    color: white;
+                    text-decoration: none;
+                    box-shadow:
+                        inset 0 1px rgba(255,255,255,0.05),
+                        inset 0 -1px rgba(0,0,0,0.35);
+                ",
+                "{icon}"
+            }
+        }
+    }
+}
