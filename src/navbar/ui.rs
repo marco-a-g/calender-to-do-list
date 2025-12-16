@@ -1,6 +1,6 @@
+use crate::Route;
 use dioxus::prelude::*;
 use dioxus_router::{Link, Outlet, use_route};
-use crate::Route;
 
 #[component]
 pub fn Navbar() -> Element {
@@ -90,10 +90,7 @@ pub fn Navbar() -> Element {
 }
 
 #[component]
-fn NavButton(
-    to: Route,
-    icon: &'static str,
-) -> Element {
+fn NavButton(to: Route, icon: &'static str) -> Element {
     let current = use_route::<Route>();
     let is_active = current == to;
 

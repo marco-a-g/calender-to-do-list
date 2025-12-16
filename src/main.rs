@@ -1,4 +1,3 @@
-
 mod auth;
 mod calendar;
 mod dashboard;
@@ -9,9 +8,9 @@ mod todos;
 mod user;
 
 use dioxus::prelude::*;
-use dioxus_router::{Router, Routable};
+use dioxus_router::{Routable, Router};
 
-static CSS:  Asset = asset!("/assets/tailwind.css");
+static CSS: Asset = asset!("/assets/tailwind.css");
 
 fn main() {
     dioxus::launch(App);
@@ -21,17 +20,16 @@ fn main() {
 enum Route {
     #[layout(navbar::ui::Navbar)]
     #[route("/")]
-    DashboardView ,
+    DashboardView,
 
     #[route("/todos")]
-    ToDoView ,
+    ToDoView,
 
     #[route("/Calendar")]
-    Calendar ,
-
+    Calendar,
 
     #[route("/Groups")]
-    Groups ,
+    Groups,
 }
 
 #[component]
