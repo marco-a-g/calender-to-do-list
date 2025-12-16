@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 mod auth;
 mod calendar;
 mod dashboard;
@@ -12,6 +10,7 @@ mod user;
 use crate::navbar::ui::*;
 use crate::todos::ui::*;
 use dioxus::prelude::*;
+use dioxus_router::{Routable, Router};
 
 static CSS: Asset = asset!("/assets/tailwind.css");
 
@@ -19,23 +18,28 @@ fn main() {
     dioxus::launch(App);
 }
 
-#[component]
-fn App() -> Element {
-    rsx! {
-        document::Stylesheet { href: CSS }
-
-        Router::<Route> {}
-    }
-}
-
 #[derive(Routable, Clone, PartialEq)]
 enum Route {
-    #[layout(Navbar)]
+    #[layout(navbar::ui::Navbar)]
     #[route("/")]
     DashboardView,
 
     #[route("/todos")]
     ToDoView,
+
+    #[route("/Calendar")]
+    Calendar,
+
+    #[route("/Groups")]
+    Groups,
+}
+
+#[component]
+fn App() -> Element {
+    rsx! {
+        document::Stylesheet { href: CSS }
+        Router::<Route> {}
+    }
 }
 
 #[component]

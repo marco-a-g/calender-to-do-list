@@ -173,6 +173,7 @@
   .flex {
     display: flex;
   }
+<<<<<<< HEAD
   .h-full {
     height: 100%;
   }
@@ -355,4 +356,6 @@
       --tw-backdrop-sepia: initial;
     }
   }
+=======
+>>>>>>> origin/main
 }
