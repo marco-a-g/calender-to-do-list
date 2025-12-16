@@ -13,7 +13,6 @@ pub fn Navbar() -> Element {
                 background: #050609;
             ",
 
-            // SIDEBAR (EXAKT WIE ORIGINAL)
             div {
                 style: "
                     width: 112px;
@@ -26,7 +25,6 @@ pub fn Navbar() -> Element {
                     gap: 20px;
                 ",
 
-                // LOGO (1:1)
                 div {
                     style: "
                         width: 42px;
@@ -41,7 +39,7 @@ pub fn Navbar() -> Element {
                     ",
                 }
 
-                // NAVIGATION CONTAINER (1:1)
+
                 div {
                     style: "
                         width: 80%;
@@ -77,7 +75,6 @@ pub fn Navbar() -> Element {
                 }
             }
 
-            // CONTENT
             main {
                 style: "
                     flex: 1;
@@ -103,7 +100,6 @@ fn NavButton(to: Route, icon: &'static str) -> Element {
                 justify-content: center;
             ",
 
-            // ACTIVE INDICATOR (STRAHL)
             if is_active {
                 div {
                     style: "
@@ -124,7 +120,6 @@ fn NavButton(to: Route, icon: &'static str) -> Element {
                 }
             }
 
-            // BUTTON
             Link {
                 to: to,
                 style: "
