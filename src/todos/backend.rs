@@ -7,9 +7,7 @@ pub async fn fetch_groups() -> Result<Vec<(i32, String)>, ServerFnError> {
     //Eigentlich hier SQL Abfrage an Server-DB
     //MOCK===========================
     let groups = MOCK_GROUPS.lock().unwrap();
-    println!("Fetched groups");
     Ok(groups.iter().map(|g| (g.0, g.1.clone())).collect())
-
     //MOCK===========================
 }
 
@@ -51,7 +49,6 @@ pub async fn fetch_completed_history() -> Result<Vec<ToDoTransfer>, ServerFnErro
         let date_b = parse_date_sortable(b.completed_date.as_deref());
         date_b.cmp(&date_a)
     });
-    println!("Fetched Todo_historys");
 
     Ok(history.into_iter().map(to_transfer).collect())
     //MOCK===========================
@@ -103,7 +100,6 @@ pub async fn create_todo(
     };
 
     todos.push(new_task);
-    println!("Created new task");
     Ok(())
     //MOCK===========================
 }
@@ -128,7 +124,7 @@ pub async fn complete_task(id: i32) -> Result<(), ServerFnError> {
 // Mock Daten Struktur und funktionen // kann nachher alls raus
 //=========================
 
-type ToDoTransfer = (
+pub type ToDoTransfer = (
     i32,
     String,
     String,
@@ -153,7 +149,7 @@ pub struct ToDo {
     pub group_color: Option<String>,
 }
 
-fn to_transfer(todo: ToDo) -> ToDoTransfer {
+pub fn to_transfer(todo: ToDo) -> ToDoTransfer {
     (
         todo.id,
         todo.title,

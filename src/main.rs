@@ -7,7 +7,7 @@ mod navbar;
 mod todos;
 mod user;
 
-use crate::todos::ui::*;
+use crate::todos::frontend::todo_view::*;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
 
