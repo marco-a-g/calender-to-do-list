@@ -1,52 +1,63 @@
 use chrono::{Local, NaiveDate};
 use dioxus::prelude::*;
-use std::sync::{LazyLock, Mutex}; // NaiveDate für Sortierung wichtig
+use std::sync::{LazyLock, Mutex};
 
 #[server]
 pub async fn fetch_groups() -> Result<Vec<(i32, String)>, ServerFnError> {
+    //Eigentlich hier SQL Abfrage an Server-DB
     //MOCK===========================
     let groups = MOCK_GROUPS.lock().unwrap();
+    println!("Fetched groups");
     Ok(groups.iter().map(|g| (g.0, g.1.clone())).collect())
+
     //MOCK===========================
 }
 
 #[server]
 pub async fn fetch_todos_filtered(filter_mode: i32) -> Result<Vec<ToDoTransfer>, ServerFnError> {
+    //Eigentlich hier SQL Abfrage an Server-DB
     //MOCK===========================
     let todos = MOCK_TODOS.lock().unwrap();
+    let mut filtered_data: Vec<ToDo> = todos
+        .iter()
+        .filter(|t| match filter_mode {
+            0 => !t.completed,
+            -1 => !t.completed && t.group_id == 0,
+            id if id > 0 => !t.completed && t.group_id == id,
+            _ => false,
+        })
+        .cloned()
+        .collect();
 
-    let filtered_data = todos.iter().filter(|t| match filter_mode {
-        0 => !t.completed,
-        -1 => !t.completed && t.group_id == 0,
-        id if id > 0 => !t.completed && t.group_id == id,
-        _ => false,
+    filtered_data.sort_by(|a, b| {
+        let date_a = parse_date_sortable(Some(&a.due_date));
+        let date_b = parse_date_sortable(Some(&b.due_date));
+        date_a.cmp(&date_b)
     });
-
-    Ok(filtered_data.map(|t| to_transfer(t.clone())).collect())
+    Ok(filtered_data.into_iter().map(to_transfer).collect())
     //MOCK===========================
 }
 
 #[server]
 pub async fn fetch_completed_history() -> Result<Vec<ToDoTransfer>, ServerFnError> {
+    //Eigentlich hier SQL Abfrage an Server-DB
     //MOCK===========================
     let todos = MOCK_TODOS.lock().unwrap();
 
-    // Wir holen uns die erledigten Tasks
     let mut history: Vec<ToDo> = todos.iter().filter(|t| t.completed).cloned().collect();
 
-    // SORTIERUNG: Absteigend nach completed_date (Neueste zuerst)
     history.sort_by(|a, b| {
         let date_a = parse_date_sortable(a.completed_date.as_deref());
         let date_b = parse_date_sortable(b.completed_date.as_deref());
-        // b cmp a für absteigende Sortierung (descending)
         date_b.cmp(&date_a)
     });
+    println!("Fetched Todo_historys");
 
     Ok(history.into_iter().map(to_transfer).collect())
     //MOCK===========================
 }
 
-// Hilfsfunktion zum Sortieren deutscher Daten (DD.MM.YYYY)
+// Hilfsfunktion zum Sortieren deutscher Daten (DD.MM.YYYY)??
 fn parse_date_sortable(date_str: Option<&str>) -> NaiveDate {
     match date_str {
         Some("Heute") => Local::now().date_naive(),
@@ -62,6 +73,7 @@ pub async fn create_todo(
     group_id: i32,
     due_date: String,
 ) -> Result<(), ServerFnError> {
+    //Eigentlich hier SQL Abfrage an Server-DB
     //MOCK===========================
     let mut todos = MOCK_TODOS.lock().unwrap();
     let groups = MOCK_GROUPS.lock().unwrap();
@@ -84,25 +96,26 @@ pub async fn create_todo(
         due_date,
         is_group: group_id > 0,
         completed: false,
-        completed_date: None, // Neu: Beim Erstellen noch nicht erledigt
+        completed_date: None,
         group_id,
         group_name,
         group_color,
     };
 
     todos.push(new_task);
+    println!("Created new task");
     Ok(())
     //MOCK===========================
 }
 
 #[server]
 pub async fn complete_task(id: i32) -> Result<(), ServerFnError> {
+    //Eigentlich hier SQL Abfrage an Server-DB
     //MOCK===========================
     let mut todos = MOCK_TODOS.lock().unwrap();
 
     if let Some(task) = todos.iter_mut().find(|t| t.id == id) {
         task.completed = true;
-        // NEU: Setze das aktuelle Datum als Abschlussdatum
         task.completed_date = Some(Local::now().format("%d.%m.%Y").to_string());
         println!("Completed task: {:?}", task);
     }
@@ -112,11 +125,9 @@ pub async fn complete_task(id: i32) -> Result<(), ServerFnError> {
 }
 
 //=========================
-// Mock Daten Struktur und funktionen
+// Mock Daten Struktur und funktionen // kann nachher alls raus
 //=========================
 
-// Transfer Type Update: Index 8 ist jetzt completed_date
-// (id, title, due_date, is_group, completed, group_id, group_name, group_color, completed_date)
 type ToDoTransfer = (
     i32,
     String,
@@ -136,7 +147,7 @@ pub struct ToDo {
     pub due_date: String,
     pub is_group: bool,
     pub completed: bool,
-    pub completed_date: Option<String>, // <--- NEU
+    pub completed_date: Option<String>,
     pub group_id: i32,
     pub group_name: Option<String>,
     pub group_color: Option<String>,
@@ -152,7 +163,7 @@ fn to_transfer(todo: ToDo) -> ToDoTransfer {
         todo.group_id,
         todo.group_name,
         todo.group_color,
-        todo.completed_date, // <--- NEU
+        todo.completed_date,
     )
 }
 
@@ -167,10 +178,8 @@ static MOCK_GROUPS: LazyLock<Mutex<Vec<(i32, String, String)>>> = LazyLock::new(
     ])
 });
 
-// GLOBALE VARIABLE für ToDos (Mutable State)
 static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
     Mutex::new(vec![
-        // ... (Offene Tasks bleiben gleich, completed_date ist None) ...
         ToDo {
             id: 1,
             title: "Zahnarzt Termin".into(),
@@ -215,17 +224,27 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             group_name: Some("Dev Squad".into()),
             group_color: Some("#3A6BFF".into()),
         },
-        // Erledigte Tasks mit Mock-Abschlussdatum
         ToDo {
             id: 9,
             title: "Milch kaufen".into(),
             due_date: "14.12.2025".into(),
             is_group: false,
             completed: true,
-            completed_date: Some("14.12.2025".into()), // <--- NEU: Datum gesetzt
+            completed_date: Some("14.12.2025".into()),
             group_id: 0,
             group_name: None,
             group_color: None,
+        },
+        ToDo {
+            id: 10,
+            title: "SEP Abgabe".into(),
+            due_date: "14.12.2026".into(),
+            is_group: true,
+            completed: false,
+            completed_date: None,
+            group_id: 11,
+            group_name: Some("Dev Squad".into()),
+            group_color: Some("#3A6BFF".into()),
         },
         ToDo {
             id: 99,
@@ -233,7 +252,7 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             due_date: "10.12.2025".into(),
             is_group: true,
             completed: true,
-            completed_date: Some("11.12.2025".into()), // <--- NEU: Datum gesetzt
+            completed_date: Some("11.12.2025".into()),
             group_id: 11,
             group_name: Some("Dev Squad".into()),
             group_color: Some("#3A6BFF".into()),

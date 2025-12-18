@@ -1,5 +1,11 @@
 use crate::todos::backend::{
-    ToDo, complete_task, create_todo, fetch_completed_history, fetch_groups, fetch_todos_filtered,
+    //ToDo ist noch Moch-Struktur
+    ToDo,
+    complete_task,
+    create_todo,
+    fetch_completed_history,
+    fetch_groups,
+    fetch_todos_filtered,
 };
 use chrono::*;
 use dioxus::prelude::*;
@@ -20,7 +26,6 @@ pub fn ToDoView() -> Element {
     let mut show_create_modal = use_signal(|| false);
     let mut new_task_title = use_signal(|| String::new());
     let mut new_task_group_id = use_signal(|| 0);
-    // Signal für das Datum
     let mut new_task_due_date = use_signal(|| String::new());
 
     let groups = use_resource(fetch_groups);
@@ -89,7 +94,7 @@ pub fn ToDoView() -> Element {
                             "color: white;
                              font-size: 18px;
                              margin: 0 0 8px 0;",
-                            "Create New Task"
+                            "Create New To-Do"
                         }
 
                         div { class: "flex flex-col gap-2",
@@ -98,7 +103,7 @@ pub fn ToDoView() -> Element {
                                 "font-size: 12px;
                                  color: #9ca3af;
                                  text-transform: uppercase;",
-                                "Task Name"
+                                "To-Do Name"
                             }
                             input {
                                 style:
@@ -203,7 +208,6 @@ pub fn ToDoView() -> Element {
                                  cursor: pointer;",
                                 onclick: move |_| async move {
                                     if !new_task_title().is_empty() {
-                                        // Datum formatieren
                                         let raw_date = new_task_due_date();
                                         let formatted_date = if raw_date.is_empty() {
                                             "Heute".to_string()
@@ -225,7 +229,7 @@ pub fn ToDoView() -> Element {
                                         todos_resource.restart();
                                     }
                                 },
-                                "Create Task"
+                                "Create To-Do"
                             }
                         }
                     }
@@ -318,7 +322,7 @@ pub fn ToDoView() -> Element {
                              letter-spacing: 0.08em;
                              text-transform: uppercase;
                              color: #9ca3af;",
-                            "Task List"
+                            "To-Do List"
                         }
                         h1 {
                             style:
@@ -327,9 +331,9 @@ pub fn ToDoView() -> Element {
                              font-weight: 600;
                              color: #f9fafb;",
                             match selected_filter() {
-                                FilterState::All => "All Tasks",
-                                FilterState::Personal => "Personal Tasks",
-                                FilterState::Group(_) => "Group Tasks",
+                                FilterState::All => "All To-Do's",
+                                FilterState::Personal => "Personal To-Do's",
+                                FilterState::Group(_) => "Group To-Do's",
                             }
                         }
                     }
@@ -337,30 +341,85 @@ pub fn ToDoView() -> Element {
                     div {
                         class: "flex-1 overflow-y-auto pr-2 flex flex-col gap-3",
                         match &*todos_resource.read() {
-                            Some(Ok(list)) => rsx! {
-                                if list.is_empty() {
-                                    div {
-                                        style:
-                                        "color: #6b7280;
-                                         text-align: center;
-                                         margin-top: 40px;",
-                                        "No active tasks found."
+                            Some(Ok(list)) => {
+                                let now = Local::now().date_naive();
+                                let next_week = now + chrono::Duration::days(7);
+                                let mut today_list = vec![];
+                                let mut week_list = vec![];
+                                let mut later_list = vec![];
+
+                                for item in list {
+                                    if item.2 == "Heute" {
+                                        today_list.push(item);
+                                    } else if let Ok(parsed) = NaiveDate::parse_from_str(&item.2, "%d.%m.%Y") {
+                                        if parsed <= now {
+                                            today_list.push(item);
+                                        } else if parsed <= next_week {
+                                            week_list.push(item);
+                                        } else {
+                                            later_list.push(item);
+                                        }
+                                    } else {
+                                        today_list.push(item);
                                     }
                                 }
-                                for item in list {
-                                    ToDoItem {
-                                        todo: ToDo {
-                                            id: item.0,
-                                            title: item.1.clone(),
-                                            due_date: item.2.clone(),
-                                            is_group: item.3,
-                                            completed: item.4,
-                                            group_id: item.5,
-                                            group_name: item.6.clone(),
-                                            group_color: item.7.clone(),
-                                            completed_date: item.8.clone() // <--- DAS HAT GEFEHLT
-                                        },
-                                        on_complete: handle_complete
+
+                                rsx! {
+                                    div {
+                                        style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 8px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;",
+                                        "Due Today / Overdue"
+                                    }
+                                    if today_list.is_empty() {
+                                        div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No To-Do's." }
+                                    }
+                                    for item in today_list {
+                                        ToDoItem {
+                                            todo: ToDo {
+                                                id: item.0, title: item.1.clone(), due_date: item.2.clone(),
+                                                is_group: item.3, completed: item.4, group_id: item.5,
+                                                group_name: item.6.clone(), group_color: item.7.clone(),
+                                                completed_date: item.8.clone()
+                                            },
+                                            on_complete: handle_complete
+                                        }
+                                    }
+
+                                    div {
+                                        style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 24px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;",
+                                        "Due in the next 7 days"
+                                    }
+                                    if week_list.is_empty() {
+                                        div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No To-Do's." }
+                                    }
+                                    for item in week_list {
+                                        ToDoItem {
+                                            todo: ToDo {
+                                                id: item.0, title: item.1.clone(), due_date: item.2.clone(),
+                                                is_group: item.3, completed: item.4, group_id: item.5,
+                                                group_name: item.6.clone(), group_color: item.7.clone(),
+                                                completed_date: item.8.clone()
+                                            },
+                                            on_complete: handle_complete
+                                        }
+                                    }
+
+                                    div {
+                                        style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 24px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;",
+                                        "Due Later"
+                                    }
+                                    if later_list.is_empty() {
+                                        div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No To-Do's." }
+                                    }
+                                    for item in later_list {
+                                        ToDoItem {
+                                            todo: ToDo {
+                                                id: item.0, title: item.1.clone(), due_date: item.2.clone(),
+                                                is_group: item.3, completed: item.4, group_id: item.5,
+                                                group_name: item.6.clone(), group_color: item.7.clone(),
+                                                completed_date: item.8.clone()
+                                            },
+                                            on_complete: handle_complete
+                                        }
                                     }
                                 }
                             },
@@ -446,7 +505,7 @@ pub fn ToDoView() -> Element {
                          gap: 8px;",
                         onclick: move |_| show_create_modal.set(true),
                         span { style: "font-size: 18px; line-height: 1;", "+" }
-                        "Create New Task"
+                        "Create New To-Do"
                     }
                 }
 
@@ -479,7 +538,6 @@ pub fn ToDoView() -> Element {
                                 for item in list {
                                     HistoryItem {
                                         title: item.1.clone(),
-                                        // item.8 ist completed_date, Fallback item.2 (Due Date)
                                         date: item.8.clone().unwrap_or(item.2.clone()),
                                         group_name: item.6.clone(),
                                         group_color: item.7.clone()
@@ -495,7 +553,6 @@ pub fn ToDoView() -> Element {
     }
 }
 
-// ... FilterButton, ToDoItem, HistoryItem (unverändert wie im vorherigen Post) ...
 #[component]
 fn FilterButton(label: String, active: bool, onclick: EventHandler<MouseEvent>) -> Element {
     rsx! {
@@ -540,6 +597,20 @@ fn FilterButton(label: String, active: bool, onclick: EventHandler<MouseEvent>) 
 
 #[component]
 fn ToDoItem(todo: ToDo, on_complete: EventHandler<i32>) -> Element {
+    let date_color = if todo.due_date == "Heute" {
+        "#ef4444"
+    } else {
+        if let Ok(parsed_due) = NaiveDate::parse_from_str(&todo.due_date, "%d.%m.%Y") {
+            if Local::now().date_naive() >= parsed_due {
+                "#ef4444"
+            } else {
+                "#6b7280"
+            }
+        } else {
+            "#6b7280"
+        }
+    };
+
     rsx! {
         div {
             style:
@@ -583,9 +654,11 @@ fn ToDoItem(todo: ToDo, on_complete: EventHandler<i32>) -> Element {
                      margin-top: 4px;",
 
                     span {
-                        style:
-                        "font-size: 12px;
-                         color: #6b7280;",
+                        style: format!(
+                            "font-size: 12px; color: {}; font-weight: {};",
+                            date_color,
+                            if date_color == "#ef4444" { "600" } else { "400" }
+                        ),
                         "Due to: {todo.due_date}"
                     }
 
@@ -680,7 +753,7 @@ fn HistoryItem(
                         style:
                         "font-size: 10px;
                          color: #4b5563;",
-                        "completed: {date}"
+                        "completed at: {date}"
                     }
 
                     if let Some(name) = &group_name {
