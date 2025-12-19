@@ -7,6 +7,7 @@ mod navbar;
 mod todos;
 mod user;
 
+use crate::todos::frontend::todo_view::*;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
 
@@ -45,15 +46,6 @@ fn DashboardView() -> Element {
     rsx! {
         div {
             "Dashboard"
-        }
-    }
-}
-
-#[component]
-fn ToDoView() -> Element {
-    rsx! {
-        div {
-            "ToDos"
         }
     }
 }
