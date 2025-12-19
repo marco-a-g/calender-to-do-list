@@ -54,7 +54,7 @@ pub async fn fetch_completed_history() -> Result<Vec<ToDoTransfer>, ServerFnErro
     //MOCK===========================
 }
 
-// Hilfsfunktion zum Sortieren deutscher Daten (DD.MM.YYYY)??
+// Hilfsfunktion fürs Sortieren deutscher Daten
 fn parse_date_sortable(date_str: Option<&str>) -> NaiveDate {
     match date_str {
         Some("Heute") => Local::now().date_naive(),
@@ -121,9 +121,10 @@ pub async fn complete_task(id: i32) -> Result<(), ServerFnError> {
 }
 
 //=========================
-// Mock Daten Struktur und funktionen // kann nachher alls raus
+// Ab hier Mock Daten Struktur und funktionen, kann nachher alls raus
 //=========================
 
+//TransferObjekt für Frontend <-> Backend
 pub type ToDoTransfer = (
     i32,
     String,
@@ -148,7 +149,7 @@ pub struct ToDo {
     pub group_name: Option<String>,
     pub group_color: Option<String>,
 }
-
+//mappt ToDo in ToDoTransfer Objekt für Frontend
 pub fn to_transfer(todo: ToDo) -> ToDoTransfer {
     (
         todo.id,
@@ -165,12 +166,12 @@ pub fn to_transfer(todo: ToDo) -> ToDoTransfer {
 
 static MOCK_GROUPS: LazyLock<Mutex<Vec<(i32, String, String)>>> = LazyLock::new(|| {
     Mutex::new(vec![
-        (10, "Marketing Team".to_string(), "#A855F7".to_string()),
-        (11, "Dev Squad".to_string(), "#3A6BFF".to_string()),
-        (12, "Design Crew".to_string(), "#EC4899".to_string()),
-        (13, "Finance & Ops".to_string(), "#10B981".to_string()),
-        (14, "HR & People".to_string(), "#F59E0B".to_string()),
-        (15, "Customer Support".to_string(), "#06B6D4".to_string()),
+        (10, "Marketing Team".to_string(), "#A855F7".to_string()), // Lila
+        (11, "Dev Squad".to_string(), "#3A6BFF".to_string()),      // Blau
+        (12, "Design Crew".to_string(), "#EC4899".to_string()),    // Pink
+        (13, "Finance & Ops".to_string(), "#10B981".to_string()),  // Grün
+        (14, "HR & People".to_string(), "#F59E0B".to_string()),    // Orange
+        (15, "Customer Support".to_string(), "#06B6D4".to_string()), // Cyan
     ])
 });
 
@@ -178,19 +179,30 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
     Mutex::new(vec![
         ToDo {
             id: 1,
-            title: "Zahnarzt Termin".into(),
-            due_date: "16.12.2025".into(),
+            title: "KVR Termin machen".into(),
+            due_date: "01.02.2026".into(),
             is_group: false,
             completed: false,
             completed_date: None,
             group_id: 0,
             group_name: None,
             group_color: None,
+        },
+        ToDo {
+            id: 40,
+            title: "Q3 Budget Review".into(),
+            due_date: "15.10.2025".into(),
+            is_group: true,
+            completed: false,
+            completed_date: None,
+            group_id: 13,
+            group_name: Some("Finance & Ops".into()),
+            group_color: Some("#10B981".into()),
         },
         ToDo {
             id: 2,
-            title: "Rust Tutorial beenden".into(),
-            due_date: "18.12.2025".into(),
+            title: "Rust Tutorial weitermachen".into(),
+            due_date: "30.11.2025".into(),
             is_group: false,
             completed: false,
             completed_date: None,
@@ -199,8 +211,30 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             group_color: None,
         },
         ToDo {
+            id: 41,
+            title: "Hotfix: Login Button".into(),
+            due_date: "20.12.2025".into(),
+            is_group: true,
+            completed: false,
+            completed_date: None,
+            group_id: 11,
+            group_name: Some("Dev Squad".into()),
+            group_color: Some("#3A6BFF".into()),
+        },
+        ToDo {
+            id: 42,
+            title: "Kundenfeedback analysieren".into(),
+            due_date: "29.12.2025".into(),
+            is_group: true,
+            completed: false,
+            completed_date: None,
+            group_id: 15,
+            group_name: Some("Customer Support".into()),
+            group_color: Some("#06B6D4".into()),
+        },
+        ToDo {
             id: 3,
-            title: "Q4 Präsentation".into(),
+            title: "Q4 Präsentation Finalisieren".into(),
             due_date: "20.12.2025".into(),
             is_group: true,
             completed: false,
@@ -211,7 +245,7 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
         },
         ToDo {
             id: 4,
-            title: "Server Deployment".into(),
+            title: "Server Deployment v2.0".into(),
             due_date: "21.12.2025".into(),
             is_group: true,
             completed: false,
@@ -221,8 +255,74 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             group_color: Some("#3A6BFF".into()),
         },
         ToDo {
+            id: 5,
+            title: "Weihnachts-Newsletter".into(),
+            due_date: "23.12.2025".into(),
+            is_group: true,
+            completed: false,
+            completed_date: None,
+            group_id: 10,
+            group_name: Some("Marketing Team".into()),
+            group_color: Some("#A855F7".into()),
+        },
+        ToDo {
+            id: 44,
+            title: "Geschenke kaufen".into(),
+            due_date: "24.12.2025".into(),
+            is_group: false,
+            completed: false,
+            completed_date: None,
+            group_id: 0,
+            group_name: None,
+            group_color: None,
+        },
+        ToDo {
+            id: 45,
+            title: "Neues Logo Konzept".into(),
+            due_date: "05.01.2026".into(),
+            is_group: true,
+            completed: false,
+            completed_date: None,
+            group_id: 12,
+            group_name: Some("Design Crew".into()),
+            group_color: Some("#EC4899".into()),
+        },
+        ToDo {
+            id: 10,
+            title: "SEP Abgabe".into(),
+            due_date: "14.01.2026".into(),
+            is_group: true,
+            completed: false,
+            completed_date: None,
+            group_id: 11,
+            group_name: Some("Dev Squad".into()),
+            group_color: Some("#3A6BFF".into()),
+        },
+        ToDo {
+            id: 46,
+            title: "Jahresabschluss 2025".into(),
+            due_date: "31.01.2026".into(),
+            is_group: true,
+            completed: false,
+            completed_date: None,
+            group_id: 13,
+            group_name: Some("Finance & Ops".into()),
+            group_color: Some("#10B981".into()),
+        },
+        ToDo {
+            id: 47,
+            title: "Mitarbeitergespräche Q1".into(),
+            due_date: "15.02.2026".into(),
+            is_group: true,
+            completed: false,
+            completed_date: None,
+            group_id: 14,
+            group_name: Some("HR & People".into()),
+            group_color: Some("#F59E0B".into()),
+        },
+        ToDo {
             id: 9,
-            title: "Milch kaufen".into(),
+            title: "Monitor von Papa abholen".into(),
             due_date: "14.12.2025".into(),
             is_group: false,
             completed: true,
@@ -230,17 +330,6 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             group_id: 0,
             group_name: None,
             group_color: None,
-        },
-        ToDo {
-            id: 10,
-            title: "SEP Abgabe".into(),
-            due_date: "14.12.2026".into(),
-            is_group: true,
-            completed: false,
-            completed_date: None,
-            group_id: 11,
-            group_name: Some("Dev Squad".into()),
-            group_color: Some("#3A6BFF".into()),
         },
         ToDo {
             id: 99,
@@ -252,6 +341,28 @@ static MOCK_TODOS: LazyLock<Mutex<Vec<ToDo>>> = LazyLock::new(|| {
             group_id: 11,
             group_name: Some("Dev Squad".into()),
             group_color: Some("#3A6BFF".into()),
+        },
+        ToDo {
+            id: 100,
+            title: "Team-Event organisieren".into(),
+            due_date: "01.12.2025".into(),
+            is_group: true,
+            completed: true,
+            completed_date: Some("05.12.2025".into()),
+            group_id: 14,
+            group_name: Some("HR & People".into()),
+            group_color: Some("#F59E0B".into()),
+        },
+        ToDo {
+            id: 101,
+            title: "Ticket #404 lösen".into(),
+            due_date: "08.12.2025".into(),
+            is_group: true,
+            completed: true,
+            completed_date: Some("08.12.2025".into()),
+            group_id: 15,
+            group_name: Some("Customer Support".into()),
+            group_color: Some("#06B6D4".into()),
         },
     ])
 });

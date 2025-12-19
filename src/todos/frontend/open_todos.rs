@@ -210,7 +210,7 @@ fn categorize_todos(
     }
     (today, week, later)
 }
-
+//mapt Tupel ToDoTransfer aus Backend wieder auf ToDo
 fn map_transfer_to_todo(item: ToDoTransfer) -> ToDo {
     ToDo {
         id: item.0,
