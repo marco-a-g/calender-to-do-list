@@ -2,6 +2,13 @@ use chrono::{Local, NaiveDate};
 use dioxus::prelude::*;
 use std::sync::{LazyLock, Mutex};
 
+////TEST FÜR LOCAL SNYC_________________
+/*use crate::database::local::sync_local_db::sync_remote_to_local;
+if let Err(e) = sync_remote_to_local().await {
+    println!("Sync Fehler: {}", e);
+}
+*/
+
 #[server]
 pub async fn fetch_groups() -> Result<Vec<(i32, String)>, ServerFnError> {
     //Eigentlich hier SQL Abfrage an Server-DB
