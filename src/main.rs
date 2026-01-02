@@ -7,9 +7,9 @@ mod navbar;
 mod todos;
 mod user;
 
-use crate::todos::frontend::todo_view::*;
 use crate::auth::backend::{AuthStatus, AuthView};
 use crate::auth::ui::{LoginView, RegisterView};
+use crate::todos::frontend::todo_view::*;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
 
