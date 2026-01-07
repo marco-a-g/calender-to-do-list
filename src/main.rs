@@ -7,6 +7,8 @@ mod navbar;
 mod todos;
 mod user;
 
+use crate::auth::backend::{AuthStatus, AuthView};
+use crate::auth::ui::{LoginView, RegisterView};
 use crate::todos::frontend::todo_view::*;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
@@ -35,9 +37,32 @@ enum Route {
 
 #[component]
 fn App() -> Element {
+    let auth_status = use_signal(|| AuthStatus::Unauthenticated);
+    let auth_view = use_signal(|| AuthView::Login);
+
     rsx! {
         document::Stylesheet { href: CSS }
-        Router::<Route> {}
+
+        match auth_status() {
+            AuthStatus::Unauthenticated => rsx!(
+                match auth_view() {
+                    AuthView::Login => rsx!(
+                        LoginView {
+                            auth_status,
+                            auth_view,
+                        }
+                    ),
+                    AuthView::Register => rsx!(
+                        RegisterView {
+                            auth_view,
+                        }
+                    ),
+                }
+            ),
+            AuthStatus::Authenticated { .. } => rsx!(
+                Router::<Route> {}
+            ),
+        }
     }
 }
 
