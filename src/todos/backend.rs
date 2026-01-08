@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use chrono::{Local, NaiveDate};
 use dioxus::prelude::*;
 use std::sync::{LazyLock, Mutex};

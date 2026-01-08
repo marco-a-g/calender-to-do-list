@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::{
@@ -14,7 +17,7 @@ use super::sync::todos::sync_todos;
 
 // Config -> Später raus sobald auth steht?
 const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
-const SUPABASE_Service_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5cWF3bm5rcHVzZ3RuaG1lZWJuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTg0MzkyOSwiZXhwIjoyMDgxNDE5OTI5fQ.s3Gmfv0u89h5ZjguByboQbfjPADR3p9iVfcIeYyAoFY";
+const SUPABASE_SERVICE_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5cWF3bm5rcHVzZ3RuaG1lZWJuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTg0MzkyOSwiZXhwIjoyMDgxNDE5OTI5fQ.s3Gmfv0u89h5ZjguByboQbfjPADR3p9iVfcIeYyAoFY";
 const MOCK_USER_ID: &str = "0cbc387b-984c-4dde-9c7c-281a07d4ce39"; //User Sarah
 
 // Data-Stucts; später eher global wo definieren
@@ -106,7 +109,7 @@ pub async fn sync_function() -> Result<(), ServerFnError> {
     println!("Start sync for User: {}", MOCK_USER_ID);
 
     //Client aufsetzen
-    let client = Client::new(SUPABASE_URL, SUPABASE_Service_KEY)
+    let client = Client::new(SUPABASE_URL, SUPABASE_SERVICE_KEY)
         .map_err(|e| ServerFnError::new(format!("Supabase Init Error: {}", e)))?;
 
     //Pfad local DB
