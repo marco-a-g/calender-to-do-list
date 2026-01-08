@@ -189,23 +189,24 @@ fn categorize_todos(
 ) -> (Vec<ToDoTransfer>, Vec<ToDoTransfer>, Vec<ToDoTransfer>) {
     let now = Local::now().date_naive();
     let next_week = now + chrono::Duration::days(7);
-    let mut today = vec![];
-    let mut week = vec![];
-    let mut later = vec![];
+    let mut today: Vec<ToDoTransfer> = vec![];
+    let mut week: Vec<ToDoTransfer> = vec![];
+    let mut later: Vec<ToDoTransfer> = vec![];
 
     for item in list {
+        let owned_item = item.to_owned();
         if item.2 == "Heute" {
-            today.push(item.clone());
+            today.push(owned_item);
         } else if let Ok(parsed) = NaiveDate::parse_from_str(&item.2, "%d.%m.%Y") {
             if parsed <= now {
-                today.push(item.clone());
+                today.push(owned_item);
             } else if parsed <= next_week {
-                week.push(item.clone());
+                week.push(owned_item);
             } else {
-                later.push(item.clone());
+                later.push(owned_item);
             }
         } else {
-            today.push(item.clone());
+            today.push(owned_item);
         }
     }
     (today, week, later)
