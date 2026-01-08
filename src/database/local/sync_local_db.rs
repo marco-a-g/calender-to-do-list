@@ -1,6 +1,9 @@
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
-use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
+use sqlx::{
+    ConnectOptions,
+    sqlite::{SqlitePool, SqlitePoolOptions},
+};
 use std::str::FromStr;
 use supabase::Client;
 
@@ -10,11 +13,11 @@ use super::sync::profiles::sync_profiles;
 use super::sync::todos::sync_todos;
 
 // Config -> Später raus sobald auth steht?
-const SUPABASE_URL: &str = "https://tixtjdlkhnnxvneduxvb.supabase.co";
-const SUPABASE_SERVICE_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpeHRqZGxraG5ueHZuZWR1eHZiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjkzMjUzNSwiZXhwIjoyMDgyNTA4NTM1fQ.YjnAzOQJ3GxlAGGAfNtbNtytfhKiDBG-OHqr7tex-5A";
-const MOCK_USER_ID: &str = "a0000000-0000-0000-0000-000000000001"; //User
+const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
+const SUPABASE_Service_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5cWF3bm5rcHVzZ3RuaG1lZWJuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTg0MzkyOSwiZXhwIjoyMDgxNDE5OTI5fQ.s3Gmfv0u89h5ZjguByboQbfjPADR3p9iVfcIeYyAoFY";
+const MOCK_USER_ID: &str = "0cbc387b-984c-4dde-9c7c-281a07d4ce39"; //User Sarah
 
-// Data-Stucts
+// Data-Stucts; später eher global wo definieren
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Profile {
@@ -103,44 +106,60 @@ pub async fn sync_function() -> Result<(), ServerFnError> {
     println!("Start sync for User: {}", MOCK_USER_ID);
 
     //Client aufsetzen
-    let client = Client::new(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    let client = Client::new(SUPABASE_URL, SUPABASE_Service_KEY)
         .map_err(|e| ServerFnError::new(format!("Supabase Init Error: {}", e)))?;
 
     //Pfad local DB
     let db_path = "sqlite:src/database/local/local_Database.db";
 
     //Connectionoptions; Foreign Keys aktivieren sonst geht es nicht? Keine Ahnung...
-    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path))
-        .map_err(|e| ServerFnError::new(format!("Path Error: {}", e)))?
-        .create_if_missing(true)
-        .foreign_keys(true);
+    let connect_options_local_db =
+        sqlx::sqlite::SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path))
+            .map_err(|e| ServerFnError::new(format!("Path Error: {}", e)))?
+            .create_if_missing(true)
+            .foreign_keys(true)
+            .disable_statement_logging(); //sonst logging vorerst zu ausführlich
 
     // connection zur local db mit error
-    let pool = SqlitePoolOptions::new()
-        .connect_with(opts)
+    let pool_local_db = SqlitePoolOptions::new()
+        .connect_with(connect_options_local_db)
         .await
         .map_err(|e| ServerFnError::new(format!("DB Connect Error: {}.", e)))?;
 
     //öffnet "Änderungs-Warteschlange", tx = transaction, läuft querys ab hier durch und ändert erst ab tx.commit die Inhalte, bisschen wie ein Lock
-    let mut tx = pool
+    let mut transaction_queue = pool_local_db
         .begin()
         .await
         .map_err(|e| ServerFnError::new(format!("Transaction Error: {}", e)))?;
 
     //Profile synchronisieren
-    sync_profiles(&client, &mut tx).await?;
+    sync_profiles(&client, &mut transaction_queue).await?;
 
     //Gruppen und Mitglieder synchronisieren
-    let user_group_ids = sync_groups_and_members(&client, &mut tx, MOCK_USER_ID).await?;
+    let user_group_ids =
+        sync_groups_and_members(&client, &mut transaction_queue, MOCK_USER_ID).await?;
 
     // Kalender und Events synchronisieren
-    sync_calendars_and_events(&client, &mut tx, MOCK_USER_ID, &user_group_ids).await?;
+    sync_calendars_and_events(
+        &client,
+        &mut transaction_queue,
+        MOCK_USER_ID,
+        &user_group_ids,
+    )
+    .await?;
 
     // To-Do Listen und Einträge synchronisieren
-    sync_todos(&client, &mut tx, MOCK_USER_ID, &user_group_ids).await?;
+    sync_todos(
+        &client,
+        &mut transaction_queue,
+        MOCK_USER_ID,
+        &user_group_ids,
+    )
+    .await?;
 
     //Hier Änderungsqueue zusammenfügen und "commiten"
-    tx.commit()
+    transaction_queue
+        .commit()
         .await
         .map_err(|e| ServerFnError::new(format!("Commit Error: {}", e)))?;
 

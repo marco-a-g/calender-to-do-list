@@ -12,15 +12,15 @@ pub async fn sync_calendars_and_events(
 ) -> Result<(), ServerFnError> {
     // Kalender laden
     println!("Loading Calendars...");
-    let group_ids_for_cals = user_group_ids.clone();
-    let cals_json = client
+    let group_ids_for_calendars = user_group_ids.clone();
+    let calendars_as_json = client
         .database()
         .from("calendars")
         .select("*")
         .or(move |q| {
             let q = q.eq("owner_id", user_id);
-            if !group_ids_for_cals.is_empty() {
-                let refs: Vec<&str> = group_ids_for_cals.iter().map(|s| s.as_str()).collect();
+            if !group_ids_for_calendars.is_empty() {
+                let refs: Vec<&str> = group_ids_for_calendars.iter().map(|s| s.as_str()).collect();
                 q.r#in("group_id", &refs)
             } else {
                 q
@@ -31,18 +31,19 @@ pub async fn sync_calendars_and_events(
         .map_err(|e| ServerFnError::new(format!("Fetch Calendars Error: {}", e)))?;
 
     //Kalender in Vec parsen
-    let cals: Vec<Calendar> = serde_json::from_value(serde_json::Value::Array(cals_json))
-        .map_err(|e| ServerFnError::new(format!("JSON Parse Calendars: {}", e)))?;
+    let calendars: Vec<Calendar> =
+        serde_json::from_value(serde_json::Value::Array(calendars_as_json))
+            .map_err(|e| ServerFnError::new(format!("JSON Parse Calendars: {}", e)))?;
 
     //temporäres set mit den validen keys der Kalender -> für später bei ToDos und Events
     let mut valid_calendar_ids = HashSet::new();
     //temporäres set mit den keys der remote Kalender
-    let mut remote_cal_ids = HashSet::new();
+    let mut remote_calendar_ids = HashSet::new();
 
     //über Vec mit Kalendern itterieren und in local db (erst in tx, noch nicht direkt speichern -> in Änderungsqueue) speichern
-    for c in cals {
+    for c in calendars {
         valid_calendar_ids.insert(c.id.clone());
-        remote_cal_ids.insert(c.id.clone());
+        remote_calendar_ids.insert(c.id.clone());
         sqlx::query(r#"INSERT INTO calendars (id, name, type, description, owner_id, group_id, last_mod) 
             VALUES (?, ?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
@@ -54,14 +55,14 @@ pub async fn sync_calendars_and_events(
 
     // Cleanup: Kalender die user nicht betreffen entfernen
     //set aus localen ids erstellen
-    let local_cal_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM calendars")
+    let local_calendar_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM calendars")
         .fetch_all(&mut **tx)
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch Local Cal IDs: {}", e)))?;
 
     //sind local ids nicht in remote_ids -> löschen
-    for local_id in local_cal_ids {
-        if !remote_cal_ids.contains(&local_id) {
+    for local_id in local_calendar_ids {
+        if !remote_calendar_ids.contains(&local_id) {
             println!("Deleting orphan calendar: {}", local_id);
             sqlx::query("DELETE FROM calendars WHERE id = ?")
                 .bind(local_id)
@@ -75,25 +76,26 @@ pub async fn sync_calendars_and_events(
     println!("Loading Events...");
 
     //Set in einen Vektor um, damit Supabase ihn als Filter benutzen kann
-    let valid_cal_ids_vec: Vec<&str> = valid_calendar_ids.iter().map(|s| s.as_str()).collect();
+    let valid_calender_ids_vec: Vec<&str> = valid_calendar_ids.iter().map(|s| s.as_str()).collect();
 
     //Request nur starten, wenn überhaupt Kalender existieren
-    let ev_json_rows: Vec<serde_json::Value> = if valid_cal_ids_vec.is_empty() {
+    let event_as_json: Vec<serde_json::Value> = if valid_calender_ids_vec.is_empty() {
         vec![]
     } else {
         client
             .database()
             .from("calendar_events")
             .select("*")
-            .r#in("calendar_id", &valid_cal_ids_vec)
+            .r#in("calendar_id", &valid_calender_ids_vec)
             .execute()
             .await
             .map_err(|e| ServerFnError::new(format!("Fetch Events Error: {}", e)))?
     };
 
     //Events in Vec parsen
-    let events: Vec<CalendarEvent> = serde_json::from_value(serde_json::Value::Array(ev_json_rows))
-        .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
+    let events: Vec<CalendarEvent> =
+        serde_json::from_value(serde_json::Value::Array(event_as_json))
+            .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
 
     //temporäres set mit den keys der remote Events
     let mut remote_event_ids = HashSet::new();

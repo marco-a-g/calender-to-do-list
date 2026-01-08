@@ -98,13 +98,13 @@ pub async fn sync_groups_and_members(
 
     // Cleanup: löscht alle Members, die nicht zu Gruppen gehören die entfernt worden
     //set aus localen membern erstellen
-    let local_member_rows: Vec<(String, String)> =
+    let local_member: Vec<(String, String)> =
         sqlx::query_as("SELECT id, group_id FROM group_members")
             .fetch_all(&mut **tx)
             .await
             .map_err(|e| ServerFnError::new(format!("Fetch Local Members: {}", e)))?;
     //Cleanup: wenn member nicht in remote DB -> löschen
-    for (mem_id, grp_id) in local_member_rows {
+    for (mem_id, grp_id) in local_member {
         if !remote_group_ids.contains(&grp_id) {
             sqlx::query("DELETE FROM group_members WHERE id = ?")
                 .bind(mem_id)

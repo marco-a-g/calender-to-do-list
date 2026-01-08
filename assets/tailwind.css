@@ -167,6 +167,9 @@
   .flex {
     display: flex;
   }
+  .table {
+    display: table;
+  }
   .flex-1 {
     flex: 1;
   }

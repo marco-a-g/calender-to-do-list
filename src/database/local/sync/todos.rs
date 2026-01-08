@@ -12,15 +12,15 @@ pub async fn sync_todos(
 ) -> Result<(), ServerFnError> {
     // To-Do Listen laden
     println!("Loading To-Do Lists");
-    let group_ids_for_lists = user_group_ids.clone();
+    let group_ids = user_group_ids.clone();
     let lists_json = client
         .database()
         .from("todo_lists")
         .select("*")
         .or(move |q| {
             let q = q.eq("owner_id", user_id);
-            if !group_ids_for_lists.is_empty() {
-                let refs: Vec<&str> = group_ids_for_lists.iter().map(|s| s.as_str()).collect();
+            if !group_ids.is_empty() {
+                let refs: Vec<&str> = group_ids.iter().map(|s| s.as_str()).collect();
                 q.r#in("group_id", &refs)
             } else {
                 q
@@ -75,7 +75,7 @@ pub async fn sync_todos(
     //Set in einen Vektor um, damit Supabase ihn als Filter benutzen kann
     let valid_list_ids_vec: Vec<&str> = valid_list_ids.iter().map(|s| s.as_str()).collect();
 
-    let todo_json_rows: Vec<serde_json::Value> = if valid_list_ids_vec.is_empty() {
+    let todo_json: Vec<serde_json::Value> = if valid_list_ids_vec.is_empty() {
         vec![]
     } else {
         client
@@ -89,7 +89,7 @@ pub async fn sync_todos(
     };
 
     //To-Do's in Vec parsen
-    let todos: Vec<TodoEvent> = serde_json::from_value(serde_json::Value::Array(todo_json_rows))
+    let todos: Vec<TodoEvent> = serde_json::from_value(serde_json::Value::Array(todo_json))
         .map_err(|e| ServerFnError::new(format!("JSON Parse Todo Items: {}", e)))?;
 
     //temporäres set mit den keys der remote ToDo's
