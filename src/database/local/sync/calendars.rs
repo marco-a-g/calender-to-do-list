@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use crate::database::local::sync_local_db::{Calendar, CalendarEvent};
 use dioxus::prelude::ServerFnError;
 use sqlx::{Sqlite, Transaction};
@@ -12,20 +14,10 @@ pub async fn sync_calendars_and_events(
 ) -> Result<(), ServerFnError> {
     // Kalender laden
     println!("Loading Calendars...");
-    let group_ids_for_calendars = user_group_ids.clone();
     let calendars_as_json = client
         .database()
         .from("calendars")
         .select("*")
-        .or(move |q| {
-            let q = q.eq("owner_id", user_id);
-            if !group_ids_for_calendars.is_empty() {
-                let refs: Vec<&str> = group_ids_for_calendars.iter().map(|s| s.as_str()).collect();
-                q.r#in("group_id", &refs)
-            } else {
-                q
-            }
-        })
         .execute()
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch Calendars Error: {}", e)))?;

@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use crate::database::local::sync_local_db::{TodoEvent, TodoList};
 use dioxus::prelude::ServerFnError;
 use sqlx::{Sqlite, Transaction};
@@ -12,20 +14,10 @@ pub async fn sync_todos(
 ) -> Result<(), ServerFnError> {
     // To-Do Listen laden
     println!("Loading To-Do Lists");
-    let group_ids = user_group_ids.clone();
     let lists_json = client
         .database()
         .from("todo_lists")
         .select("*")
-        .or(move |q| {
-            let q = q.eq("owner_id", user_id);
-            if !group_ids.is_empty() {
-                let refs: Vec<&str> = group_ids.iter().map(|s| s.as_str()).collect();
-                q.r#in("group_id", &refs)
-            } else {
-                q
-            }
-        })
         .execute()
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch Todo Lists Error: {}", e)))?;

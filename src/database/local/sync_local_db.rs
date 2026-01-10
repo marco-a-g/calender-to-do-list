@@ -2,6 +2,7 @@
 #![allow(unused_imports)]
 
 use dioxus::prelude::*;
+use postgrest::Postgrest;
 use serde::{Deserialize, Serialize};
 use sqlx::{
     ConnectOptions,
@@ -120,23 +121,18 @@ pub async fn sync_function() -> Result<(), ServerFnError> {
     //Client aufsetzen, Später dann in main?
     let client = Client::new(SUPABASE_URL, SUPABASE_ANON_KEY)
         .map_err(|e| ServerFnError::new(format!("Supabase Init Error: {}", e)))?;
-    client
-        .auth()
-        .sign_in_with_email_and_password(MOCK_EMAIL, MOCK_PASSWORD)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Login Failed: {}", e)))?;
 
     println!("Login successful!");
 
     //Pfad local DB
     let db_path = "sqlite:src/database/local/local_Database.db";
 
-    //Connectionoptions; Foreign Keys aktivieren sonst geht es nicht? Keine Ahnung...
+    //Connectionoptions; Foreign Keys deaktivieren sonst geht es nicht? Keine Ahnung...
     let connect_options_local_db =
         sqlx::sqlite::SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path))
             .map_err(|e| ServerFnError::new(format!("Path Error: {}", e)))?
             .create_if_missing(true)
-            .foreign_keys(true)
+            .foreign_keys(false)
             .disable_statement_logging(); //sonst logging vorerst zu ausführlich
 
     // connection zur local db mit error

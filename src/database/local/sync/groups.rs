@@ -32,23 +32,10 @@ pub async fn sync_groups_and_members(
 
     // Gruppen laden
     println!("Loading Groups...");
-    let group_ids_for_groups_query = user_group_ids.clone();
     let groups_json = client
         .database()
         .from("groups")
         .select("*")
-        .or(move |q| {
-            let q = q.eq("owner_id", user_id);
-            if !group_ids_for_groups_query.is_empty() {
-                let refs: Vec<&str> = group_ids_for_groups_query
-                    .iter()
-                    .map(|s| s.as_str())
-                    .collect();
-                q.r#in("id", &refs)
-            } else {
-                q
-            }
-        })
         .execute()
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch Groups Error: {}", e)))?;
