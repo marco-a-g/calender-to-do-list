@@ -1,4 +1,4 @@
-use crate::auth::backend::{AuthStatus, AuthView, login_mock};
+use crate::auth::backend::{AuthStatus, AuthView, login};
 use dioxus::prelude::*;
 
 fn input_style() -> &'static str {
@@ -121,10 +121,12 @@ pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -
                         border: none;
                     ",
                     onclick: move |_| {
-                        match login_mock(&username(), &password()) {
-                            Ok(status) => auth_status.set(status),
-                            Err(msg) => error.set(Some(msg.to_string())),
-                        }
+                        spawn(async move {
+                            match login(&username(), &password()).await {
+                                    Ok(status) => auth_status.set(status),
+                                    Err(msg) => error.set(Some(msg.to_string())),
+                                }
+                            });
                     },
                     "Login"
                 }

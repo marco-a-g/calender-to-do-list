@@ -7,7 +7,7 @@ mod navbar;
 mod todos;
 mod user;
 
-use crate::auth::backend::{AuthStatus, AuthView};
+use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
 use crate::todos::frontend::todo_view::*;
 use dioxus::prelude::*;
@@ -39,6 +39,16 @@ enum Route {
 fn App() -> Element {
     let auth_status = use_signal(|| AuthStatus::Unauthenticated);
     let auth_view = use_signal(|| AuthView::Login);
+    let initialized = use_signal(|| false); // use later to enable offline mode/view, maybe enum ClientState {Ready, Offline, Error(AuthError)}
+
+    // initialize Supabase client
+    // maybe wrap with use_effect
+    spawn(async move {
+        match init_client() {
+            Ok(_) => initialized.clone().set(true),
+            Err(_) => initialized.clone().set(false),
+        }
+    });
 
     rsx! {
         document::Stylesheet { href: CSS }
