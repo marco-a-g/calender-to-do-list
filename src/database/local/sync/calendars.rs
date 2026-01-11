@@ -36,12 +36,28 @@ pub async fn sync_calendars_and_events(
     for c in calendars {
         valid_calendar_ids.insert(c.id.clone());
         remote_calendar_ids.insert(c.id.clone());
-        sqlx::query(r#"INSERT INTO calendars (id, name, type, description, owner_id, group_id, last_mod) 
-            VALUES (?, ?, ?, ?, ?, ?, ?) 
+        sqlx::query(r#"
+            INSERT INTO calendars (id, name, type, description, owner_id, group_id, created_by, created_at, last_mod) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
-                name=excluded.name, type=excluded.type, description=excluded.description, 
-                owner_id=excluded.owner_id, group_id=excluded.group_id, last_mod=excluded.last_mod"#)
-            .bind(c.id).bind(c.name).bind(c.calendar_type).bind(c.description).bind(c.owner_id).bind(c.group_id).bind(c.last_mod)
+                name=excluded.name, 
+                type=excluded.type, 
+                description=excluded.description, 
+                owner_id=excluded.owner_id, 
+                group_id=excluded.group_id, 
+                created_by=excluded.created_by,
+                created_at=excluded.created_at,
+                last_mod=excluded.last_mod
+            "#)
+            .bind(c.id)
+            .bind(c.name)
+            .bind(c.calendar_type)
+            .bind(c.description)
+            .bind(c.owner_id)
+            .bind(c.group_id)
+            .bind(c.created_by)
+            .bind(c.created_at)
+            .bind(c.last_mod)
             .execute(&mut **tx).await.map_err(|e| ServerFnError::new(format!("SQL Error Calendar: {}", e)))?;
     }
 
@@ -95,16 +111,52 @@ pub async fn sync_calendars_and_events(
     //über Vec mit Events itterieren und in local db (erst in tx, noch nicht direkt speichern -> in Änderungsqueue) speichern
     for e in events {
         remote_event_ids.insert(e.id.clone());
-        sqlx::query(r#"
-            INSERT INTO calendar_events (id, calendar_id, summary, description, date, from_time, to_time, seq, rrule, last_mod) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sqlx::query(
+            r#"
+            INSERT INTO calendar_events (
+                id, calendar_id, summary, description, 
+                from_date_time, to_date_time, is_all_day, 
+                location, category, attachment,
+                rrule, recurrence_id, recurrence_until,
+                created_by, created_at, last_mod
+            ) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET 
-                summary=excluded.summary, description=excluded.description, date=excluded.date, 
-                from_time=excluded.from_time, to_time=excluded.to_time, 
-                seq=excluded.seq, rrule=excluded.rrule, last_mod=excluded.last_mod
-        "#)
-        .bind(e.id).bind(e.calendar_id).bind(e.summary).bind(e.description).bind(e.date).bind(e.from_time).bind(e.to_time).bind(e.seq).bind(e.rrule).bind(e.last_mod)
-        .execute(&mut **tx).await.map_err(|e| ServerFnError::new(format!("SQL Error Event: {}", e)))?;
+                summary=excluded.summary, 
+                description=excluded.description, 
+                from_date_time=excluded.from_date_time, 
+                to_date_time=excluded.to_date_time, 
+                is_all_day=excluded.is_all_day,
+                location=excluded.location,
+                category=excluded.category,
+                attachment=excluded.attachment,
+                rrule=excluded.rrule, 
+                recurrence_id=excluded.recurrence_id,
+                recurrence_until=excluded.recurrence_until,
+                created_by=excluded.created_by,
+                created_at=excluded.created_at,
+                last_mod=excluded.last_mod
+        "#,
+        )
+        .bind(e.id)
+        .bind(e.calendar_id)
+        .bind(e.summary)
+        .bind(e.description)
+        .bind(e.from_date_time)
+        .bind(e.to_date_time)
+        .bind(e.is_all_day)
+        .bind(e.location)
+        .bind(e.category)
+        .bind(e.attachment)
+        .bind(e.rrule)
+        .bind(e.recurrence_id)
+        .bind(e.recurrence_until)
+        .bind(e.created_by)
+        .bind(e.created_at)
+        .bind(e.last_mod)
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| ServerFnError::new(format!("SQL Error Event: {}", e)))?;
     }
 
     // Cleanup: local Event ids laden

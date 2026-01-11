@@ -32,10 +32,12 @@ const MOCK_USER_ID: &str = "cf800589-072a-4fd8-abba-a456332ae6a9";
 */
 
 // Data-Stucts; später eher global wo definieren
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Profile {
     pub id: String,
     pub username: String,
+    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,6 +45,8 @@ pub struct Group {
     pub id: String,
     pub name: String,
     pub owner_id: String,
+    pub created_by: Option<String>,
+    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -51,6 +55,7 @@ pub struct GroupMember {
     pub user_id: String,
     pub group_id: String,
     pub role: String,
+    pub joined_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -62,6 +67,8 @@ pub struct Calendar {
     pub description: Option<String>,
     pub owner_id: Option<String>,
     pub group_id: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: Option<String>,
     pub last_mod: String,
 }
 
@@ -71,11 +78,18 @@ pub struct CalendarEvent {
     pub calendar_id: String,
     pub summary: String,
     pub description: Option<String>,
-    pub date: String,
-    pub from_time: Option<String>,
-    pub to_time: Option<String>,
-    pub seq: bool,
+    pub from_date_time: String,
+    pub to_date_time: Option<String>,
+    pub is_all_day: bool,
+    pub location: Option<String>,
+    pub category: Option<String>,
+    pub attachment: Option<String>,
     pub rrule: Option<String>,
+    pub recurrence_id: Option<String>,
+    pub recurrence_until: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: Option<String>,
+    pub seq: Option<bool>,
     pub last_mod: String,
 }
 
@@ -88,8 +102,14 @@ pub struct TodoList {
     pub description: Option<String>,
     pub owner_id: Option<String>,
     pub group_id: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: Option<String>,
     pub due_datetime: Option<String>,
     pub priority: Option<String>,
+    pub attached_to_calendar_event: Option<String>,
+    pub rrule: Option<String>,
+    pub recurrence_id: Option<String>,
+    pub recurrence_until: Option<String>,
     pub last_mod: String,
 }
 
@@ -102,7 +122,13 @@ pub struct TodoEvent {
     pub completed: bool,
     pub due_datetime: Option<String>,
     pub priority: Option<String>,
-    pub seq: bool,
+    pub attachment: Option<String>,
+    pub rrule: Option<String>,
+    pub recurrence_id: Option<String>,
+    pub recurrence_until: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: Option<String>,
+    pub seq: Option<bool>,
     pub last_mod: String,
 }
 

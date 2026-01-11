@@ -19,6 +19,9 @@ pub async fn sync_groups_and_members(
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch Members Error: {}", e)))?;
 
+    //-----------
+    println!("{:?}", members_json);// gibt [] zurück
+    //-----
     //Mitglieder in Vec parsen
     let members: Vec<GroupMember> = serde_json::from_value(serde_json::Value::Array(members_json))
         .map_err(|e| ServerFnError::new(format!("JSON Parse Members: {}", e)))?;
