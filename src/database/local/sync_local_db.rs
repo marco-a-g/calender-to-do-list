@@ -17,11 +17,11 @@ use super::sync::profiles::sync_profiles;
 use super::sync::todos::sync_todos;
 
 // Config -> Später raus sobald auth steht?
-const SUPABASE_URL: &str = "https://tixtjdlkhnnxvneduxvb.supabase.co";
-const SUPABASE_ANON_KEY: &str = "sb_publishable_NjcEUTm3xiKWvKkrcLBJsQ_tPIEgO90";
+const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
+const SUPABASE_ANON_KEY: &str = "sb_publishable_pFC_H--zfkiAc8ErS55x_Q__N0Yy4iJ";
 const MOCK_EMAIL: &str = "sarah.dev@example.com";
 const MOCK_PASSWORD: &str = "passwort123";
-const MOCK_USER_ID: &str = "d8671d1a-4262-446f-9f08-e8ffc802da73";
+const MOCK_USER_ID: &str = "cf800589-072a-4fd8-abba-a456332ae6a9";
 /* Mock User Zugangsdaten:
     Passwort für alle: passwort123
     Sarah, Email: sarah.dev@example.com, id: 730485e6-83c2-41c6-bdd7-6677269b4ae9
