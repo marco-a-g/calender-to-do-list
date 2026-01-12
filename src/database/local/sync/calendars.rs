@@ -10,7 +10,6 @@ pub async fn sync_calendars_and_events(
     client: &Client,
     tx: &mut Transaction<'_, Sqlite>,
     user_id: &str,
-    user_group_ids: &Vec<String>,
 ) -> Result<(), ServerFnError> {
     // Kalender laden
     println!("Loading Calendars...");
@@ -27,14 +26,11 @@ pub async fn sync_calendars_and_events(
         serde_json::from_value(serde_json::Value::Array(calendars_as_json))
             .map_err(|e| ServerFnError::new(format!("JSON Parse Calendars: {}", e)))?;
 
-    //temporäres set mit den validen keys der Kalender -> für später bei ToDos und Events
-    let mut valid_calendar_ids = HashSet::new();
     //temporäres set mit den keys der remote Kalender
     let mut remote_calendar_ids = HashSet::new();
 
     //über Vec mit Kalendern itterieren und in local db (erst in tx, noch nicht direkt speichern -> in Änderungsqueue) speichern
     for c in calendars {
-        valid_calendar_ids.insert(c.id.clone());
         remote_calendar_ids.insert(c.id.clone());
         sqlx::query(
             r#"
@@ -44,19 +40,15 @@ pub async fn sync_calendars_and_events(
             ) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
-                name=excluded.name, 
-                type=excluded.type, 
-                description=excluded.description, 
-                owner_id=excluded.owner_id, 
-                group_id=excluded.group_id, 
-                created_by=excluded.created_by,
-                created_at=excluded.created_at,
+                name=excluded.name, type=excluded.type, description=excluded.description, 
+                owner_id=excluded.owner_id, group_id=excluded.group_id, 
+                created_by=excluded.created_by, created_at=excluded.created_at,
                 last_mod=excluded.last_mod
             "#,
         )
         .bind(c.id)
         .bind(c.name)
-        .bind(c.calendar_type) // Verwendet das umbenannte Feld aus structs.rs
+        .bind(c.calendar_type)
         .bind(c.description)
         .bind(c.owner_id)
         .bind(c.group_id)
@@ -90,22 +82,15 @@ pub async fn sync_calendars_and_events(
     //Events laden
     println!("Loading Events...");
 
-    //Set in einen Vektor um, damit Supabase ihn als Filter benutzen kann
-    let valid_calender_ids_vec: Vec<&str> = valid_calendar_ids.iter().map(|s| s.as_str()).collect();
-
     //Request nur starten, wenn überhaupt Kalender existieren
-    let event_as_json: Vec<serde_json::Value> = if valid_calender_ids_vec.is_empty() {
-        vec![]
-    } else {
-        client
-            .database()
-            .from("calendar_events")
-            .select("*")
-            .r#in("calendar_id", &valid_calender_ids_vec)
-            .execute()
-            .await
-            .map_err(|e| ServerFnError::new(format!("Fetch Events Error: {}", e)))?
-    };
+    let event_as_json = client
+        .database()
+        .from("calendar_events")
+        .select("*")
+        // .r#in(...) -> ENTFERNT
+        .execute()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Fetch Events Error: {}", e)))?;
 
     //Events in Vec parsen
     let events: Vec<CalendarEventLight> =
@@ -118,31 +103,23 @@ pub async fn sync_calendars_and_events(
     //über Vec mit Events itterieren und in local db (erst in tx, noch nicht direkt speichern -> in Änderungsqueue) speichern
     for e in events {
         remote_event_ids.insert(e.id.clone());
+        // SQL Insert bleibt gleich...
         sqlx::query(
             r#"
             INSERT INTO calendar_events (
-                id, calendar_id, summary, description, 
-                from_date_time, to_date_time, is_all_day, 
-                location, category, attachment,
-                rrule, recurrence_id, recurrence_until,
+                id, calendar_id, summary, description, from_date_time, to_date_time, is_all_day, 
+                location, category, attachment, rrule, recurrence_id, recurrence_until,
                 created_by, created_at, last_mod
             ) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET 
-                summary=excluded.summary, 
-                description=excluded.description, 
-                from_date_time=excluded.from_date_time, 
-                to_date_time=excluded.to_date_time, 
-                is_all_day=excluded.is_all_day,
-                location=excluded.location,
-                category=excluded.category,
-                attachment=excluded.attachment,
-                rrule=excluded.rrule, 
-                recurrence_id=excluded.recurrence_id,
-                recurrence_until=excluded.recurrence_until,
-                created_by=excluded.created_by,
-                created_at=excluded.created_at,
-                last_mod=excluded.last_mod
+                summary=excluded.summary, description=excluded.description, 
+                from_date_time=excluded.from_date_time, to_date_time=excluded.to_date_time, 
+                is_all_day=excluded.is_all_day, location=excluded.location,
+                category=excluded.category, attachment=excluded.attachment,
+                rrule=excluded.rrule, recurrence_id=excluded.recurrence_id,
+                recurrence_until=excluded.recurrence_until, created_by=excluded.created_by,
+                created_at=excluded.created_at, last_mod=excluded.last_mod
         "#,
         )
         .bind(e.id)

@@ -8,7 +8,7 @@ pub async fn sync_groups_and_members(
     client: &Client,
     tx: &mut Transaction<'_, Sqlite>,
     user_id: &str,
-) -> Result<Vec<String>, ServerFnError> {
+) -> Result<(), ServerFnError> {
     // Mitglieder laden
     println!("Loading Members...");
     let members_json = client
@@ -25,13 +25,6 @@ pub async fn sync_groups_and_members(
     //Mitglieder in Vec parsen
     let members: Vec<GroupMemberLight> = serde_json::from_value(serde_json::Value::Array(members_json))
         .map_err(|e| ServerFnError::new(format!("JSON Parse Members: {}", e)))?;
-
-    //group ids des derzeitigen users sammeln
-    let user_group_ids: Vec<String> = members
-        .iter()
-        .filter(|m| m.user_id == user_id)
-        .map(|m| m.group_id.clone())
-        .collect();
 
     // Gruppen laden
     println!("Loading Groups...");
@@ -57,18 +50,11 @@ pub async fn sync_groups_and_members(
             INSERT INTO groups (id, name, owner_id, created_by, created_at) 
             VALUES (?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
-                name=excluded.name, 
-                owner_id=excluded.owner_id, 
-                created_by=excluded.created_by,
-                created_at=excluded.created_at
+                name=excluded.name, owner_id=excluded.owner_id, 
+                created_by=excluded.created_by, created_at=excluded.created_at
             "#)
-            .bind(g.id)
-            .bind(g.name)
-            .bind(g.owner_id)
-            .bind(g.created_by)
-            .bind(g.created_at)
-            .execute(&mut **tx).await
-            .map_err(|e| ServerFnError::new(format!("SQL Error Group: {}", e)))?;
+            .bind(g.id).bind(g.name).bind(g.owner_id).bind(g.created_by).bind(g.created_at)
+            .execute(&mut **tx).await.map_err(|e| ServerFnError::new(format!("SQL Error Group: {}", e)))?;
     }
 
     // Cleanup: erstelle Set aus lokalen gruppen ids
@@ -91,43 +77,43 @@ pub async fn sync_groups_and_members(
 
     //speichert Mitglieder, die in Gruppen des users sind
    for m in members {
-        if !user_group_ids.contains(&m.group_id) {
-            continue;
-        }
         sqlx::query(r#"
             INSERT INTO group_members (id, user_id, group_id, role, joined_at) 
             VALUES (?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
-                role=excluded.role, 
-                group_id=excluded.group_id,
-                joined_at=excluded.joined_at
+                role=excluded.role, group_id=excluded.group_id, joined_at=excluded.joined_at
             "#)
-            .bind(m.id)
-            .bind(m.user_id)
-            .bind(m.group_id)
-            .bind(m.role)
-            .bind(m.joined_at)
-            .execute(&mut **tx).await
-            .map_err(|e| ServerFnError::new(format!("SQL Error Member: {}", e)))?;
+            .bind(m.id).bind(m.user_id).bind(m.group_id).bind(m.role).bind(m.joined_at)
+            .execute(&mut **tx).await.map_err(|e| ServerFnError::new(format!("SQL Error Member: {}", e)))?;
     }
 
-    // Cleanup: löscht alle Members, die nicht zu Gruppen gehören die entfernt worden
+    //Set aus remote members erstellen
+    let remote_members_json = client
+        .database()
+        .from("group_members")
+        .select("id") // Wir brauchen nur die ID
+        .execute()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Fetch Remote Member IDs Error: {}", e)))?;
+
+    //remote members in set aus ids wandeln
+    let remote_member_ids: HashSet<String> = remote_members_json
+        .iter()
+        .filter_map(|row: &serde_json::Value| {
+             row.get("id").and_then(|val| val.as_str()).map(|s| s.to_string())
+        })
+        .collect();
+
+    // Cleanup: löscht alle Members, die nicht mehr in remote DBs sind
     //set aus localen membern erstellen
-    let local_member: Vec<(String, String)> =
-        sqlx::query_as("SELECT id, group_id FROM group_members")
-            .fetch_all(&mut **tx)
-            .await
-            .map_err(|e| ServerFnError::new(format!("Fetch Local Members: {}", e)))?;
+    let local_member_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM group_members")
+        .fetch_all(&mut **tx).await.map_err(|e| ServerFnError::new(format!("Fetch Local Members: {}", e)))?;
     //Cleanup: wenn member nicht in remote DB -> löschen
-    for (mem_id, grp_id) in local_member {
-        if !remote_group_ids.contains(&grp_id) {
-            sqlx::query("DELETE FROM group_members WHERE id = ?")
-                .bind(mem_id)
-                .execute(&mut **tx)
-                .await
-                .ok();
+    for mem_id in local_member_ids {
+        if !remote_member_ids.contains(&mem_id) {
+             sqlx::query("DELETE FROM group_members WHERE id = ?").bind(mem_id).execute(&mut **tx).await.ok();
         }
     }
 
-    Ok(user_group_ids)
+    Ok(())
 }

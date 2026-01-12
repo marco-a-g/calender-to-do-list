@@ -10,7 +10,6 @@ pub async fn sync_todos(
     client: &Client,
     tx: &mut Transaction<'_, Sqlite>,
     user_id: &str,
-    user_group_ids: &Vec<String>,
 ) -> Result<(), ServerFnError> {
     // To-Do Listen laden
     println!("Loading To-Do Lists");
@@ -26,14 +25,11 @@ pub async fn sync_todos(
     let lists: Vec<TodoListLight> = serde_json::from_value(serde_json::Value::Array(lists_json))
         .map_err(|e| ServerFnError::new(format!("JSON Parse Todo Lists: {}", e)))?;
 
-    //temporäres set mit den validen keys der To-Do-Listen
-    let mut valid_list_ids = HashSet::new();
     //temporäres set mit den keys der remote Listen
     let mut remote_list_ids = HashSet::new();
 
     //über Vec mit To-Do Listen itterieren und in local db (erst in tx, noch nicht direkt speichern -> in Änderungsqueue) speichern
     for l in lists {
-        valid_list_ids.insert(l.id.clone());
         remote_list_ids.insert(l.id.clone());
         sqlx::query(
             r#"
@@ -93,21 +89,14 @@ pub async fn sync_todos(
     //ToDos Laden
     println!("Loading To-Do's...");
 
-    //Set in einen Vektor um, damit Supabase ihn als Filter benutzen kann
-    let valid_list_ids_vec: Vec<&str> = valid_list_ids.iter().map(|s| s.as_str()).collect();
-
-    let todo_json: Vec<serde_json::Value> = if valid_list_ids_vec.is_empty() {
-        vec![]
-    } else {
-        client
-            .database()
-            .from("todo_events")
-            .select("*")
-            .r#in("todo_list_id", &valid_list_ids_vec)
-            .execute()
-            .await
-            .map_err(|e| ServerFnError::new(format!("Fetch Todo Items Error: {}", e)))?
-    };
+    let todo_json = client
+        .database()
+        .from("todo_events")
+        .select("*")
+        // .r#in(...) entfernt
+        .execute()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Fetch Todo Items Error: {}", e)))?;
 
     //To-Do's in Vec parsen
     let todos: Vec<TodoEventLight> = serde_json::from_value(serde_json::Value::Array(todo_json))
@@ -164,6 +153,11 @@ pub async fn sync_todos(
         .map_err(|e| ServerFnError::new(format!("Fetch Local Todo IDs: {}", e)))?;
 
     //Cleanup: locale Todo id nicht in remote ToDo ids -> löschen
+    let local_todo_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM todo_events")
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Fetch Local Todo IDs: {}", e)))?;
+
     for local_id in local_todo_ids {
         if !remote_todo_ids.contains(&local_id) {
             println!("Deleting orphan todo: {}", local_id);
