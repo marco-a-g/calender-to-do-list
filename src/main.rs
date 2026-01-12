@@ -6,6 +6,7 @@ mod groups;
 mod navbar;
 mod todos;
 mod user;
+mod utils;
 
 use crate::auth::backend::{AuthStatus, AuthView};
 use crate::auth::ui::{LoginView, RegisterView};

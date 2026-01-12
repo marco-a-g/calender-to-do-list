@@ -7,6 +7,10 @@ edition = "2024"
 chrono = { version = "0.4.42", features = ["wasmbind"] }
 dioxus = { version = "0.7.2", features = ["fullstack", "router"] }
 dioxus-logger = "0.7.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+supabase-lib-rs = "0.5.3"
+uuid = { version = "1.19.0", features = ["v4"] }
 
 [features]
 default = ["web"]
