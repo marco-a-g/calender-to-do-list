@@ -7,7 +7,6 @@ use supabase::Client;
 pub async fn sync_groups_and_members(
     client: &Client,
     tx: &mut Transaction<'_, Sqlite>,
-    user_id: &str,
 ) -> Result<(), ServerFnError> {
     // Mitglieder laden
     println!("Loading Members...");

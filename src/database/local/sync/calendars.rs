@@ -9,7 +9,6 @@ use supabase::Client;
 pub async fn sync_calendars_and_events(
     client: &Client,
     tx: &mut Transaction<'_, Sqlite>,
-    user_id: &str,
 ) -> Result<(), ServerFnError> {
     // Kalender laden
     println!("Loading Calendars...");

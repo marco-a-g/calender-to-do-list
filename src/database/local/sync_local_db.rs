@@ -77,13 +77,11 @@ pub async fn sync_function() -> Result<(), ServerFnError> {
     //Profile synchronisieren
     sync_profiles(&client, &mut transaction_queue).await?;
     //Gruppen und Mitglieder synchronisieren
-    sync_groups_and_members(&client, &mut transaction_queue, MOCK_USER_ID).await?;
+    sync_groups_and_members(&client, &mut transaction_queue).await?;
     // Kalender und Events synchronisieren
-    sync_calendars_and_events(&client, &mut transaction_queue, MOCK_USER_ID).await?;
-
+    sync_calendars_and_events(&client, &mut transaction_queue).await?;
     // To-Do Listen und Einträge synchronisieren
-    sync_todos(&client, &mut transaction_queue, MOCK_USER_ID).await?;
-
+    sync_todos(&client, &mut transaction_queue).await?;
     //Hier Änderungsqueue zusammenfügen und "commiten"
     transaction_queue
         .commit()

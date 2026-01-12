@@ -9,7 +9,6 @@ use supabase::Client;
 pub async fn sync_todos(
     client: &Client,
     tx: &mut Transaction<'_, Sqlite>,
-    user_id: &str,
 ) -> Result<(), ServerFnError> {
     // To-Do Listen laden
     println!("Loading To-Do Lists");
