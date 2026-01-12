@@ -5,16 +5,17 @@ use supabase::*;
 use uuid::Uuid;
 
 /// Structs for the communication between the databases
-/// The following structs are only used to synchronise the local database with the remote database.
+/// The following structs (named "...Light")are only used to synchronise the local SQL-Light
+/// database with the remote database.
 /// Should not be used in the front end to avoid type problems!
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Profile {
+pub struct ProfileLight {
     pub id: String,
     pub username: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Group {
+pub struct GroupLight {
     pub id: String,
     pub name: String,
     pub owner_id: String,
@@ -23,7 +24,7 @@ pub struct Group {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct GroupMember {
+pub struct GroupMemberLight {
     pub id: String,
     pub user_id: String,
     pub group_id: String,
@@ -32,7 +33,7 @@ pub struct GroupMember {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Calendar {
+pub struct CalendarLight {
     pub id: String,
     pub name: String,
     #[serde(rename = "type")]
@@ -46,7 +47,7 @@ pub struct Calendar {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CalendarEvent {
+pub struct CalendarEventLight {
     pub id: String,
     pub calendar_id: String,
     pub summary: String,
@@ -69,7 +70,7 @@ pub struct CalendarEvent {
 /// owner_id must be provided or to a group, then list_type must be set to "group" and a group_id
 /// must be provided. There must only be one, either owner_id or group_id.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TodoList {
+pub struct TodoListLight {
     pub id: String,
     pub name: String,
     #[serde(rename = "type")]
@@ -90,7 +91,7 @@ pub struct TodoList {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TodoEvent {
+pub struct TodoEventLight {
     pub id: String,
     pub todo_list_id: String,
     pub summary: String,
