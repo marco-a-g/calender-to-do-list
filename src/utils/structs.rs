@@ -167,7 +167,7 @@ pub struct GroupLight {
     pub id: String,
     pub name: String,
     pub owner_id: String,
-    pub crated_by: String,
+    pub created_by: String,
     pub created_at: String,
 }
 
@@ -177,7 +177,7 @@ pub struct GroupMemberLight {
     pub user_id: String,
     pub group_id: String,
     pub role: String,
-    joined_at: String,
+    pub joined_at: String,
 }
 
 /// A calendar is either
