@@ -62,7 +62,7 @@ pub struct OwnedBy {
 /// Used to describe the members of a group. Membership is defined within a group, not within a user.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GroupMemberOf {
-    pub id: Uuid,   //id used in the database table "group_members"
+    pub id: Uuid, //id used in the database table "group_members"
     pub user_id: Uuid,
     pub name: String,
     pub role: Role,
@@ -105,14 +105,14 @@ pub struct CalendarEvent {
     pub description: Option<String>,
     pub calendar_id: Uuid,
     pub created_at: DateTime<Utc>,
-    pub created_by: Uuid,   //must be a users Uuid
+    pub created_by: Uuid, //must be a users Uuid
     pub from_date_time: DateTime<Utc>,
     pub to_date_time: Option<DateTime<Utc>>,
-    pub attachment: Option<String>,     //the path, regularly the web address, of a (shared) folder
-    pub recurrence: Option<Recurrent>,  // see explanation at "Recurrent"
-    pub recurrence_id: Option<Uuid>,    // see explanation at "Recurrent"
+    pub attachment: Option<String>, //the path, regularly the web address, of a (shared) folder
+    pub recurrence: Option<Recurrent>, // see explanation at "Recurrent"
+    pub recurrence_id: Option<Uuid>, // see explanation at "Recurrent"
     pub location: Option<String>,
-    pub categories: Option<Vec<String>>,    // used to add tags to the event
+    pub categories: Option<Vec<String>>, // used to add tags to the event
     pub is_all_day: bool,
     pub last_mod: DateTime<Utc>,
 }
@@ -125,9 +125,9 @@ pub struct ToDoList {
     pub description: Option<String>,
     pub due_date_time: Option<DateTime<Utc>>,
     pub priority: Priority,
-    pub attachment: Option<String>,     //the path, regularly the web address, of a (shared) folder
-    pub recurrence: Option<Recurrent>,  // see explanation at "Recurrent"
-    pub recurrence_id: Option<Uuid>,    // see explanation at "Recurrent"
+    pub attachment: Option<String>, //the path, regularly the web address, of a (shared) folder
+    pub recurrence: Option<Recurrent>, // see explanation at "Recurrent"
+    pub recurrence_id: Option<Uuid>, // see explanation at "Recurrent"
     pub attached_to_calendar_event: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub created_by: Uuid,
@@ -144,9 +144,9 @@ pub struct TodoEvent {
     pub due_date_time: Option<DateTime<Utc>>,
     pub priority: Priority,
     pub assigned_to_user: Option<Uuid>,
-    pub attachment: Option<String>,     //the path, regularly the web address, of a (shared) folder
-    pub recurrence: Option<Recurrent>,  // see explanation at "Recurrent"
-    pub recurrence_id: Option<Uuid>,    // see explanation at "Recurrent"
+    pub attachment: Option<String>, //the path, regularly the web address, of a (shared) folder
+    pub recurrence: Option<Recurrent>, // see explanation at "Recurrent"
+    pub recurrence_id: Option<Uuid>, // see explanation at "Recurrent"
     pub created_at: DateTime<Utc>,
     pub created_by: Uuid,
     pub last_mod: DateTime<Utc>,
@@ -180,9 +180,12 @@ pub struct GroupMemberLight {
     joined_at: String,
 }
 
-/// a calendar is either belonging to a user, then list_type must be set to "private" and a
-/// owner_id must be provided or to a group, then list_type must be set to "group" and a group_id
-/// must be provided. There must only be one, either owner_id or group_id.
+/// A calendar is either
+/// - belonging to a user
+///     then list_type must be set to "private" and an owner_id must be provided.
+/// - or to a group
+///     then list_type must be set to "group" and a group_id must be provided.
+/// There must only be one, either owner_id or group_id.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CalendarLight {
     pub id: String,
