@@ -1,4 +1,4 @@
-use crate::database::local::sync_local_db::{Group, GroupMember};
+use crate::utils::structs::{GroupLight, GroupMemberLight};
 use dioxus::prelude::ServerFnError;
 use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
@@ -23,7 +23,7 @@ pub async fn sync_groups_and_members(
     println!("{:?}", members_json);// gibt [] zurück
     //-----
     //Mitglieder in Vec parsen
-    let members: Vec<GroupMember> = serde_json::from_value(serde_json::Value::Array(members_json))
+    let members: Vec<GroupMemberLight> = serde_json::from_value(serde_json::Value::Array(members_json))
         .map_err(|e| ServerFnError::new(format!("JSON Parse Members: {}", e)))?;
 
     //group ids des derzeitigen users sammeln
@@ -44,7 +44,7 @@ pub async fn sync_groups_and_members(
         .map_err(|e| ServerFnError::new(format!("Fetch Groups Error: {}", e)))?;
 
     //Gruppen in Vec parsen
-    let groups: Vec<Group> = serde_json::from_value(serde_json::Value::Array(groups_json))
+    let groups: Vec<GroupLight> = serde_json::from_value(serde_json::Value::Array(groups_json))
         .map_err(|e| ServerFnError::new(format!("JSON Parse Groups: {}", e)))?;
 
     // Set Für Löschung von Gruppen IDs
@@ -53,8 +53,21 @@ pub async fn sync_groups_and_members(
     //nimmt remote Gruppen und packt sie in neues Set remote_group_ids
     for g in groups {
         remote_group_ids.insert(g.id.clone());
-        sqlx::query("INSERT INTO groups (id, name, owner_id) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, owner_id=excluded.owner_id")
-            .bind(g.id).bind(g.name).bind(g.owner_id).execute(&mut **tx).await
+        sqlx::query(r#"
+            INSERT INTO groups (id, name, owner_id, created_by, created_at) 
+            VALUES (?, ?, ?, ?, ?) 
+            ON CONFLICT(id) DO UPDATE SET 
+                name=excluded.name, 
+                owner_id=excluded.owner_id, 
+                created_by=excluded.created_by,
+                created_at=excluded.created_at
+            "#)
+            .bind(g.id)
+            .bind(g.name)
+            .bind(g.owner_id)
+            .bind(g.created_by)
+            .bind(g.created_at)
+            .execute(&mut **tx).await
             .map_err(|e| ServerFnError::new(format!("SQL Error Group: {}", e)))?;
     }
 
@@ -77,12 +90,24 @@ pub async fn sync_groups_and_members(
     }
 
     //speichert Mitglieder, die in Gruppen des users sind
-    for m in members {
+   for m in members {
         if !user_group_ids.contains(&m.group_id) {
             continue;
         }
-        sqlx::query("INSERT INTO group_members (id, user_id, group_id, role) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET role=excluded.role, group_id=excluded.group_id")
-            .bind(m.id).bind(m.user_id).bind(m.group_id).bind(m.role).execute(&mut **tx).await
+        sqlx::query(r#"
+            INSERT INTO group_members (id, user_id, group_id, role, joined_at) 
+            VALUES (?, ?, ?, ?, ?) 
+            ON CONFLICT(id) DO UPDATE SET 
+                role=excluded.role, 
+                group_id=excluded.group_id,
+                joined_at=excluded.joined_at
+            "#)
+            .bind(m.id)
+            .bind(m.user_id)
+            .bind(m.group_id)
+            .bind(m.role)
+            .bind(m.joined_at)
+            .execute(&mut **tx).await
             .map_err(|e| ServerFnError::new(format!("SQL Error Member: {}", e)))?;
     }
 

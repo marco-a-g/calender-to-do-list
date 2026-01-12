@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 
-use crate::database::local::sync_local_db::{TodoEvent, TodoList};
+use crate::utils::structs::{TodoEventLight, TodoListLight};
 use dioxus::prelude::ServerFnError;
 use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
@@ -23,7 +23,7 @@ pub async fn sync_todos(
         .map_err(|e| ServerFnError::new(format!("Fetch Todo Lists Error: {}", e)))?;
 
     //To-Do Listen in Vec parsen
-    let lists: Vec<TodoList> = serde_json::from_value(serde_json::Value::Array(lists_json))
+    let lists: Vec<TodoListLight> = serde_json::from_value(serde_json::Value::Array(lists_json))
         .map_err(|e| ServerFnError::new(format!("JSON Parse Todo Lists: {}", e)))?;
 
     //temporäres set mit den validen keys der To-Do-Listen
@@ -110,7 +110,7 @@ pub async fn sync_todos(
     };
 
     //To-Do's in Vec parsen
-    let todos: Vec<TodoEvent> = serde_json::from_value(serde_json::Value::Array(todo_json))
+    let todos: Vec<TodoEventLight> = serde_json::from_value(serde_json::Value::Array(todo_json))
         .map_err(|e| ServerFnError::new(format!("JSON Parse Todo Items: {}", e)))?;
 
     //temporäres set mit den keys der remote ToDo's
@@ -125,9 +125,9 @@ pub async fn sync_todos(
                 id, todo_list_id, summary, description, completed, 
                 due_datetime, priority, attachment, 
                 rrule, recurrence_id, recurrence_until, 
-                created_by, created_at, last_mod
+                created_by, created_at, last_mod, assigned_to_user
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET 
                 summary=excluded.summary, description=excluded.description, 
                 completed=excluded.completed, due_datetime=excluded.due_datetime, 
@@ -135,7 +135,7 @@ pub async fn sync_todos(
                 rrule=excluded.rrule, recurrence_id=excluded.recurrence_id,
                 recurrence_until=excluded.recurrence_until,
                 created_by=excluded.created_by, created_at=excluded.created_at,
-                last_mod=excluded.last_mod
+                last_mod=excluded.last_mod, assigned_to_user=excluded.assigned_to_user
         "#,
         )
         .bind(t.id)
@@ -152,6 +152,7 @@ pub async fn sync_todos(
         .bind(t.created_by)
         .bind(t.created_at)
         .bind(t.last_mod)
+        .bind(t.assigned_to_user)
         .execute(&mut **tx)
         .await
         .map_err(|e| ServerFnError::new(format!("SQL Error TodoItem: {}", e)))?;

@@ -15,6 +15,10 @@ use super::sync::calendars::sync_calendars_and_events;
 use super::sync::groups::sync_groups_and_members;
 use super::sync::profiles::sync_profiles;
 use super::sync::todos::sync_todos;
+use crate::utils::structs::{
+    CalendarEventLight, CalendarLight, GroupLight, GroupMemberLight, ProfileLight, TodoEventLight,
+    TodoListLight,
+};
 
 // Config -> Später raus sobald auth steht?
 const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
@@ -30,109 +34,6 @@ const MOCK_USER_ID: &str = "cf800589-072a-4fd8-abba-a456332ae6a9";
     Tom, Email: tom.design@example.com, uid: 68b4a3af-55ab-4c8a-9af9-75be3f88672d
     Lisa, Email: lisa.intern@example.com, uid: d6e0f119-ecfe-4e70-bf43-4044162a3d92
 */
-
-// Data-Stucts; später eher global wo definieren
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Profile {
-    pub id: String,
-    pub username: String,
-    pub created_at: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Group {
-    pub id: String,
-    pub name: String,
-    pub owner_id: String,
-    pub created_by: Option<String>,
-    pub created_at: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GroupMember {
-    pub id: String,
-    pub user_id: String,
-    pub group_id: String,
-    pub role: String,
-    pub joined_at: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Calendar {
-    pub id: String,
-    pub name: String,
-    #[serde(rename = "type")]
-    pub calendar_type: String,
-    pub description: Option<String>,
-    pub owner_id: Option<String>,
-    pub group_id: Option<String>,
-    pub created_by: Option<String>,
-    pub created_at: Option<String>,
-    pub last_mod: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CalendarEvent {
-    pub id: String,
-    pub calendar_id: String,
-    pub summary: String,
-    pub description: Option<String>,
-    pub from_date_time: String,
-    pub to_date_time: Option<String>,
-    pub is_all_day: bool,
-    pub location: Option<String>,
-    pub category: Option<String>,
-    pub attachment: Option<String>,
-    pub rrule: Option<String>,
-    pub recurrence_id: Option<String>,
-    pub recurrence_until: Option<String>,
-    pub created_by: Option<String>,
-    pub created_at: Option<String>,
-    pub seq: Option<bool>,
-    pub last_mod: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TodoList {
-    pub id: String,
-    pub name: String,
-    #[serde(rename = "type")]
-    pub list_type: String,
-    pub description: Option<String>,
-    pub owner_id: Option<String>,
-    pub group_id: Option<String>,
-    pub created_by: Option<String>,
-    pub created_at: Option<String>,
-    pub due_datetime: Option<String>,
-    pub priority: Option<String>,
-    pub attached_to_calendar_event: Option<String>,
-    pub rrule: Option<String>,
-    pub recurrence_id: Option<String>,
-    pub recurrence_until: Option<String>,
-    pub last_mod: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TodoEvent {
-    pub id: String,
-    pub todo_list_id: String,
-    pub summary: String,
-    pub description: Option<String>,
-    pub completed: bool,
-    pub due_datetime: Option<String>,
-    pub priority: Option<String>,
-    pub attachment: Option<String>,
-    pub rrule: Option<String>,
-    pub recurrence_id: Option<String>,
-    pub recurrence_until: Option<String>,
-    pub created_by: Option<String>,
-    pub created_at: Option<String>,
-    pub seq: Option<bool>,
-    pub last_mod: String,
-}
-
-// Sync
 
 //Sync api function
 #[server]
@@ -167,7 +68,7 @@ pub async fn sync_function() -> Result<(), ServerFnError> {
         .await
         .map_err(|e| ServerFnError::new(format!("DB Connect Error: {}.", e)))?;
 
-    //öffnet "Änderungs-Warteschlange", tx = transaction, läuft querys ab hier durch und ändert erst ab tx.commit die Inhalte, bisschen wie ein Lock
+    //öffnet "Änderungs-Warteschlange", läuft querys ab hier durch und ändert erst ab .commit die Inhalte, bisschen wie ein Lock
     let mut transaction_queue = pool_local_db
         .begin()
         .await

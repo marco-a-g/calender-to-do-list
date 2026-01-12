@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 
-use crate::database::local::sync_local_db::{Calendar, CalendarEvent};
+use crate::utils::structs::{CalendarEventLight, CalendarLight};
 use dioxus::prelude::ServerFnError;
 use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
@@ -23,7 +23,7 @@ pub async fn sync_calendars_and_events(
         .map_err(|e| ServerFnError::new(format!("Fetch Calendars Error: {}", e)))?;
 
     //Kalender in Vec parsen
-    let calendars: Vec<Calendar> =
+    let calendars: Vec<CalendarLight> =
         serde_json::from_value(serde_json::Value::Array(calendars_as_json))
             .map_err(|e| ServerFnError::new(format!("JSON Parse Calendars: {}", e)))?;
 
@@ -36,8 +36,12 @@ pub async fn sync_calendars_and_events(
     for c in calendars {
         valid_calendar_ids.insert(c.id.clone());
         remote_calendar_ids.insert(c.id.clone());
-        sqlx::query(r#"
-            INSERT INTO calendars (id, name, type, description, owner_id, group_id, created_by, created_at, last_mod) 
+        sqlx::query(
+            r#"
+            INSERT INTO calendars (
+                id, name, type, description, owner_id, group_id, 
+                created_by, created_at, last_mod
+            ) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
                 name=excluded.name, 
@@ -48,17 +52,20 @@ pub async fn sync_calendars_and_events(
                 created_by=excluded.created_by,
                 created_at=excluded.created_at,
                 last_mod=excluded.last_mod
-            "#)
-            .bind(c.id)
-            .bind(c.name)
-            .bind(c.calendar_type)
-            .bind(c.description)
-            .bind(c.owner_id)
-            .bind(c.group_id)
-            .bind(c.created_by)
-            .bind(c.created_at)
-            .bind(c.last_mod)
-            .execute(&mut **tx).await.map_err(|e| ServerFnError::new(format!("SQL Error Calendar: {}", e)))?;
+            "#,
+        )
+        .bind(c.id)
+        .bind(c.name)
+        .bind(c.calendar_type) // Verwendet das umbenannte Feld aus structs.rs
+        .bind(c.description)
+        .bind(c.owner_id)
+        .bind(c.group_id)
+        .bind(c.created_by)
+        .bind(c.created_at)
+        .bind(c.last_mod)
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| ServerFnError::new(format!("SQL Error Calendar: {}", e)))?;
     }
 
     // Cleanup: Kalender die user nicht betreffen entfernen
@@ -101,7 +108,7 @@ pub async fn sync_calendars_and_events(
     };
 
     //Events in Vec parsen
-    let events: Vec<CalendarEvent> =
+    let events: Vec<CalendarEventLight> =
         serde_json::from_value(serde_json::Value::Array(event_as_json))
             .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
 
