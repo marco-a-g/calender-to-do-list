@@ -1,11 +1,10 @@
 // TODO:
-// - doc comments
 // - other auth components
 // - tests
 // - (optional) auth event listener with on_auth_state_change
 // - maybe put api key into env var or config file
 #![allow(dead_code, unused_imports)]
-use dioxus::fullstack::serde::de::value::Error;
+use dioxus::fullstack::{http::response, serde::de::value::Error};
 use std::fmt;
 use std::sync::OnceLock;
 use supabase::{Auth, Client};
@@ -49,6 +48,7 @@ pub enum AuthError {
     ClientAlreadyInitialized,
     InvalidCredentials,
     NoUserReturned,
+    UserAlreadyExists,
     Supabase(supabase::Error),
 }
 
@@ -59,6 +59,8 @@ impl From<supabase::Error> for AuthError {
                 // two periods ignores other fields
                 if message.contains("invalid_credentials") {
                     AuthError::InvalidCredentials
+                } else if message.contains("user_already_exists") {
+                    AuthError::UserAlreadyExists
                 } else {
                     AuthError::Supabase(error)
                 }
@@ -76,6 +78,7 @@ impl fmt::Display for AuthError {
             AuthError::ClientAlreadyInitialized => write!(f, "Remote client already initialized"),
             AuthError::InvalidCredentials => write!(f, "Invalid Credentials"),
             AuthError::NoUserReturned => write!(f, "Auth returned no user"),
+            AuthError::UserAlreadyExists => write!(f, "User already exists"),
             AuthError::Supabase(error) => write!(f, "{}", error),
         }
     }
@@ -93,4 +96,40 @@ pub async fn login(username: &str, password: &str) -> Result<AuthStatus, AuthErr
     Ok(AuthStatus::Authenticated {
         user_id: response.user.ok_or(AuthError::NoUserReturned)?.id,
     })
+}
+
+pub async fn signup(email: &str, password: &str) -> Result<(), AuthError> {
+    let client = get_client()?;
+
+    let response = client
+        .auth()
+        .sign_up_with_email_and_password(email, password)
+        .await?;
+
+    println!("Response: {:?}", response);
+    Ok(())
+    // sign_up_with_email_password_and_data:
+    // data = {
+    //   "username": "fritz",
+    //   "full_name": "Fritz Müller",
+    //   "phone": "+4912345678"
+    // }
+    // trigger:
+    // insert into profiles (id, username, full_name, phone)
+    // values (
+    //   new.id,
+    //   new.raw_user_meta_data->>'username',
+    //   new.raw_user_meta_data->>'full_name',
+    //   new.raw_user_meta_data->>'phone'
+    // );
+    //
+    // oder normalen signup und über requests
+}
+
+pub async fn logout() -> Result<(), AuthError> {
+    let client = get_client()?;
+
+    let response = client.auth().sign_out().await?;
+
+    Ok(())
 }
