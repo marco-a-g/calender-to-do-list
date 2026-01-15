@@ -1,4 +1,4 @@
-use crate::auth::backend::{AuthStatus, AuthView, login_mock};
+use crate::auth::backend::*;
 use dioxus::prelude::*;
 
 fn input_style() -> &'static str {
@@ -38,7 +38,7 @@ fn card_style(width: &str) -> String {
 
 #[component]
 pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -> Element {
-    let mut username = use_signal(|| String::new());
+    let mut email = use_signal(|| String::new());
     let mut password = use_signal(|| String::new());
     let mut remember_me = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
@@ -70,9 +70,9 @@ pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -
 
                 input {
                     r#type: "text",
-                    placeholder: "Username",
-                    value: "{username}",
-                    oninput: move |e| username.set(e.value()),
+                    placeholder: "E-Mail",
+                    value: "{email}",
+                    oninput: move |e| email.set(e.value()),
                     style: input_style(),
                 }
 
@@ -121,10 +121,12 @@ pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -
                         border: none;
                     ",
                     onclick: move |_| {
-                        match login_mock(&username(), &password()) {
-                            Ok(status) => auth_status.set(status),
-                            Err(msg) => error.set(Some(msg.to_string())),
-                        }
+                        spawn(async move {
+                            match login(&email(), &password()).await {
+                                    Ok(status) => auth_status.set(status),
+                                    Err(msg) => error.set(Some(msg.to_string())),
+                                }
+                            });
                     },
                     "Login"
                 }
@@ -154,6 +156,8 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
     let mut email = use_signal(|| String::new());
     let mut phone = use_signal(|| String::new());
     let mut password = use_signal(|| String::new());
+    let mut error = use_signal(|| None::<String>);
+    let mut info = use_signal(|| None::<String>);
 
     rsx! {
         div {
@@ -187,6 +191,20 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
                 input { placeholder: "Phone", value: "{phone}", oninput: move |e| phone.set(e.value()), style: input_style() }
                 input { r#type: "password", placeholder: "Password", value: "{password}", oninput: move |e| password.set(e.value()), style: input_style() }
 
+                if let Some(msg) = error() {
+                    div {
+                        style: "color: #f87171; font-size: 13px;",
+                        "{msg}"
+                    }
+                }
+
+                if let Some(msg) = info() {
+                    div {
+                        style: "color: #78dd35ff; font-size: 13px;",
+                        "{msg}"
+                    }
+                }
+
                 button {
                     style: "
                         height: 44px;
@@ -200,7 +218,18 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
                         margin-top: 4px;
                     ",
                     onclick: move |_| {
-                        auth_view.set(AuthView::Login);
+                        spawn(async move {
+                            match signup(&email(), &password()).await {
+                                    Ok(_) => {
+                                        info.set(Some("Signup successful".to_string()));
+                                        error.set(None);
+                                    },
+                                    Err(msg) => {
+                                        error.set(Some(msg.to_string()));
+                                        info.set(None);
+                                    },
+                                }
+                            });
                     },
                     "Create account"
                 }
