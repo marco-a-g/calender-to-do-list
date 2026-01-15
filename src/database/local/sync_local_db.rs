@@ -2,7 +2,6 @@
 #![allow(unused_imports)]
 
 use dioxus::prelude::*;
-use postgrest::Postgrest;
 use serde::{Deserialize, Serialize};
 use sqlx::{
     ConnectOptions,
