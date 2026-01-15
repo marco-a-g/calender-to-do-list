@@ -21,8 +21,10 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      # lädt schneller
+      # neuer schlüssel 
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: "ubuntu-22-fresh-build"
 
       - name: Build
         run: cargo build --verbose
