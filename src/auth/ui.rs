@@ -220,8 +220,14 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
                     onclick: move |_| {
                         spawn(async move {
                             match signup(&email(), &password()).await {
-                                    Ok(_) => info.set(Some("Signup successful".to_string())),
-                                    Err(msg) => error.set(Some(msg.to_string())),
+                                    Ok(_) => {
+                                        info.set(Some("Signup successful".to_string()));
+                                        error.set(None);
+                                    },
+                                    Err(msg) => {
+                                        error.set(Some(msg.to_string()));
+                                        info.set(None);
+                                    },
                                 }
                             });
                     },
