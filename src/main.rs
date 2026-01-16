@@ -11,6 +11,8 @@ mod utils;
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
 use crate::database::local::heartbeat::start_heartbeat;
+use crate::groups::frontend::GroupsPage;
+use crate::groups::frontend::group_detail::GroupDetailPage;
 use crate::database::local::init_fetch::init_fetch_local_db::init_database;
 use crate::todos::frontend::todo_view::*;
 use crate::user::frontend::{create_profile::CreateProfileView, profile_view::ProfileView};
@@ -40,6 +42,9 @@ enum Route {
 
     #[route("/Profile")]
     ProfileView,
+
+    #[route("/groups/:id")]
+    GroupDetail { id: i32 },
 }
 
 #[component]
@@ -140,9 +145,10 @@ fn Calendar() -> Element {
 
 #[component]
 fn Groups() -> Element {
-    rsx! {
-        div {
-            "Groups"
-        }
-    }
+    rsx! { crate::groups::frontend::GroupsPage {} }
+}
+
+#[component]
+fn GroupDetail(id: i32) -> Element {
+    rsx!(GroupDetailPage { id })
 }
