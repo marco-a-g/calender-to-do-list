@@ -16,7 +16,7 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "uuid", "chrono
 reqwest = "0.13.1"
 
 [features]
-default = ["desktop"]
+default = ["web"]
 web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
