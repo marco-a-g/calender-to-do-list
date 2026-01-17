@@ -1,10 +1,13 @@
 #![allow(unused_imports)]
 
-use super::sync::calendars::sync_calendars_and_events;
-use super::sync::groups::sync_groups_and_members;
-use super::sync::profiles::sync_profiles;
-use super::sync::todos::sync_todos;
-use crate::auth::backend::get_client;
+use crate::{
+    auth::backend::get_client,
+    database::local::sync::{
+        calendar_events::sync_calendar_events, calendars::sync_calendars, groups::sync_groups,
+        members::sync_members, profiles::sync_profiles, todolists::sync_todolists,
+        todos::sync_todos,
+    },
+};
 use dioxus::prelude::*;
 use sqlx::{
     ConnectOptions,
@@ -58,12 +61,18 @@ pub async fn sync_local_to_remote_db() -> Result<(), ServerFnError> {
 
     //Profile synchronisieren
     sync_profiles(&mut transaction_queue, &token_str).await?;
-    //Gruppen und Mitglieder synchronisieren
-    sync_groups_and_members(&mut transaction_queue, &token_str).await?;
-    // Kalender und Events synchronisieren
-    sync_calendars_and_events(&mut transaction_queue, &token_str).await?;
-    // To-Do Listen und Einträge synchronisieren
+    //Gruppen synchronisieren
+    sync_groups(&mut transaction_queue, &token_str).await?;
+    // Mitglieder synchronisieren
+    sync_members(&mut transaction_queue, &token_str).await?;
+    // Kalender synchronisieren
+    sync_calendars(&mut transaction_queue, &token_str).await?;
+    // Kalender-Events synchronisieren
+    sync_calendar_events(&mut transaction_queue, &token_str).await?;
+    // To-Do Einträge synchronisieren
     sync_todos(&mut transaction_queue, &token_str).await?;
+    // To-Do Listen  synchronisieren
+    sync_todolists(&mut transaction_queue, &token_str).await?;
 
     //Änderungsqueue zusammenfügen und "commiten"
     transaction_queue

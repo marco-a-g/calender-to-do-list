@@ -13,7 +13,7 @@ pub async fn sync_profiles(
     //Profile laden
     println!("Loading Profiles...");
 
-    //Config & Resonse von http-Anfrage
+    //Config & Response von http-Anfrage
     let url = format!("{}/rest/v1/profiles?select=*", SUPABASE_URL);
     let response = http_client
         .get(&url)
