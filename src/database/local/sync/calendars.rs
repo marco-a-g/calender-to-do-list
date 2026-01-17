@@ -81,12 +81,10 @@ pub async fn sync_calendars_and_events(
     //Events laden
     println!("Loading Events...");
 
-    //Request nur starten, wenn überhaupt Kalender existieren
     let event_as_json = client
         .database()
         .from("calendar_events")
         .select("*")
-        // .r#in(...) -> ENTFERNT
         .execute()
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch Events Error: {}", e)))?;
@@ -102,7 +100,6 @@ pub async fn sync_calendars_and_events(
     //über Vec mit Events itterieren und in local db (erst in tx, noch nicht direkt speichern -> in Änderungsqueue) speichern
     for e in events {
         remote_event_ids.insert(e.id.clone());
-        // SQL Insert bleibt gleich...
         sqlx::query(
             r#"
             INSERT INTO calendar_events (

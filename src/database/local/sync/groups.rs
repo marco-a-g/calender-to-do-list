@@ -19,7 +19,7 @@ pub async fn sync_groups_and_members(
         .map_err(|e| ServerFnError::new(format!("Fetch Members Error: {}", e)))?;
 
     //-----------
-    println!("{:?}", members_json);// gibt [] zurück
+    println!("{:?}", members_json);// gibt [] zurück wieso?
     //-----
     //Mitglieder in Vec parsen
     let members: Vec<GroupMemberLight> = serde_json::from_value(serde_json::Value::Array(members_json))
@@ -34,6 +34,8 @@ pub async fn sync_groups_and_members(
         .execute()
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch Groups Error: {}", e)))?;
+    
+    println!("{:?}", groups_json);// gibt [] zurück wieso?
 
     //Gruppen in Vec parsen
     let groups: Vec<GroupLight> = serde_json::from_value(serde_json::Value::Array(groups_json))
@@ -42,7 +44,7 @@ pub async fn sync_groups_and_members(
     // Set Für Löschung von Gruppen IDs
     let mut remote_group_ids = HashSet::new();
 
-    //nimmt remote Gruppen und packt sie in neues Set remote_group_ids
+    //nimmt remote Gruppen und packt sie in neues Set remote_group_ids und in db
     for g in groups {
         remote_group_ids.insert(g.id.clone());
         sqlx::query(r#"
@@ -74,8 +76,12 @@ pub async fn sync_groups_and_members(
         }
     }
 
+    // Set Für Löschung von member IDs
+    let mut remote_member_ids = HashSet::new();
+
     //speichert Mitglieder, die in Gruppen des users sind
    for m in members {
+    remote_member_ids.insert(m.id.clone());
         sqlx::query(r#"
             INSERT INTO group_members (id, user_id, group_id, role, joined_at) 
             VALUES (?, ?, ?, ?, ?) 
@@ -85,23 +91,6 @@ pub async fn sync_groups_and_members(
             .bind(m.id).bind(m.user_id).bind(m.group_id).bind(m.role).bind(m.joined_at)
             .execute(&mut **tx).await.map_err(|e| ServerFnError::new(format!("SQL Error Member: {}", e)))?;
     }
-
-    //Set aus remote members erstellen
-    let remote_members_json = client
-        .database()
-        .from("group_members")
-        .select("id") // Wir brauchen nur die ID
-        .execute()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Fetch Remote Member IDs Error: {}", e)))?;
-
-    //remote members in set aus ids wandeln
-    let remote_member_ids: HashSet<String> = remote_members_json
-        .iter()
-        .filter_map(|row: &serde_json::Value| {
-             row.get("id").and_then(|val| val.as_str()).map(|s| s.to_string())
-        })
-        .collect();
 
     // Cleanup: löscht alle Members, die nicht mehr in remote DBs sind
     //set aus localen membern erstellen

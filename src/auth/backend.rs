@@ -27,7 +27,7 @@ pub fn init_client() -> Result<(), AuthError> {
     Ok(())
 }
 
-fn get_client() -> Result<&'static Client, AuthError> {
+pub fn get_client() -> Result<&'static Client, AuthError> {
     SUPABASE_CLIENT.get().ok_or(AuthError::ClientNotInitialized)
 }
 

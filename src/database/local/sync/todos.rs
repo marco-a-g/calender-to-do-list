@@ -92,7 +92,6 @@ pub async fn sync_todos(
         .database()
         .from("todo_events")
         .select("*")
-        // .r#in(...) entfernt
         .execute()
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch Todo Items Error: {}", e)))?;
