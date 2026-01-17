@@ -1,59 +1,76 @@
+use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use crate::utils::structs::ProfileLight;
 use dioxus::prelude::ServerFnError;
 use sqlx::{Sqlite, Transaction};
-use supabase::Client;
+use std::collections::HashSet;
 
 pub async fn sync_profiles(
-    client: &Client,
     tx: &mut Transaction<'_, Sqlite>,
+    token: &str,
 ) -> Result<(), ServerFnError> {
-    // Profile laden
+    let http_client = reqwest::Client::new();
+    let bearer_token = format!("Bearer {}", token);
+    //Profile laden
     println!("Loading Profiles...");
-    let profiles_json = client
-        .database()
-        .from("profiles")
-        .select("*")
-        .execute()
+
+    //Config & Resonse von http-Anfrage
+    let url = format!("{}/rest/v1/profiles?select=*", SUPABASE_URL);
+    let response = http_client
+        .get(&url)
+        .header("apikey", ANON_KEY)
+        .header("Authorization", &bearer_token)
+        .send()
         .await
-        .map_err(|e| ServerFnError::new(format!("Fetch Profiles Error: {}", e)))?;
-
-    //Profile in Vec parsen
-    let profiles: Vec<ProfileLight> =
-        serde_json::from_value(serde_json::Value::Array(profiles_json))
-            .map_err(|e| ServerFnError::new(format!("JSON Parse Profiles: {}", e)))?;
-
-    //neues set aus Remote-Db Id's für Löschung von verwaisten einträgen
-    let remote_ids = profiles
-        .iter()
-        .map(|p| format!("'{}'", p.id))
-        .collect::<Vec<String>>()
-        .join(",");
-
-    //über Vec mit profilen itterieren und in local db (erst in tx, noch nicht direkt speichern -> in Änderungsqueue) speichern
-    for p in profiles {
-        sqlx::query("INSERT INTO profiles (id, username, created_at) VALUES (?, ?, datetime('now')) ON CONFLICT(id) DO UPDATE SET username = excluded.username")
-            .bind(p.id)
-            .bind(p.username)
-            .execute(&mut **tx).await
-            .map_err(|e| ServerFnError::new(format!("SQL Error Profile: {}", e)))?;
-    } //created_at nochmal anschauen
-
-    // CleanUp: Profile die lokal noch da sind aber nicht in remote -> löschen
-    //ist remote table für profiles leer?
-    if remote_ids.is_empty() {
-        sqlx::query("DELETE FROM profiles")
-            .execute(&mut **tx)
-            .await
-            .map_err(|e| ServerFnError::new(format!("SQL Cleanup (Delete All): {}", e)))?;
-    } else {
-        // sonst lösche die "Waisen"
-        let cleanup_sql = format!("DELETE FROM profiles WHERE id NOT IN ({})", remote_ids);
-
-        sqlx::query(&cleanup_sql)
-            .execute(&mut **tx)
-            .await
-            .map_err(|e| ServerFnError::new(format!("SQL Cleanup (Sync Deletion): {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Http Request Profiles Error: {}", e)))?;
+    if !response.status().is_success() {
+        let err = response.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!(
+            "Supabase Error Profiles: {}",
+            err
+        )));
     }
 
+    //Response in Json parsen
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
+
+    //Json in Vec von Profiles parsen
+    let profiles: Vec<ProfileLight> = serde_json::from_str(&response_text)
+        .map_err(|e| ServerFnError::new(format!("JSON Parse Profiles: {}", e)))?;
+
+    //neues set aus Remote-DB Id's für Löschung von verwaisten Einträgen
+    let mut remote_profiles_ids = HashSet::new();
+
+    //über Vec mit Profilen itterieren und in local DB (erst in Transactionswarteschlange, noch nicht direkt) speichern
+    for p in profiles {
+        //id in Set aus remote IDs speichern
+        remote_profiles_ids.insert(p.id.clone());
+        sqlx::query("INSERT INTO profiles (id, username, created_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET username = excluded.username, created_at = excluded.created_at")
+            .bind(p.id)
+            .bind(p.username)
+            .bind(p.created_at)
+            .execute(&mut **tx).await
+            .map_err(|e| ServerFnError::new(format!("SQL Error Profile: {}", e)))?;
+    }
+
+    // CleanUp: Profile die lokal noch da sind aber nicht mehr in remote -> löschen
+    //Vec aus lokalen Profiles anhand ID
+    let local_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM profiles")
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Fetch Local Profile IDs: {}", e)))?;
+
+    //Ist locale ID nicht in remote ID -> löschen
+    for id in local_ids {
+        if !remote_profiles_ids.contains(&id) {
+            sqlx::query("DELETE FROM profiles WHERE id = ?")
+                .bind(id)
+                .execute(&mut **tx)
+                .await
+                .ok();
+        }
+    }
     Ok(())
 }

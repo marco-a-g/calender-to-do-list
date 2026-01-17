@@ -160,6 +160,7 @@ pub struct TodoEvent {
 pub struct ProfileLight {
     pub id: String,
     pub username: String,
+    pub created_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

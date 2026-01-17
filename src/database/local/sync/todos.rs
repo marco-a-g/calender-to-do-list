@@ -1,51 +1,75 @@
-#![allow(unused_variables)]
-
+use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use crate::utils::structs::{TodoEventLight, TodoListLight};
 use dioxus::prelude::ServerFnError;
 use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
-use supabase::Client;
 
 pub async fn sync_todos(
-    client: &Client,
     tx: &mut Transaction<'_, Sqlite>,
+    token: &str,
 ) -> Result<(), ServerFnError> {
-    // To-Do Listen laden
-    println!("Loading To-Do Lists");
-    let lists_json = client
-        .database()
-        .from("todo_lists")
-        .select("*")
-        .execute()
+    let http_client = reqwest::Client::new();
+    let bearer_token = format!("Bearer {}", token);
+    //ToDo-Listen laden
+    println!("Loading Todo Lists...");
+
+    //Config & Resonse von http-Anfrage
+    let url_lists = format!("{}/rest/v1/todo_lists?select=*", SUPABASE_URL);
+    let response_lists = http_client
+        .get(&url_lists)
+        .header("apikey", ANON_KEY)
+        .header("Authorization", &bearer_token)
+        .send()
         .await
-        .map_err(|e| ServerFnError::new(format!("Fetch Todo Lists Error: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Http Request TodoLists Error: {}", e)))?;
+    if !response_lists.status().is_success() {
+        let err = response_lists.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!(
+            "Supabase Error TodoLists: {}",
+            err
+        )));
+    }
 
-    //To-Do Listen in Vec parsen
-    let lists: Vec<TodoListLight> = serde_json::from_value(serde_json::Value::Array(lists_json))
-        .map_err(|e| ServerFnError::new(format!("JSON Parse Todo Lists: {}", e)))?;
+    //Response in Json parsen
+    let text_lists = response_lists
+        .text()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
 
-    //temporäres set mit den keys der remote Listen
+    //Json in Vec von ToDoLists parsen
+    let lists: Vec<TodoListLight> = serde_json::from_str(&text_lists)
+        .map_err(|e| ServerFnError::new(format!("JSON Parse TodoLists: {}", e)))?;
+
+    //neues set aus Remote-DB Id's für Löschung von verwaisten Einträgen
     let mut remote_list_ids = HashSet::new();
 
-    //über Vec mit To-Do Listen itterieren und in local db (erst in tx, noch nicht direkt speichern -> in Änderungsqueue) speichern
+    //über Vec mit Listen itterieren und in local DB (erst in Transactionswarteschlange, noch nicht direkt) speichern
     for l in lists {
         remote_list_ids.insert(l.id.clone());
         sqlx::query(
             r#"
             INSERT INTO todo_lists (
                 id, name, type, description, owner_id, group_id, 
-                created_by, created_at, due_datetime, priority, 
-                rrule, recurrence_id, recurrence_until, attached_to_calendar_event, last_mod
+                due_datetime, priority, attachment, rrule, recurrence_until, 
+                recurrence_id, attached_to_calendar_event, 
+                created_at, created_by, last_mod
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
-                name=excluded.name, type=excluded.type, description=excluded.description, 
-                owner_id=excluded.owner_id, group_id=excluded.group_id,
-                created_by=excluded.created_by, created_at=excluded.created_at,
-                due_datetime=excluded.due_datetime, priority=excluded.priority,
-                rrule=excluded.rrule, recurrence_id=excluded.recurrence_id,
+                name=excluded.name, 
+                type=excluded.type, 
+                description=excluded.description,
+                owner_id=excluded.owner_id,
+                group_id=excluded.group_id,
+                due_datetime=excluded.due_datetime,
+                priority=excluded.priority,
+                attachment=excluded.attachment,
+                rrule=excluded.rrule,
                 recurrence_until=excluded.recurrence_until,
+                recurrence_id=excluded.recurrence_id,
                 attached_to_calendar_event=excluded.attached_to_calendar_event,
+                created_at=excluded.created_at,
+                created_by=excluded.created_by,
                 last_mod=excluded.last_mod
             "#,
         )
@@ -55,117 +79,139 @@ pub async fn sync_todos(
         .bind(l.description)
         .bind(l.owner_id)
         .bind(l.group_id)
-        .bind(l.created_by)
-        .bind(l.created_at)
         .bind(l.due_datetime)
         .bind(l.priority)
+        .bind(l.attachment)
         .bind(l.rrule)
-        .bind(l.recurrence_id)
         .bind(l.recurrence_until)
+        .bind(l.recurrence_id)
         .bind(l.attached_to_calendar_event)
+        .bind(l.created_at)
+        .bind(l.created_by)
         .bind(l.last_mod)
         .execute(&mut **tx)
         .await
         .map_err(|e| ServerFnError::new(format!("SQL Error TodoList: {}", e)))?;
     }
 
-    // Cleanup: listen die local sind aber nicht remote -> löschen
+    // CleanUp: Listen die lokal noch da sind aber nicht mehr in remote -> löschen
+    //Vec aus lokalen Listen anhand ID
     let local_list_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM todo_lists")
         .fetch_all(&mut **tx)
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch Local List IDs: {}", e)))?;
-    for local_id in local_list_ids {
-        if !remote_list_ids.contains(&local_id) {
-            println!("Deleting orphan list: {}", local_id);
+
+    //Ist locale ID nicht in remote ID -> löschen
+    for id in local_list_ids {
+        if !remote_list_ids.contains(&id) {
+            println!("Deleting orphan todo list: {}", id);
             sqlx::query("DELETE FROM todo_lists WHERE id = ?")
-                .bind(local_id)
+                .bind(id)
                 .execute(&mut **tx)
                 .await
                 .ok();
         }
     }
 
-    //ToDos Laden
-    println!("Loading To-Do's...");
+    //ToDos laden
+    println!("Loading Todo Events...");
 
-    let todo_json = client
-        .database()
-        .from("todo_events")
-        .select("*")
-        .execute()
+    //Config & Resonse von http-Anfrage
+    let url_events = format!("{}/rest/v1/todo_events?select=*", SUPABASE_URL);
+    let response_events = http_client
+        .get(&url_events)
+        .header("apikey", ANON_KEY)
+        .header("Authorization", &bearer_token)
+        .send()
         .await
-        .map_err(|e| ServerFnError::new(format!("Fetch Todo Items Error: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Http Request TodoEvents Error: {}", e)))?;
+    if !response_events.status().is_success() {
+        let err = response_events.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!(
+            "Supabase Error TodoEvents: {}",
+            err
+        )));
+    }
 
-    //To-Do's in Vec parsen
-    let todos: Vec<TodoEventLight> = serde_json::from_value(serde_json::Value::Array(todo_json))
-        .map_err(|e| ServerFnError::new(format!("JSON Parse Todo Items: {}", e)))?;
+    //Response in Json parsen
+    let text_events = response_events
+        .text()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
 
-    //temporäres set mit den keys der remote ToDo's
-    let mut remote_todo_ids = HashSet::new();
+    //Json in Vec von ToDos parsen
+    let events: Vec<TodoEventLight> = serde_json::from_str(&text_events)
+        .map_err(|e| ServerFnError::new(format!("JSON Parse TodoEvents: {}", e)))?;
 
-    //über Vec mit To-Do's itterieren und in local db (erst in tx, noch nicht direkt speichern -> in Änderungsqueue) speichern
-    for t in todos {
-        remote_todo_ids.insert(t.id.clone());
+    //neues set aus Remote-DB Id's für Löschung von verwaisten Einträgen
+    let mut remote_event_ids = HashSet::new();
+
+    //über Vec mit ToDos itterieren und in local DB (erst in Transactionswarteschlange, noch nicht direkt) speichern
+    for e in events {
+        //id in Set aus remote IDs speichern
+        remote_event_ids.insert(e.id.clone());
         sqlx::query(
             r#"
             INSERT INTO todo_events (
                 id, todo_list_id, summary, description, completed, 
-                due_datetime, priority, attachment, 
-                rrule, recurrence_id, recurrence_until, 
-                created_by, created_at, last_mod, assigned_to_user
+                due_datetime, priority, assigned_to_user, attachment, 
+                rrule, recurrence_until, recurrence_id, 
+                created_at, created_by, last_mod
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
-                summary=excluded.summary, description=excluded.description, 
-                completed=excluded.completed, due_datetime=excluded.due_datetime, 
-                priority=excluded.priority, attachment=excluded.attachment,
-                rrule=excluded.rrule, recurrence_id=excluded.recurrence_id,
+                todo_list_id=excluded.todo_list_id, 
+                summary=excluded.summary, 
+                description=excluded.description,
+                completed=excluded.completed,
+                due_datetime=excluded.due_datetime,
+                priority=excluded.priority,
+                assigned_to_user=excluded.assigned_to_user,
+                attachment=excluded.attachment,
+                rrule=excluded.rrule,
                 recurrence_until=excluded.recurrence_until,
-                created_by=excluded.created_by, created_at=excluded.created_at,
-                last_mod=excluded.last_mod, assigned_to_user=excluded.assigned_to_user
-        "#,
+                recurrence_id=excluded.recurrence_id,
+                created_at=excluded.created_at,
+                created_by=excluded.created_by,
+                last_mod=excluded.last_mod
+            "#,
         )
-        .bind(t.id)
-        .bind(t.todo_list_id)
-        .bind(t.summary)
-        .bind(t.description)
-        .bind(t.completed)
-        .bind(t.due_datetime)
-        .bind(t.priority)
-        .bind(t.attachment)
-        .bind(t.rrule)
-        .bind(t.recurrence_id)
-        .bind(t.recurrence_until)
-        .bind(t.created_by)
-        .bind(t.created_at)
-        .bind(t.last_mod)
-        .bind(t.assigned_to_user)
+        .bind(e.id)
+        .bind(e.todo_list_id)
+        .bind(e.summary)
+        .bind(e.description)
+        .bind(e.completed)
+        .bind(e.due_datetime)
+        .bind(e.priority)
+        .bind(e.assigned_to_user)
+        .bind(e.attachment)
+        .bind(e.rrule)
+        .bind(e.recurrence_until)
+        .bind(e.recurrence_id)
+        .bind(e.created_at)
+        .bind(e.created_by)
+        .bind(e.last_mod)
         .execute(&mut **tx)
         .await
-        .map_err(|e| ServerFnError::new(format!("SQL Error TodoItem: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("SQL Error TodoEvent: {}", e)))?;
     }
-    // Cleanup: set aus lokalen todo ids erstellen
-    let local_todo_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM todo_events")
+
+    // CleanUp: ToDos die lokal noch da sind aber nicht mehr in remote -> löschen
+    //Vec aus lokalen ToDos anhand ID
+    let local_event_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM todo_events")
         .fetch_all(&mut **tx)
         .await
-        .map_err(|e| ServerFnError::new(format!("Fetch Local Todo IDs: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("Fetch Local Event IDs: {}", e)))?;
 
-    //Cleanup: locale Todo id nicht in remote ToDo ids -> löschen
-    let local_todo_ids: Vec<String> = sqlx::query_scalar("SELECT id FROM todo_events")
-        .fetch_all(&mut **tx)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Fetch Local Todo IDs: {}", e)))?;
-
-    for local_id in local_todo_ids {
-        if !remote_todo_ids.contains(&local_id) {
-            println!("Deleting orphan todo: {}", local_id);
+    //Ist locale ID nicht in remote ID -> löschen
+    for id in local_event_ids {
+        if !remote_event_ids.contains(&id) {
             sqlx::query("DELETE FROM todo_events WHERE id = ?")
-                .bind(local_id)
+                .bind(id)
                 .execute(&mut **tx)
                 .await
                 .ok();
         }
     }
-
     Ok(())
 }

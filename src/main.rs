@@ -8,7 +8,7 @@ mod todos;
 mod user;
 mod utils;
 
-use crate::auth::backend::{AuthStatus, AuthView, get_client, init_client};
+use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
 use crate::database::local::heartbeat::start_heartbeat;
 use crate::todos::frontend::todo_view::*;
