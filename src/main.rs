@@ -10,6 +10,7 @@ mod utils;
 
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
+use crate::database::local::heartbeat::start_heartbeat;
 use crate::todos::frontend::todo_view::*;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
@@ -51,6 +52,9 @@ fn App() -> Element {
         }
     });
 
+    use_future(|| async move {
+        start_heartbeat().await;
+    });
     rsx! {
         document::Stylesheet { href: CSS }
 

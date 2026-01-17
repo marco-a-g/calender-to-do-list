@@ -1,3 +1,5 @@
+#![allow(unused_mut)]
+
 use crate::todos::backend::{
     complete_task, fetch_completed_history, fetch_groups, fetch_todos_filtered,
 };

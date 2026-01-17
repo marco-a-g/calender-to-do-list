@@ -4,13 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chrono = { version = "0.4.42", features = ["wasmbind"] }
+chrono = { version = "0.4.42", features = ["serde", "wasmbind"] }
 dioxus = { version = "0.7.2", features = ["fullstack", "router"] }
 dioxus-logger = "0.7.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 supabase-lib-rs = "0.5.3"
-uuid = { version = "1.19.0", features = ["v4"] }
+uuid = { version = "1.19.0", features = ["v4", "serde"] }
+tokio = { version = "1.49.0", features = ["full"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "uuid", "chrono"] }
+reqwest = "0.13.1"
 
 [features]
 default = ["web"]

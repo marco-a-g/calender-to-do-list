@@ -11,8 +11,8 @@ use supabase::{Auth, Client};
 use uuid::Uuid;
 
 static SUPABASE_CLIENT: OnceLock<Client> = OnceLock::new();
-const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
-const ANON_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5cWF3bm5rcHVzZ3RuaG1lZWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NDM5MjksImV4cCI6MjA4MTQxOTkyOX0.0_m5aLSKNdqiqCNFWI8Hfa5iSOKrjf97qb9ZXxnboGA";
+pub const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
+pub const ANON_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5cWF3bm5rcHVzZ3RuaG1lZWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NDM5MjksImV4cCI6MjA4MTQxOTkyOX0.0_m5aLSKNdqiqCNFWI8Hfa5iSOKrjf97qb9ZXxnboGA";
 
 // gets called from main.rs
 /// Initialises the Supabase client
@@ -27,7 +27,7 @@ pub fn init_client() -> Result<(), AuthError> {
     Ok(())
 }
 
-fn get_client() -> Result<&'static Client, AuthError> {
+pub fn get_client() -> Result<&'static Client, AuthError> {
     SUPABASE_CLIENT.get().ok_or(AuthError::ClientNotInitialized)
 }
 
