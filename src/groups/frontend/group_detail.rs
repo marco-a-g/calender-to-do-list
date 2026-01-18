@@ -14,10 +14,7 @@ const GROUP_COLORS: [&str; 8] = [
 #[component]
 fn PageShell(children: Element) -> Element {
     rsx! {
-        // Page-level scroll container (prevents getting "stuck" on small screens)
         div { class: "relative w-full min-h-screen overflow-y-auto text-white",
-
-            // Fixed background so it doesn't affect scroll height
             div {
                 class: "
                     fixed inset-0 -z-10
@@ -136,7 +133,7 @@ pub fn GroupDetailPage(id: i32) -> Element {
     // Tabs
     let mut tab = use_signal(|| DetailTab::Members);
 
-    // Trigger vom rechten Invite-Button
+    // Trigger right Invite-Button
     let mut open_invite_from_right = use_signal(|| false);
 
     // Files: resource + upload UI
@@ -149,10 +146,7 @@ pub fn GroupDetailPage(id: i32) -> Element {
         PageShell {
             div { class: "w-full min-h-screen px-4 sm:px-6 lg:px-12 py-6 sm:py-8 lg:py-10",
                 div { class: "mx-auto max-w-[1200px] w-full",
-
                     div { class: "grid grid-cols-1 lg:grid-cols-[1fr_1px_520px] gap-6 lg:gap-10 items-start w-full",
-
-                        // MAIN CONTENT
                         div { class: "min-h-0",
                             div {
                                 class: "

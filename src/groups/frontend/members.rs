@@ -53,7 +53,6 @@ pub fn MembersTab(group_id: i32, mut open_invite_from_right: Signal<bool>) -> El
     }
 
     rsx! {
-        // CHANGED: remove h-full forcing; allow natural page scroll
         div { class: "w-full min-h-0 flex flex-col gap-4",
             div { class: "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-none",
                 div {
@@ -134,7 +133,7 @@ pub fn MembersTab(group_id: i32, mut open_invite_from_right: Signal<bool>) -> El
                     }
                 }
             }
-            
+
             div { class: "w-full min-h-0",
                 match members.read().as_ref() {
                     Some(Ok(list)) => rsx!(
@@ -182,7 +181,6 @@ fn MemberRow(
                 hover:bg-white/10 transition
             ",
 
-            // Left side
             div { class: "flex items-center gap-4 min-w-0",
                 div {
                     class: "
@@ -204,7 +202,6 @@ fn MemberRow(
                 }
             }
 
-            // Right side controls
             div { class: "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto",
                 if can_manage {
                     select {
