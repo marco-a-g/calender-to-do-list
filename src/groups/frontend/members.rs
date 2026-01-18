@@ -53,8 +53,9 @@ pub fn MembersTab(group_id: i32, mut open_invite_from_right: Signal<bool>) -> El
     }
 
     rsx! {
-        div { class: "h-full min-h-0 flex flex-col gap-4",
-            div { class: "flex items-center justify-between flex-none",
+        // CHANGED: remove h-full forcing; allow natural page scroll
+        div { class: "w-full min-h-0 flex flex-col gap-4",
+            div { class: "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-none",
                 div {
                     div { class: "text-white/60 text-xs tracking-[0.18em]", "MEMBERS" }
                     div { class: "text-white/40 text-sm mt-1", "{member_count} in this group" }
@@ -63,6 +64,7 @@ pub fn MembersTab(group_id: i32, mut open_invite_from_right: Signal<bool>) -> El
                 if can_manage {
                     button {
                         class: "
+                            w-full sm:w-auto
                             px-4 py-2 rounded-2xl
                             bg-white/5 hover:bg-white/10 transition
                             border border-white/10
@@ -81,10 +83,11 @@ pub fn MembersTab(group_id: i32, mut open_invite_from_right: Signal<bool>) -> El
                 div { class: "rounded-3xl bg-white/5 border border-white/10 p-5 flex-none",
                     div { class: "text-white/60 text-xs tracking-[0.18em] mb-3", "INVITE MEMBER" }
 
-                    div { class: "flex gap-3 items-center",
+                    div { class: "flex flex-col sm:flex-row gap-3 sm:items-center",
                         input {
                             class: "
-                                flex-1 px-4 py-3 rounded-2xl
+                                w-full sm:flex-1
+                                px-4 py-3 rounded-2xl
                                 bg-black/20 border border-white/10
                                 text-white placeholder:text-white/30
                                 outline-none
@@ -96,6 +99,7 @@ pub fn MembersTab(group_id: i32, mut open_invite_from_right: Signal<bool>) -> El
 
                         select {
                             class: "
+                                w-full sm:w-auto
                                 px-3 py-3 rounded-2xl
                                 bg-black/20 border border-white/10
                                 text-white/90
@@ -110,6 +114,7 @@ pub fn MembersTab(group_id: i32, mut open_invite_from_right: Signal<bool>) -> El
 
                         button {
                             class: "
+                                w-full sm:w-auto
                                 px-4 py-3 rounded-2xl
                                 bg-blue-600/80 hover:bg-blue-500/80 transition
                                 font-semibold
@@ -129,8 +134,8 @@ pub fn MembersTab(group_id: i32, mut open_invite_from_right: Signal<bool>) -> El
                     }
                 }
             }
-
-            div { class: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1",
+            
+            div { class: "w-full min-h-0",
                 match members.read().as_ref() {
                     Some(Ok(list)) => rsx!(
                         div { class: "flex flex-col gap-2 pb-2",
@@ -170,36 +175,41 @@ fn MemberRow(
     rsx! {
         div {
             class: "
-                flex items-center justify-between
+                flex flex-col sm:flex-row sm:items-center sm:justify-between
+                gap-3
                 px-5 py-4 rounded-3xl
                 bg-white/5 border border-white/10
                 hover:bg-white/10 transition
             ",
 
-            div { class: "flex items-center gap-4",
+            // Left side
+            div { class: "flex items-center gap-4 min-w-0",
                 div {
                     class: "
                         w-10 h-10 rounded-2xl
                         bg-white/10 border border-white/10
                         flex items-center justify-center
                         text-sm font-bold text-white/90
+                        flex-none
                     ",
                     "{name.chars().next().unwrap_or('?')}"
                 }
 
-                div {
-                    div { class: "text-white font-semibold", "{name}" }
-                    div { class: "mt-1 inline-flex items-center gap-2",
+                div { class: "min-w-0",
+                    div { class: "text-white font-semibold truncate", "{name}" }
+                    div { class: "mt-1 inline-flex flex-wrap items-center gap-2",
                         span { class: format!("px-2.5 py-1 rounded-full text-[11px] font-semibold border {}", role_class), "{role_label}" }
                         span { class: "text-white/30 text-xs", "user_id: {user_id}" }
                     }
                 }
             }
 
-            div { class: "flex items-center gap-3",
+            // Right side controls
+            div { class: "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto",
                 if can_manage {
                     select {
                         class: "
+                            w-full sm:w-auto
                             px-3 py-2 rounded-2xl
                             bg-black/20 border border-white/10
                             text-white/90 text-sm
@@ -223,6 +233,7 @@ fn MemberRow(
                 if can_manage && !is_owner {
                     button {
                         class: "
+                            w-full sm:w-auto
                             px-4 py-2 rounded-2xl
                             bg-red-500/15 hover:bg-red-500/20 transition
                             border border-red-400/20

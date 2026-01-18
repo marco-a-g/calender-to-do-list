@@ -10,6 +10,7 @@ pub fn Navbar() -> Element {
                 width: 100vw;
                 height: 100vh;
                 display: flex;
+                overflow: hidden;
                 background: #050609;
             ",
 
@@ -84,7 +85,12 @@ pub fn Navbar() -> Element {
             main {
                 style: "
                     flex: 1;
+                    min-height: 0;
+                    height: 100%;
+                    overflow-y: auto;    
+                    overflow-x: hidden;
                     padding: 20px;
+                    background: transparent;
                 ",
                 Outlet::<Route> {}
             }

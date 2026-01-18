@@ -14,16 +14,18 @@ const GROUP_COLORS: [&str; 8] = [
 #[component]
 fn PageShell(children: Element) -> Element {
     rsx! {
-        div { class: "relative w-full h-full min-h-0 overflow-hidden text-white",
+        // Page-level scroll container (prevents getting "stuck" on small screens)
+        div { class: "relative w-full min-h-screen overflow-y-auto text-white",
 
+            // Fixed background so it doesn't affect scroll height
             div {
                 class: "
-                    absolute inset-0 -z-10
+                    fixed inset-0 -z-10
                     bg-gradient-to-b from-[#070B18] via-[#050914] to-black
                 "
             }
 
-            div { class: "relative w-full h-full min-h-0",
+            div { class: "relative w-full min-h-screen",
                 {children}
             }
         }
@@ -39,15 +41,15 @@ pub fn GroupsPage() -> Element {
 
     rsx! {
         PageShell {
-            div { class: "w-full h-full min-h-0 px-12 py-10",
+            div { class: "w-full min-h-screen px-4 sm:px-6 lg:px-12 py-6 sm:py-8 lg:py-10",
                 div { class: "mx-auto max-w-[1200px] w-full",
-                    div { class: "grid grid-cols-[520px_1px_520px] gap-10 items-start",
+                    div { class: "grid grid-cols-1 lg:grid-cols-[520px_1px_520px] gap-6 lg:gap-10 items-start",
                         div { class: "flex flex-col",
                             div { class: "text-white/60 text-xs tracking-[0.18em] mb-6", "GROUPS" }
                             GroupsOverview { groups_res }
                         }
 
-                        div { class: "w-px bg-white/10 h-full" }
+                        div { class: "hidden lg:block w-px bg-white/10 h-full" }
 
                         div {
                             div {
@@ -56,7 +58,7 @@ pub fn GroupsPage() -> Element {
                                     backdrop-blur-xl
                                     rounded-3xl
                                     shadow-[0_20px_60px_rgba(0,0,0,0.55)]
-                                    px-7 py-6
+                                    px-5 sm:px-6 lg:px-7 py-5 sm:py-6
                                 ",
 
                                 div { class: "text-white/60 text-xs tracking-[0.18em] mb-4", "ACTIONS" }
@@ -145,32 +147,32 @@ pub fn GroupDetailPage(id: i32) -> Element {
 
     rsx! {
         PageShell {
-            div { class: "w-full h-full min-h-0 px-12 py-10",
-                div { class: "mx-auto max-w-[1200px] w-full h-full min-h-0",
+            div { class: "w-full min-h-screen px-4 sm:px-6 lg:px-12 py-6 sm:py-8 lg:py-10",
+                div { class: "mx-auto max-w-[1200px] w-full",
 
-                    div { class: "grid grid-cols-[1fr_1px_520px] gap-10 items-start w-full h-full min-h-0",
+                    div { class: "grid grid-cols-1 lg:grid-cols-[1fr_1px_520px] gap-6 lg:gap-10 items-start w-full",
 
                         // MAIN CONTENT
-                        div { class: "min-h-0 h-full",
+                        div { class: "min-h-0",
                             div {
                                 class: "
                                     bg-white/5 border border-white/10
                                     backdrop-blur-xl
                                     rounded-3xl
                                     shadow-[0_20px_60px_rgba(0,0,0,0.55)]
-                                    px-7 py-6
-                                    h-full min-h-0
+                                    px-5 sm:px-6 lg:px-7 py-5 sm:py-6
                                     flex flex-col
-                                    overflow-hidden
+                                    overflow-visible lg:overflow-hidden
+                                    lg:h-full lg:min-h-0
                                 ",
 
                                 match group_res.read().as_ref() {
                                     Some(Ok(Some((gid, name, color)))) => rsx!(
-                                        div { class: "flex flex-col min-h-0 h-full",
-                                            div { class: "flex items-start justify-between mb-6 flex-none",
+                                        div { class: "flex flex-col",
+                                            div { class: "flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 flex-none",
                                                 div {
                                                     div { class: "text-white/60 text-xs tracking-[0.18em] mb-2", "GROUP OVERVIEW" }
-                                                    div { class: "text-3xl font-semibold leading-tight", "{name}" }
+                                                    div { class: "text-2xl sm:text-3xl font-semibold leading-tight", "{name}" }
                                                     div { class: "text-white/40 mt-1 text-sm", "Group ID: {gid}" }
                                                 }
 
@@ -181,13 +183,13 @@ pub fn GroupDetailPage(id: i32) -> Element {
                                                 }
                                             }
 
-                                            div { class: "flex gap-2 mb-4 flex-none",
+                                            div { class: "flex gap-2 mb-4 flex-none overflow-x-auto whitespace-nowrap -mx-1 px-1",
 
                                                 button {
                                                     class: if tab() == DetailTab::Members {
-                                                        "px-4 py-2 rounded-2xl bg-white/10 border border-white/10 text-sm font-medium"
+                                                        "px-3 sm:px-4 py-2 rounded-2xl bg-white/10 border border-white/10 text-sm font-medium"
                                                     } else {
-                                                        "px-4 py-2 rounded-2xl text-sm text-white/40 hover:text-white/70 transition"
+                                                        "px-3 sm:px-4 py-2 rounded-2xl text-sm text-white/40 hover:text-white/70 transition"
                                                     },
                                                     onclick: move |_| tab.set(DetailTab::Members),
                                                     "Members"
@@ -195,9 +197,9 @@ pub fn GroupDetailPage(id: i32) -> Element {
 
                                                 button {
                                                     class: if tab() == DetailTab::Files {
-                                                        "px-4 py-2 rounded-2xl bg-white/10 border border-white/10 text-sm font-medium"
+                                                        "px-3 sm:px-4 py-2 rounded-2xl bg-white/10 border border-white/10 text-sm font-medium"
                                                     } else {
-                                                        "px-4 py-2 rounded-2xl text-sm text-white/40 hover:text-white/70 transition"
+                                                        "px-3 sm:px-4 py-2 rounded-2xl text-sm text-white/40 hover:text-white/70 transition"
                                                     },
                                                     onclick: move |_| {
                                                         tab.set(DetailTab::Files);
@@ -208,27 +210,27 @@ pub fn GroupDetailPage(id: i32) -> Element {
 
                                                 button {
                                                     class: if tab() == DetailTab::Roles {
-                                                        "px-4 py-2 rounded-2xl bg-white/10 border border-white/10 text-sm font-medium"
+                                                        "px-3 sm:px-4 py-2 rounded-2xl bg-white/10 border border-white/10 text-sm font-medium"
                                                     } else {
-                                                        "px-4 py-2 rounded-2xl text-sm text-white/40 hover:text-white/70 transition"
+                                                        "px-3 sm:px-4 py-2 rounded-2xl text-sm text-white/40 hover:text-white/70 transition"
                                                     },
                                                     onclick: move |_| tab.set(DetailTab::Roles),
                                                     "Roles"
                                                 }
                                             }
 
-                                            div { class: "flex-1 min-h-0 overflow-hidden",
+                                            div { class: "flex-1 min-h-0 overflow-visible lg:overflow-hidden",
 
                                                 match tab() {
                                                     DetailTab::Members => rsx!(
                                                         MembersTab {
                                                             group_id: *gid,
                                                             open_invite_from_right: open_invite_from_right,
-
-                                                        }),
+                                                        }
+                                                    ),
 
                                                     DetailTab::Files => rsx!(
-                                                        div { class: "h-full min-h-0 flex flex-col overflow-hidden",
+                                                        div { class: "min-h-0 flex flex-col overflow-visible lg:overflow-hidden",
 
                                                             div { class: "flex items-center justify-between flex-none mb-3",
                                                                 div {
@@ -255,7 +257,7 @@ pub fn GroupDetailPage(id: i32) -> Element {
                                                                 div { class: "flex-none mb-4 rounded-3xl bg-white/5 border border-white/10 p-4",
                                                                     div { class: "text-white/60 text-xs tracking-[0.18em] mb-3", "UPLOAD (MOCK)" }
 
-                                                                    div { class: "flex gap-3 items-center",
+                                                                    div { class: "flex flex-col sm:flex-row gap-3 sm:items-center",
                                                                         input {
                                                                             class: "
                                                                                 flex-1 px-4 py-3 rounded-2xl
@@ -270,7 +272,7 @@ pub fn GroupDetailPage(id: i32) -> Element {
 
                                                                         button {
                                                                             class: "
-                                                                                px-4 py-3 rounded-2xl
+                                                                                w-full sm:w-auto px-4 py-3 rounded-2xl
                                                                                 bg-blue-600/80 hover:bg-blue-500/80 transition
                                                                                 font-semibold
                                                                             ",
@@ -308,7 +310,8 @@ pub fn GroupDetailPage(id: i32) -> Element {
                                                                                 div {
                                                                                     key: "{group_id}-{file_id}",
                                                                                     class: "
-                                                                                        flex items-center justify-between
+                                                                                        flex flex-col sm:flex-row sm:items-center sm:justify-between
+                                                                                        gap-3
                                                                                         px-5 py-4 rounded-3xl
                                                                                         bg-white/5 border border-white/10
                                                                                         hover:bg-white/10 transition
@@ -321,7 +324,7 @@ pub fn GroupDetailPage(id: i32) -> Element {
 
                                                                                     button {
                                                                                         class: "
-                                                                                            px-4 py-2 rounded-2xl
+                                                                                            w-full sm:w-auto px-4 py-2 rounded-2xl
                                                                                             bg-red-500/15 hover:bg-red-500/20 transition
                                                                                             border border-red-400/20
                                                                                             text-red-200 text-sm font-semibold
@@ -360,16 +363,16 @@ pub fn GroupDetailPage(id: i32) -> Element {
                             }
                         }
 
-                        div { class: "w-px bg-white/10 h-full" }
+                        div { class: "hidden lg:block w-px bg-white/10 h-full" }
 
-                        div { class: "h-full min-h-0",
+                        div { class: "min-h-0",
                             div {
                                 class: "
                                     bg-white/5 border border-white/10
                                     backdrop-blur-xl
                                     rounded-3xl
                                     shadow-[0_20px_60px_rgba(0,0,0,0.55)]
-                                    px-7 py-6
+                                    px-5 sm:px-6 lg:px-7 py-5 sm:py-6
                                 ",
 
                                 div { class: "text-white/60 text-xs tracking-[0.18em] mb-4", "ACTIONS" }
