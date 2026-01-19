@@ -13,13 +13,12 @@ supabase-lib-rs = "0.5.3"
 uuid = { version = "1.19.0", features = ["v4", "serde"] }
 tokio = { version = "1.49.0", features = ["full"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "uuid", "chrono"] }
+<<<<<<< HEAD
 reqwest = { version = "0.13.1", features = ["json", "query"] }
 strum = { version = "0.27.2", features = ["strum_macros"]}
-dotenvy = { version = "0.15"}
-open = "5"
-rfd = "0.15"
-axum = "0.7"
-urlencoding = "2"
+=======
+reqwest = { version = "0.13.1", features = ["json"] }
+>>>>>>> 499dab3 (add create_calendar_event)
 
 [features]
 default = ["web"]
