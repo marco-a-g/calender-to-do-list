@@ -1,11 +1,11 @@
 use chrono::{DateTime, Local, NaiveDate, Utc};
-use dioxus::{CapturedError, prelude::ServerFnError};
+use dioxus::{CapturedError, prelude::*};
 use reqwest::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
-use crate::utils::structs::*;
+use crate::auth::backend::{ANON_KEY, SUPABASE_URL, get_client};
+use crate::utils::{functions::*, structs::*};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct NewCalendarEvent {
@@ -28,7 +28,6 @@ pub struct NewCalendarEvent {
 
 //#[server]
 pub async fn create_calendar_event(
-    token: &str,
     summary: String,
     description: Option<String>,
     calendar_id: Uuid,
@@ -41,7 +40,16 @@ pub async fn create_calendar_event(
     location: Option<String>,
     categories: Option<Vec<String>>,
     is_all_day: bool,
-) -> core::result::Result<() /*Uuid*/, CapturedError> {
+) -> core::result::Result<() /*Uuid*/, ServerFnError> {
+    let token = match get_session_token().await {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(ServerFnError::new(format!(
+                "get_session_token Error: {}",
+                e
+            )));
+        }
+    };
     let bearer_token = format!("Bearer {}", token);
 
     let new_cal_event = NewCalendarEvent {
@@ -70,6 +78,41 @@ pub async fn create_calendar_event(
         .header("Authorization", &bearer_token)
         .json(&new_cal_event)
         .send()
-        .await?;
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
     Ok(())
 }
+
+//Test:
+
+// pub fn test_creat_cal_ev(
+//     token: &str,
+//     summary: String,
+//     description: Option<String>,
+//     calendar_id: Uuid,
+//     created_by: Uuid,
+//     from_date_time: DateTime<Utc>,
+//     to_date_time: Option<DateTime<Utc>>,
+//     attachment: Option<String>,
+//     recurrence: Option<Recurrent>,
+//     recurrence_id: Option<Uuid>,
+//     location: Option<String>,
+//     categories: Option<Vec<String>>,
+//     is_all_day: bool,
+// ) {
+//     create_calendar_event(
+//         token,
+//         summary,
+//         description,
+//         calendar_id,
+//         created_by,
+//         from_date_time,
+//         to_date_time,
+//         attachment,
+//         recurrence,
+//         recurrence_id,
+//         location,
+//         categories,
+//         is_all_day,
+//     );
+// }
