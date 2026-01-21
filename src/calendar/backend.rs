@@ -1,7 +1,8 @@
 use chrono::{DateTime, Local, NaiveDate, Utc};
-use dioxus::{CapturedError, prelude::*};
+use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
+use supabase::client::*;
 use uuid::Uuid;
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL, get_client};
@@ -14,7 +15,7 @@ pub struct NewCalendarEvent {
     pub description: Option<String>,
     pub calendar_id: Uuid,
     pub created_at: DateTime<Utc>,
-    pub created_by: Uuid, //must be a users Uuid
+    pub created_by: Uuid,
     pub from_date_time: DateTime<Utc>,
     pub to_date_time: Option<DateTime<Utc>>,
     pub attachment: Option<String>, //the path, regularly the web address, of a (shared) folder
@@ -31,7 +32,6 @@ pub async fn create_calendar_event(
     summary: String,
     description: Option<String>,
     calendar_id: Uuid,
-    created_by: Uuid,
     from_date_time: DateTime<Utc>,
     to_date_time: Option<DateTime<Utc>>,
     attachment: Option<String>,
@@ -41,7 +41,7 @@ pub async fn create_calendar_event(
     categories: Option<Vec<String>>,
     is_all_day: bool,
 ) -> core::result::Result<() /*Uuid*/, ServerFnError> {
-    let token = match get_session_token().await {
+    let current_user = match get_user_id_and_session_token().await {
         Ok(c) => c,
         Err(e) => {
             return Err(ServerFnError::new(format!(
@@ -50,7 +50,7 @@ pub async fn create_calendar_event(
             )));
         }
     };
-    let bearer_token = format!("Bearer {}", token);
+    let bearer_token = format!("Bearer {}", current_user.1);
 
     let new_cal_event = NewCalendarEvent {
         id: None,
@@ -58,7 +58,7 @@ pub async fn create_calendar_event(
         description: description,
         calendar_id: calendar_id,
         created_at: Utc::now(),
-        created_by: created_by,
+        created_by: current_user.0,
         from_date_time: from_date_time,
         to_date_time: to_date_time,
         attachment: attachment,
@@ -85,25 +85,23 @@ pub async fn create_calendar_event(
 
 //Test:
 
-// pub fn test_creat_cal_ev(
-//     token: &str,
-//     summary: String,
-//     description: Option<String>,
-//     calendar_id: Uuid,
-//     created_by: Uuid,
-//     from_date_time: DateTime<Utc>,
-//     to_date_time: Option<DateTime<Utc>>,
-//     attachment: Option<String>,
-//     recurrence: Option<Recurrent>,
-//     recurrence_id: Option<Uuid>,
-//     location: Option<String>,
-//     categories: Option<Vec<String>>,
-//     is_all_day: bool,
-// ) {
+// pub async fn test_creat_cal_event() -> core::result::Result<() /*Uuid*/, ServerFnError> {
+//     // let calendar_id = Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529")?;
+//     let calendar_id = match Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let created_by = match Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("created_by Error: {}", e)));
+//         }
+//     };
 //     create_calendar_event(
-//         token,
-//         summary,
-//         description,
+//         "Testevent".to_string(),
+//         Some("Beschreibung".to_string()),
 //         calendar_id,
 //         created_by,
 //         from_date_time,
@@ -114,5 +112,6 @@ pub async fn create_calendar_event(
 //         location,
 //         categories,
 //         is_all_day,
-//     );
+//     )
+//     .await
 // }
