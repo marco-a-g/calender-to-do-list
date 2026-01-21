@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, NaiveDate, Utc};
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
@@ -10,21 +10,18 @@ use crate::utils::{functions::*, structs::*};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct NewCalendarEvent {
-    pub id: Option<Uuid>,
     pub summary: String,
     pub description: Option<String>,
-    pub calendar_id: Uuid,
-    pub created_at: DateTime<Utc>,
-    pub created_by: Uuid,
-    pub from_date_time: DateTime<Utc>,
-    pub to_date_time: Option<DateTime<Utc>>,
-    pub attachment: Option<String>, //the path, regularly the web address, of a (shared) folder
-    pub recurrence: Option<Recurrent>, // see explanation at "Recurrent"
-    pub recurrence_id: Option<Uuid>, // see explanation at "Recurrent"
+    pub calendar_id: String,
+    pub from_date_time: String,
+    pub to_date_time: Option<String>,
+    pub attachment: Option<String>,
+    pub rrule: Option<String>,
+    pub recurrence_until: Option<String>,
+    pub recurrence_id: Option<String>,
     pub location: Option<String>,
-    pub categories: Option<Vec<String>>, // used to add tags to the event
-    pub is_all_day: bool,
-    pub last_mod: DateTime<Utc>,
+    pub category: Option<String>,
+    pub is_all_day: String,
 }
 
 //#[server]
@@ -40,7 +37,8 @@ pub async fn create_calendar_event(
     location: Option<String>,
     categories: Option<Vec<String>>,
     is_all_day: bool,
-) -> core::result::Result<() /*Uuid*/, ServerFnError> {
+) -> core::result::Result<(), ServerFnError> {
+    // get the session token
     let current_user = match get_user_id_and_session_token().await {
         Ok(c) => c,
         Err(e) => {
@@ -50,61 +48,91 @@ pub async fn create_calendar_event(
             )));
         }
     };
-    let bearer_token = format!("Bearer {}", current_user.1);
 
+    // fit data into a NewCalendarEvent for building the json
     let new_cal_event = NewCalendarEvent {
-        id: None,
         summary: summary,
         description: description,
-        calendar_id: calendar_id,
-        created_at: Utc::now(),
-        created_by: current_user.0,
-        from_date_time: from_date_time,
-        to_date_time: to_date_time,
-        attachment: attachment,
-        recurrence: recurrence,
-        recurrence_id: recurrence_id,
-        location: location,
-        categories: categories,
-        is_all_day: is_all_day,
-        last_mod: Utc::now(),
+        calendar_id: calendar_id.into(),
+        from_date_time: from_date_time.to_string(),
+        to_date_time: match to_date_time {
+            Some(t) => Some(t.to_string()),
+            None => None,
+        },
+        attachment: attachment.into(),
+        rrule: match &recurrence {
+            Some(r) => Some(r.rrule.to_string().to_lowercase()),
+            None => None,
+        },
+        recurrence_until: match &recurrence {
+            Some(r) => Some(r.recurrence_until.to_string()),
+            None => None,
+        },
+        recurrence_id: match recurrence_id {
+            Some(r) => Some(r.to_string()),
+            None => None,
+        },
+        location: location.into(),
+        category: match categories {
+            Some(c) => Some(c.join(", ")),
+            None => None,
+        },
+        is_all_day: is_all_day.to_string(),
     };
 
+    // Insert into database
     let url_events = format!("{}/rest/v1/calendar_events", SUPABASE_URL);
     let insert_event = reqwest::Client::new()
         .post(url_events)
+        .bearer_auth(current_user.1)
         .header("apikey", ANON_KEY)
         .header("Content-Type", "application/json")
-        .header("Authorization", &bearer_token)
         .json(&new_cal_event)
         .send()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
+    let answer = insert_event
+        .text()
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    println!("Funktion durchgelaufen: {}", answer);
     Ok(())
 }
 
 //Test:
 
-pub async fn test_create_cal_event() -> core::result::Result<() /*Uuid*/, ServerFnError> {
-    // let calendar_id = Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529")?;
-    let calendar_id = match Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529") {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-        }
-    };
-    create_calendar_event(
-        "Testevent".to_string(),
-        Some("Beschreibung".to_string()),
-        calendar_id,
-        Utc::now(),
-        None,
-        None,
-        None,
-        None,
-        Some("hier oder wo anders".to_string()),
-        None,
-        false,
-    )
-    .await
-}
+// pub async fn test_create_cal_event() -> core::result::Result<(), ServerFnError> {
+//     // let calendar_id = Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529")?;
+//     println!("Testfunktion gestartet");
+//     let cal_id = match Uuid::parse_str("fdb5cf9c-0a19-416b-aa92-330a474e1529") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let date = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
+
+//     println!("vor xyz");
+//     let xyz = create_calendar_event(
+//         "Testevent4".to_string(),
+//         None,
+//         cal_id,
+//         date,
+//         None,
+//         None,
+//         None,
+//         Some(recurrence_id),
+//         Some("wo anders".to_string()),
+//         None,
+//         true,
+//     )
+//     .await;
+//     println!("Testfunktion durchgelaufen");
+//     Ok(())
+// }
