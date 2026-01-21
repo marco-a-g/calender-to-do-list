@@ -85,33 +85,26 @@ pub async fn create_calendar_event(
 
 //Test:
 
-// pub async fn test_creat_cal_event() -> core::result::Result<() /*Uuid*/, ServerFnError> {
-//     // let calendar_id = Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529")?;
-//     let calendar_id = match Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529") {
-//         Ok(c) => c,
-//         Err(e) => {
-//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-//         }
-//     };
-//     let created_by = match Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529") {
-//         Ok(c) => c,
-//         Err(e) => {
-//             return Err(ServerFnError::new(format!("created_by Error: {}", e)));
-//         }
-//     };
-//     create_calendar_event(
-//         "Testevent".to_string(),
-//         Some("Beschreibung".to_string()),
-//         calendar_id,
-//         created_by,
-//         from_date_time,
-//         to_date_time,
-//         attachment,
-//         recurrence,
-//         recurrence_id,
-//         location,
-//         categories,
-//         is_all_day,
-//     )
-//     .await
-// }
+pub async fn test_create_cal_event() -> core::result::Result<() /*Uuid*/, ServerFnError> {
+    // let calendar_id = Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529")?;
+    let calendar_id = match Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529") {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+        }
+    };
+    create_calendar_event(
+        "Testevent".to_string(),
+        Some("Beschreibung".to_string()),
+        calendar_id,
+        Utc::now(),
+        None,
+        None,
+        None,
+        None,
+        Some("hier oder wo anders".to_string()),
+        None,
+        false,
+    )
+    .await
+}
