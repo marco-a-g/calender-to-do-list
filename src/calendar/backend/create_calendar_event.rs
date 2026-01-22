@@ -6,26 +6,72 @@ use supabase::client::*;
 use uuid::Uuid;
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL, get_client};
+use crate::calendar::backend::utils::check_input_sensibility;
 use crate::utils::{functions::*, structs::*};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct NewCalendarEvent {
-    pub summary: String,
-    pub description: Option<String>,
-    pub calendar_id: String,
-    pub from_date_time: String,
-    pub to_date_time: Option<String>,
-    pub attachment: Option<String>,
-    pub rrule: Option<String>,
-    pub recurrence_until: Option<String>,
-    pub recurrence_id: Option<String>,
-    pub location: Option<String>,
-    pub category: Option<String>,
-    pub is_all_day: String,
+struct NewCalendarEvent {
+    summary: String,
+    description: Option<String>,
+    calendar_id: String,
+    from_date_time: String,
+    to_date_time: Option<String>,
+    attachment: Option<String>,
+    rrule: Option<String>,
+    recurrence_until: Option<String>,
+    recurrence_id: Option<String>,
+    location: Option<String>,
+    category: Option<String>,
+    is_all_day: String,
+}
+
+#[server]
+pub async fn create_calendar_event(
+    summary: String,
+    description: Option<String>,
+    calendar_id: Uuid,
+    from_date_time: DateTime<Utc>,
+    to_date_time: Option<DateTime<Utc>>,
+    attachment: Option<String>,
+    recurrence: Option<Recurrent>,
+    recurrence_id: Option<Uuid>,
+    location: Option<String>,
+    categories: Option<Vec<String>>,
+    is_all_day: bool,
+) -> core::result::Result<(), ServerFnError> {
+    match check_input_sensibility(
+        summary,
+        calendar_id,
+        from_date_time,
+        to_date_time,
+        recurrence,
+        recurrence_id,
+    ) {
+        Ok(()) => match create_calendar_event_unchecked(
+            summary,
+            description,
+            calendar_id,
+            from_date_time,
+            to_date_time,
+            attachment,
+            recurrence,
+            recurrence_id,
+            location,
+            categories,
+            is_all_day,
+        )
+        .await
+        {
+            Err(e) => return e,
+            Ok(()) => (),
+        },
+        Err(e) => return e,
+    }
+    Ok(())
 }
 
 //#[server]
-pub async fn create_calendar_event(
+pub async fn create_calendar_event_unchecked(
     summary: String,
     description: Option<String>,
     calendar_id: Uuid,
@@ -95,7 +141,7 @@ pub async fn create_calendar_event(
         .text()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
-    println!("Funktion durchgelaufen: {}", answer);
+    println!("Funktion durchgelaufen - Antwort: {}", answer);
     Ok(())
 }
 
