@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use supabase::client::*;
 use uuid::Uuid;
 
-use crate::auth::backend::{ANON_KEY, SUPABASE_URL, get_client};
+use crate::auth::backend::*;
 use crate::calendar::backend::utils::check_input_sensibility;
 use crate::utils::{functions::*, structs::*};
 
@@ -25,7 +25,7 @@ struct NewCalendarEvent {
     is_all_day: String,
 }
 
-#[server]
+// #[server]
 pub async fn create_calendar_event(
     summary: String,
     description: Option<String>,
@@ -40,37 +40,49 @@ pub async fn create_calendar_event(
     is_all_day: bool,
 ) -> core::result::Result<(), ServerFnError> {
     match check_input_sensibility(
-        summary,
-        calendar_id,
-        from_date_time,
-        to_date_time,
-        recurrence,
-        recurrence_id,
+        summary.clone(),
+        calendar_id.clone(),
+        from_date_time.clone(),
+        to_date_time.clone(),
+        recurrence.clone(),
+        recurrence_id.clone(),
     ) {
-        Ok(()) => match create_calendar_event_unchecked(
-            summary,
-            description,
-            calendar_id,
-            from_date_time,
-            to_date_time,
-            attachment,
-            recurrence,
-            recurrence_id,
-            location,
-            categories,
-            is_all_day,
-        )
-        .await
-        {
-            Err(e) => return e,
-            Ok(()) => (),
-        },
-        Err(e) => return e,
+        Ok(()) => {
+            match create_calendar_event_unchecked(
+                summary,
+                description,
+                calendar_id,
+                from_date_time,
+                to_date_time,
+                attachment,
+                recurrence,
+                recurrence_id,
+                location,
+                categories,
+                is_all_day,
+            )
+            .await
+            {
+                Err(e) => {
+                    return Err(ServerFnError::new(format!(
+                        "create_calendar_event_unchecked error: {}",
+                        e
+                    )));
+                }
+                Ok(s) => println!("Calendar Event Created. Status: {}", s),
+            }
+        }
+        Err(e) => {
+            return Err(ServerFnError::new(format!(
+                "chek_input_sensibility error: {}",
+                e
+            )));
+        }
     }
     Ok(())
 }
 
-//#[server]
+// #[server]
 pub async fn create_calendar_event_unchecked(
     summary: String,
     description: Option<String>,
@@ -83,8 +95,9 @@ pub async fn create_calendar_event_unchecked(
     location: Option<String>,
     categories: Option<Vec<String>>,
     is_all_day: bool,
-) -> core::result::Result<(), ServerFnError> {
+) -> core::result::Result<StatusCode, ServerFnError> {
     // get the session token
+    // println!("create_cal gestartet");
     let current_user = match get_user_id_and_session_token().await {
         Ok(c) => c,
         Err(e) => {
@@ -94,7 +107,7 @@ pub async fn create_calendar_event_unchecked(
             )));
         }
     };
-
+    // println!("user_id und token erstellt");
     // fit data into a NewCalendarEvent for building the json
     let new_cal_event = NewCalendarEvent {
         summary: summary,
@@ -125,7 +138,7 @@ pub async fn create_calendar_event_unchecked(
         },
         is_all_day: is_all_day.to_string(),
     };
-
+    // println!("new_cal_event erstellt");
     // Insert into database
     let url_events = format!("{}/rest/v1/calendar_events", SUPABASE_URL);
     let insert_event = reqwest::Client::new()
@@ -137,48 +150,43 @@ pub async fn create_calendar_event_unchecked(
         .send()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
-    let answer = insert_event
-        .text()
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
-    println!("Funktion durchgelaufen - Antwort: {}", answer);
-    Ok(())
+    // println!("insert event durchgelaufen");
+    Ok(insert_event.status())
 }
 
 //Test:
 
-// pub async fn test_create_cal_event() -> core::result::Result<(), ServerFnError> {
-//     // let calendar_id = Uuid::parse_str("fdb5cf9c - 0a19 - 416b - aa92 - 330a474e1529")?;
-//     println!("Testfunktion gestartet");
-//     let cal_id = match Uuid::parse_str("fdb5cf9c-0a19-416b-aa92-330a474e1529") {
-//         Ok(c) => c,
-//         Err(e) => {
-//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-//         }
-//     };
-//     let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
-//         Ok(c) => c,
-//         Err(e) => {
-//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-//         }
-//     };
-//     let date = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
+pub async fn test_create_cal_event() -> core::result::Result<(), ServerFnError> {
+    println!("Testfunktion gestartet");
+    let cal_id = match Uuid::parse_str("fdb5cf9c-0a19-416b-aa92-330a474e1529") {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+        }
+    };
+    let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+        }
+    };
+    let date = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
 
-//     println!("vor xyz");
-//     let xyz = create_calendar_event(
-//         "Testevent4".to_string(),
-//         None,
-//         cal_id,
-//         date,
-//         None,
-//         None,
-//         None,
-//         Some(recurrence_id),
-//         Some("wo anders".to_string()),
-//         None,
-//         true,
-//     )
-//     .await;
-//     println!("Testfunktion durchgelaufen");
-//     Ok(())
-// }
+    println!("vor xyz");
+    let xyz = create_calendar_event(
+        "Testevent 9".to_string(),
+        None,
+        cal_id,
+        date,
+        None,
+        None,
+        None,
+        Some(recurrence_id),
+        Some("wo anders".to_string()),
+        None,
+        true,
+    )
+    .await;
+    println!("Testfunktion durchgelaufen");
+    Ok(())
+}
