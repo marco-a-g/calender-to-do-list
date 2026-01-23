@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::auth::backend::*;
 use crate::calendar::backend::utils::check_input_sensibility;
+use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::{functions::*, structs::*};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -79,6 +80,7 @@ pub async fn create_calendar_event(
             )));
         }
     }
+    let _ = sync_local_to_remote_db();
     Ok(())
 }
 
@@ -156,37 +158,37 @@ pub async fn create_calendar_event_unchecked(
 
 //Test:
 
-pub async fn test_create_cal_event() -> core::result::Result<(), ServerFnError> {
-    println!("Testfunktion gestartet");
-    let cal_id = match Uuid::parse_str("fdb5cf9c-0a19-416b-aa92-330a474e1529") {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-        }
-    };
-    let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-        }
-    };
-    let date = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
+// pub async fn test_create_cal_event() -> core::result::Result<(), ServerFnError> {
+//     println!("Testfunktion gestartet");
+//     let cal_id = match Uuid::parse_str("fdb5cf9c-0a19-416b-aa92-330a474e1529") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let date = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
 
-    println!("vor xyz");
-    let xyz = create_calendar_event(
-        "Testevent 9".to_string(),
-        None,
-        cal_id,
-        date,
-        None,
-        None,
-        None,
-        Some(recurrence_id),
-        Some("wo anders".to_string()),
-        None,
-        true,
-    )
-    .await;
-    println!("Testfunktion durchgelaufen");
-    Ok(())
-}
+//     println!("vor xyz");
+//     let xyz = create_calendar_event(
+//         "Testevent 9".to_string(),
+//         None,
+//         cal_id,
+//         date,
+//         None,
+//         None,
+//         None,
+//         Some(recurrence_id),
+//         Some("wo anders".to_string()),
+//         None,
+//         true,
+//     )
+//     .await;
+//     println!("Testfunktion durchgelaufen");
+//     Ok(())
+// }
