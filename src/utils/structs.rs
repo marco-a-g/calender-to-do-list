@@ -65,6 +65,7 @@ impl fmt::Display for Priority {
 /// exception to the recurrent element.
 /// Overrides shows wether this exception replaces an regular element (see Overrides) or is an
 /// additional element to the recurrent element (None).
+/// An element that is used as an recurrence exception must not be recurrent itself.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct RecurrenceException {
     recurrence_id: Uuid,
@@ -110,6 +111,7 @@ impl fmt::Display for Overrides {
 /// and attach it to the recurrent event by setting the recurrence_id of the irregular event to the
 /// id of the recurrent event.
 /// This way you can also build recurrent events with odd recurrencies.
+/// A recurrent event itself must not be marked as an RecurrenceException.
 /// Example: You want an event that takes place every wednesday at 5 and every friday at 8.
 /// Build a recurrent event at wednesday at 5, rrule = Weekly.
 /// Build a second recurrent event at friday at 7, rrule = Weekly, recurrence_id = id of the first
