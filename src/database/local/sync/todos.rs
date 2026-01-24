@@ -51,9 +51,9 @@ pub async fn sync_todos(
                 id, todo_list_id, summary, description, completed, 
                 due_datetime, priority, assigned_to_user, attachment, 
                 rrule, recurrence_until, recurrence_id, 
-                created_at, created_by, last_mod
+                created_at, created_by, last_mod, overrides_datetime, skipped
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
                 todo_list_id=excluded.todo_list_id, 
                 summary=excluded.summary, 
@@ -68,7 +68,9 @@ pub async fn sync_todos(
                 recurrence_id=excluded.recurrence_id,
                 created_at=excluded.created_at,
                 created_by=excluded.created_by,
-                last_mod=excluded.last_mod
+                last_mod=excluded.last_mod,
+                overrides_datetime=excluded.overrides_datetime,
+                skipped=excluded.skipped
             "#,
         )
         .bind(todo.id)
@@ -86,6 +88,8 @@ pub async fn sync_todos(
         .bind(todo.created_at)
         .bind(todo.created_by)
         .bind(todo.last_mod)
+        .bind(todo.overrides_datetime)
+        .bind(todo.skipped)
         .execute(&mut **tx)
         .await
         .map_err(|e| ServerFnError::new(format!("SQL Error TodoEvent: {}", e)))?;

@@ -52,9 +52,9 @@ pub async fn sync_todolists(
                 id, name, type, description, owner_id, group_id, 
                 due_datetime, priority, attachment, rrule, recurrence_until, 
                 recurrence_id, attached_to_calendar_event, 
-                created_at, created_by, last_mod
+                created_at, created_by, last_mod, overrides_datetime, skipped
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
                 name=excluded.name, 
                 type=excluded.type, 
@@ -70,7 +70,9 @@ pub async fn sync_todolists(
                 attached_to_calendar_event=excluded.attached_to_calendar_event,
                 created_at=excluded.created_at,
                 created_by=excluded.created_by,
-                last_mod=excluded.last_mod
+                last_mod=excluded.last_mod,
+                overrides_datetime=excluded.overrides_datetime,
+                skipped=excluded.skipped
             "#,
         )
         .bind(l.id)
@@ -89,6 +91,8 @@ pub async fn sync_todolists(
         .bind(l.created_at)
         .bind(l.created_by)
         .bind(l.last_mod)
+        .bind(l.overrides_datetime)
+        .bind(l.skipped)
         .execute(&mut **tx)
         .await
         .map_err(|e| ServerFnError::new(format!("SQL Error TodoList: {}", e)))?;
