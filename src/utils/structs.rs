@@ -291,7 +291,7 @@ pub struct CalendarLight {
 
 /// For use of recurrence_id see RecurrenceException.
 /// recurrence_id must be None for recurrent events.
-/// overrides_datetime must not be true if recurrence_id is None. (See Overrides)
+/// overrides_datetime must be None if recurrence_id is None. (See Overrides)
 /// skipped must not be true if overrides_datetime is None. (See Overrides)
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct CalendarEventLight {
@@ -320,7 +320,7 @@ pub struct CalendarEventLight {
 /// must be provided. There must only be one, either owner_id or group_id.
 /// For use of recurrence_id see RecurrenceException.
 /// recurrence_id must be None for recurrent events.
-/// overrides_datetime must not be true if recurrence_id is None. (See Overrides)
+/// overrides_datetime must be None if recurrence_id is None. (See Overrides)
 /// skipped must not be true if overrides_datetime is None. (See Overrides)
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct TodoListLight {
@@ -347,7 +347,7 @@ pub struct TodoListLight {
 
 /// For use of recurrence_id see RecurrenceException.
 /// recurrence_id must be None for recurrent events.
-/// overrides_datetime must not be true if recurrence_id is None. (See Overrides)
+/// overrides_datetime must be None if recurrence_id is None. (See Overrides)
 /// skipped must not be true if overrides_datetime is None. (See Overrides)
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct TodoEventLight {
