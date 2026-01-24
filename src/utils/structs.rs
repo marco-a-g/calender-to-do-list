@@ -59,6 +59,12 @@ impl fmt::Display for Priority {
     }
 }
 
+/// Used for building an exception of an recurrent element.
+/// If RecurrenceException is not None, recurrence id must refer to the id of an recurrent
+/// element of the same type as this element (e.g. CalendarEvents) marking this element an
+/// exception to the recurrent element.
+/// Overrides shows wether this exception replaces an regular element (see Overrides) or is an
+/// additional element to the recurrent element (None).
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct RecurrenceException {
     recurrence_id: Uuid,
@@ -74,18 +80,14 @@ impl fmt::Display for RecurrenceException {
                 self.recurrence_id
             ),
         }
-        // write!(
-        //     f,
-        //     "recurrence_id: {}, overrides: {}",
-        //     self.recurrence_id,
-        //     match self.overrides {
-        //         Some(o) => o,
-        //         None => "NULL",
-        //     },
-        // )
     }
 }
 
+/// Describes which instance of the recurrent element should be overridden.
+/// overrides_datetime must match from_date_time of the instance that shall be replaced.
+/// skipped is used when the overridden instance is not replaced but simply skipped.
+/// If skipped is set to true, the RecurrenceException will not be displayed and the only value
+/// of it that is used is overrides_datetime.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Overrides {
     overrides_datetime: DateTime<Utc>,
@@ -103,9 +105,10 @@ impl fmt::Display for Overrides {
 
 /// Used to describe a recurrent event.
 /// rrule is currently limited to the frequency of the recurrence.
-/// In case, there should be an irregularity within a recurrent event, construct a different event
-/// that shows the irregularity and attach it to the recurrent event by setting the recurrence_id
-/// of the irregular event to the id of the recurrent event.
+/// In case, there should be an irregularity within a recurrent event or the recurrence is skipped,
+/// construct a different event that shows the irregularity (as explained at RecurrenceException)
+/// and attach it to the recurrent event by setting the recurrence_id of the irregular event to the
+/// id of the recurrent event.
 /// This way you can also build recurrent events with odd recurrencies.
 /// Example: You want an event that takes place every wednesday at 5 and every friday at 8.
 /// Build a recurrent event at wednesday at 5, rrule = Weekly.
@@ -169,7 +172,7 @@ pub struct Group {
 }
 
 /// A calendar must either belong to a user or to a group.
-#[derive(Debug, Deserialize, Serialize), PartialEq]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct Calendar {
     pub id: Uuid,
     pub name: String,
@@ -193,7 +196,7 @@ pub struct CalendarEvent {
     pub to_date_time: Option<DateTime<Utc>>,
     pub attachment: Option<String>, //the path, regularly the web address, of a (shared) folder
     pub recurrence: Option<Recurrent>, // see explanation at "Recurrent"
-    pub recurrence_id: Option<Uuid>, // see explanation at "Recurrent"
+    pub recurrence_exception: Option<RecurrenceException>, // if not None, this event is not stand-alone but an exception of an recurrent event
     pub location: Option<String>,
     pub categories: Option<Vec<String>>, // used to add tags to the event
     pub is_all_day: bool,
@@ -210,7 +213,7 @@ pub struct ToDoList {
     pub priority: Priority,
     pub attachment: Option<String>, //the path, regularly the web address, of a (shared) folder
     pub recurrence: Option<Recurrent>, // see explanation at "Recurrent"
-    pub recurrence_id: Option<Uuid>, // see explanation at "Recurrent"
+    pub recurrence_exception: Option<RecurrenceException>, // if not None, this event is not stand-alone but an exception of an recurrent event
     pub attached_to_calendar_event: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub created_by: Uuid,
@@ -229,7 +232,7 @@ pub struct TodoEvent {
     pub assigned_to_user: Option<Uuid>,
     pub attachment: Option<String>, //the path, regularly the web address, of a (shared) folder
     pub recurrence: Option<Recurrent>, // see explanation at "Recurrent"
-    pub recurrence_id: Option<Uuid>, // see explanation at "Recurrent"
+    pub recurrence_exception: Option<RecurrenceException>, // if not None, this event is not stand-alone but an exception of an recurrent event
     pub created_at: DateTime<Utc>,
     pub created_by: Uuid,
     pub last_mod: DateTime<Utc>,
