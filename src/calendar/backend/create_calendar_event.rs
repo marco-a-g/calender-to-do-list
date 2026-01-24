@@ -1,3 +1,5 @@
+use std::num::NonZeroI64;
+
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use dioxus::prelude::*;
 use reqwest::*;
@@ -21,6 +23,8 @@ struct NewCalendarEvent {
     rrule: Option<String>,
     recurrence_until: Option<String>,
     recurrence_id: Option<String>,
+    overrides_datetime: Option<String>,
+    skipped: String,
     location: Option<String>,
     category: Option<String>,
     is_all_day: String,
@@ -35,7 +39,7 @@ pub async fn create_calendar_event(
     to_date_time: Option<DateTime<Utc>>,
     attachment: Option<String>,
     recurrence: Option<Recurrent>,
-    recurrence_id: Option<Uuid>,
+    recurrence_exception: Option<RecurrenceException>,
     location: Option<String>,
     categories: Option<Vec<String>>,
     is_all_day: bool,
@@ -46,7 +50,7 @@ pub async fn create_calendar_event(
         from_date_time.clone(),
         to_date_time.clone(),
         recurrence.clone(),
-        recurrence_id.clone(),
+        recurrence_exception.clone(),
     ) {
         Ok(()) => {
             match create_calendar_event_unchecked(
@@ -57,7 +61,7 @@ pub async fn create_calendar_event(
                 to_date_time,
                 attachment,
                 recurrence,
-                recurrence_id,
+                recurrence_exception,
                 location,
                 categories,
                 is_all_day,
@@ -93,7 +97,7 @@ pub async fn create_calendar_event_unchecked(
     to_date_time: Option<DateTime<Utc>>,
     attachment: Option<String>,
     recurrence: Option<Recurrent>,
-    recurrence_id: Option<Uuid>,
+    recurrence_exception: Option<RecurrenceException>,
     location: Option<String>,
     categories: Option<Vec<String>>,
     is_all_day: bool,
@@ -129,9 +133,23 @@ pub async fn create_calendar_event_unchecked(
             Some(r) => Some(r.recurrence_until.to_string()),
             None => None,
         },
-        recurrence_id: match recurrence_id {
-            Some(r) => Some(r.to_string()),
+        recurrence_id: match &recurrence_exception {
+            Some(r) => Some(r.recurrence_id.to_string()),
             None => None,
+        },
+        overrides_datetime: match &recurrence_exception {
+            Some(r) => match &r.overrides {
+                Some(o) => Some(o.overrides_datetime.to_string()),
+                None => None,
+            },
+            None => None,
+        },
+        skipped: match &recurrence_exception {
+            Some(r) => match &r.overrides {
+                Some(o) => o.skipped.to_string(),
+                None => false.to_string(),
+            },
+            None => false.to_string(),
         },
         location: location.into(),
         category: match categories {
@@ -158,37 +176,37 @@ pub async fn create_calendar_event_unchecked(
 
 //Test:
 
-// pub async fn test_create_cal_event() -> core::result::Result<(), ServerFnError> {
-//     println!("Testfunktion gestartet");
-//     let cal_id = match Uuid::parse_str("fdb5cf9c-0a19-416b-aa92-330a474e1529") {
-//         Ok(c) => c,
-//         Err(e) => {
-//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-//         }
-//     };
-//     let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
-//         Ok(c) => c,
-//         Err(e) => {
-//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-//         }
-//     };
-//     let date = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
+pub async fn test_create_cal_event() -> core::result::Result<(), ServerFnError> {
+    println!("Testfunktion gestartet");
+    let cal_id = match Uuid::parse_str("2e301e01-2d6a-4262-bf49-bc1000b2d57a") {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+        }
+    };
+    let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+        }
+    };
+    let date = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
 
-//     println!("vor xyz");
-//     let xyz = create_calendar_event(
-//         "Testevent 9".to_string(),
-//         None,
-//         cal_id,
-//         date,
-//         None,
-//         None,
-//         None,
-//         Some(recurrence_id),
-//         Some("wo anders".to_string()),
-//         None,
-//         true,
-//     )
-//     .await;
-//     println!("Testfunktion durchgelaufen");
-//     Ok(())
-// }
+    println!("vor xyz");
+    let xyz = create_calendar_event(
+        "Testevent 27".to_string(),
+        Some("to be deleted".to_string()),
+        cal_id,
+        date,
+        None,
+        None,
+        None,
+        None,
+        Some("wo anders".to_string()),
+        None,
+        true,
+    )
+    .await;
+    println!("Testfunktion durchgelaufen");
+    Ok(())
+}

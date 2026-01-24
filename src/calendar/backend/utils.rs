@@ -15,7 +15,7 @@ pub fn check_input_sensibility(
     to_date_time: Option<DateTime<Utc>>,
     // attachment: Option<String>,
     recurrence: Option<Recurrent>,
-    recurrence_id: Option<Uuid>,
+    recurrence_exception: Option<RecurrenceException>,
     // location: Option<String>,
     // categories: Option<Vec<String>>,
     // is_all_day: bool,
@@ -43,8 +43,13 @@ pub fn check_input_sensibility(
                 "The end of the recurrence is before the beginning of the event.".to_string(),
             ));
         }
+        if let Some(rec_ex) = recurrence_exception {
+            return Err(ServerFnError::new(
+                "An event can only either be recurrent or a recurrence exception, not both.",
+            ));
+        }
     }
-    if let Some(rec_id) = recurrence_id {
+    if let Some(rec_ex) = recurrence_exception {
         // TODO: check if recurrence_id refers to an recurrent event.
     }
     core::result::Result::Ok(())
