@@ -287,6 +287,10 @@ pub struct CalendarLight {
     pub last_mod: String,
 }
 
+/// For use of recurrence_id see RecurrenceException.
+/// recurrence_id must be None for recurrent events.
+/// overrides_datetime must not be true if recurrence_id is None. (See Overrides)
+/// skipped must not be true if overrides_datetime is None. (See Overrides)
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct CalendarEventLight {
     pub id: String,
@@ -303,7 +307,7 @@ pub struct CalendarEventLight {
     pub is_all_day: bool,
     pub recurrence_id: Option<String>,
     pub overrides_datetime: Option<String>,
-    pub skipped: Option<bool>,
+    pub skipped: bool,
     pub created_at: String,
     pub created_by: String,
     pub last_mod: String,
@@ -312,6 +316,10 @@ pub struct CalendarEventLight {
 /// a TodoList is either belonging to a user, then list_type must be set to "private" and a
 /// owner_id must be provided or to a group, then list_type must be set to "group" and a group_id
 /// must be provided. There must only be one, either owner_id or group_id.
+/// For use of recurrence_id see RecurrenceException.
+/// recurrence_id must be None for recurrent events.
+/// overrides_datetime must not be true if recurrence_id is None. (See Overrides)
+/// skipped must not be true if overrides_datetime is None. (See Overrides)
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct TodoListLight {
     pub id: String,
@@ -328,13 +336,17 @@ pub struct TodoListLight {
     pub recurrence_until: Option<String>,
     pub recurrence_id: Option<String>,
     pub overrides_datetime: Option<String>,
-    pub skipped: Option<bool>,
+    pub skipped: bool,
     pub attached_to_calendar_event: Option<String>,
     pub created_at: String,
     pub created_by: String,
     pub last_mod: String,
 }
 
+/// For use of recurrence_id see RecurrenceException.
+/// recurrence_id must be None for recurrent events.
+/// overrides_datetime must not be true if recurrence_id is None. (See Overrides)
+/// skipped must not be true if overrides_datetime is None. (See Overrides)
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct TodoEventLight {
     pub id: String,
@@ -350,7 +362,7 @@ pub struct TodoEventLight {
     pub recurrence_until: Option<String>,
     pub recurrence_id: Option<String>,
     pub overrides_datetime: Option<String>,
-    pub skipped: Option<bool>,
+    pub skipped: bool,
     pub created_at: String,
     pub created_by: String,
     pub last_mod: String,
