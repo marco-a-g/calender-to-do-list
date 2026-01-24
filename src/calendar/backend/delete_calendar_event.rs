@@ -12,6 +12,52 @@ use crate::calendar::backend::utils::{check_deleted, check_input_sensibility};
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::{functions::*, structs::*};
 
+// #[server]
+pub async fn delete_calendar_event_without_sub_events(
+    event_id: Uuid,
+) -> core::result::Result<(), ServerFnError> {
+    // TODO: check, if element is recurrent
+    // if so, delete recurrence id of these elements with event_id as recurrence_id
+    Ok(())
+}
+
+// #[server]
+pub async fn delete_calendar_event_with_sub_events(
+    event_id: Uuid,
+) -> core::result::Result<(), ServerFnError> {
+    // TODO: check, if element is recurrent
+    // if so, delete all elements with event_id as recurrence_id
+    Ok(())
+}
+
+// #[server]
+pub async fn delete_single_calendar_event(
+    event_id: Uuid,
+) -> core::result::Result<(), ServerFnError> {
+    // TODO: check, if recurrence == None, -> Error
+    let delete = delete_single_calendar_event_unchecked(event_id).await;
+    let sc = StatusCode::from_u16(204).unwrap();
+    match delete {
+        Err(e) => {
+            return Err(ServerFnError::new(format!(
+                "delete_single_calendar_event Error: {}",
+                e
+            )));
+        }
+        Ok(x) => match x {
+            sc => {}
+            _ => {
+                return Err(ServerFnError::new(format!(
+                    "delete_single_calendar_event Error: unexpected Status: {}",
+                    x
+                )));
+            }
+        },
+    }
+    // TODO: add check, whether the event was really deleted
+    Ok(())
+}
+
 /// deletes an (recurrent) event and turns all changed instances into single events
 // #[server]
 pub async fn delete_calendar_event_without_changed_instances(
