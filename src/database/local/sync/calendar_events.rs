@@ -53,9 +53,9 @@ pub async fn sync_calendar_events(
                 id, calendar_id, summary, description, 
                 from_date_time, to_date_time, attachment, rrule, 
                 recurrence_until, location, category, is_all_day, 
-                recurrence_id, created_at, created_by, last_mod
+                recurrence_id, created_at, created_by, last_mod, overrides_datetime, skipped
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
                 calendar_id=excluded.calendar_id, 
                 summary=excluded.summary, 
@@ -71,7 +71,10 @@ pub async fn sync_calendar_events(
                 recurrence_id=excluded.recurrence_id,
                 created_at=excluded.created_at,
                 created_by=excluded.created_by,
-                last_mod=excluded.last_mod
+                last_mod=excluded.last_mod,
+                overrides_datetime=excluded.overrides_datetime,
+                skipped=excluded.skipped
+
             "#,
         )
         .bind(e.id)
@@ -90,6 +93,8 @@ pub async fn sync_calendar_events(
         .bind(e.created_at)
         .bind(e.created_by)
         .bind(e.last_mod)
+        .bind(e.overrides_datetime)
+        .bind(e.skipped)
         .execute(&mut **tx)
         .await
         .map_err(|e| ServerFnError::new(format!("SQL Error Event: {}", e)))?;
