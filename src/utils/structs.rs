@@ -5,28 +5,6 @@ use std::fmt;
 use strum::EnumString;
 use uuid::Uuid;
 
-#[derive(Debug)]
-pub enum ParseError {
-    StrumParseError(strum::ParseError),
-    ChronoParseError(chrono::ParseError),
-}
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ParseError::StrumParseError(..) => write!(f, "ParseError: strum::ParseError"),
-            ParseError::ChronoParseError(..) => write!(f, "ParseError: chrono::ParseError"),
-        }
-    }
-}
-impl std::error::Error for ParseError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match *self {
-            ParseError::StrumParseError(ref e) => Some(e),
-            ParseError::ChronoParseError(ref e) => Some(e),
-        }
-    }
-}
-
 /// Is currently limited do the frequency of recurrence. Building recurrent events is described at
 /// struct "Recurrent".
 /// Dates that unavailable (e.g. 30.2.)must be taken care of or made unreachable!
