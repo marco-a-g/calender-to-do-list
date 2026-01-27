@@ -33,9 +33,30 @@ pub struct CalendarEventUp {
     pub skipped: String,
 }
 
-// #[server]
-// pub async fn change_calendar_event(new_version: CalendarEvent) -> core::result::Result<StatusCode, ServerFnError> {
-//     let old_version_raw =
+// // #[server]
+// pub async fn change_calendar_event(
+//     //check validity of new version itself
+//     new_version: CalendarEvent,
+// ) -> core::result::Result<(), ServerFnError> {
+//     match check_input_sensibility(
+//         new_version.summary,
+//         new_version.calendar_id,
+//         new_version.from_date_time,
+//         new_version.to_date_time,
+//         new_version.recurrence,
+//         new_version.recurrence_exception,
+//     ) {
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!(
+//                 "change_calendar_event Error: {}",
+//                 e
+//             )));
+//         }
+//         Ok(_) => {}
+//     };
+
+//     // get old version from the server to compare for changes that effect other elements because of recurrence
+//     let old_version =
 //     Ok(())
 // }
 
@@ -44,15 +65,7 @@ async fn change_calendar_event_unchecked(
     changed_event: CalendarEvent,
 ) -> core::result::Result<StatusCode, ServerFnError> {
     // get the session token
-    let current_user = match get_user_id_and_session_token().await {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!(
-                "get_session_token Error: {}",
-                e
-            )));
-        }
-    };
+    let current_user = get_user_id_and_session_token().await?;
     // fit data into a NewCalendarEvent for building the json
     let new_cal_event = CalendarEventUp {
         summary: changed_event.summary,
@@ -112,50 +125,49 @@ async fn change_calendar_event_unchecked(
     Ok(insert_event.status())
 }
 
-//Test:
+// //Test:
 
-pub async fn test_change_cal_event() -> core::result::Result<(), ServerFnError> {
-    println!("Testfunktion gestartet");
-    let id = match Uuid::parse_str("1ba43313-181c-4c6a-ab98-3d808dc02fa9") {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-        }
-    };
-    let cal_id = match Uuid::parse_str("2e301e01-2d6a-4262-bf49-bc1000b2d57a") {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-        }
-    };
-    let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-        }
-    };
-    let created_at = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap();
-    let date = Utc.with_ymd_and_hms(2026, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
-
-    println!("vor xyz");
-    let xyz = change_calendar_event_unchecked(CalendarEvent {
-        id,
-        summary: "Testevent 42".to_string(),
-        description: Some("was changed once again".to_string()),
-        calendar_id: cal_id,
-        created_at,
-        created_by: id,
-        from_date_time: date,
-        to_date_time: None,
-        attachment: Some("anderes anhängsel".to_string()),
-        recurrence: None,
-        recurrence_exception: None,
-        location: Some("wo anders".to_string()),
-        categories: Some(vec!["Hallo".to_string(), "Welt!".to_string()]),
-        is_all_day: false,
-        last_mod: date,
-    })
-    .await;
-    println!("Testfunktion durchgelaufen mit {}", xyz.unwrap());
-    Ok(())
-}
+// pub async fn test_change_cal_event() -> core::result::Result<(), ServerFnError> {
+//     println!("Testfunktion gestartet");
+//     let id = match Uuid::parse_str("1ba43313-181c-4c6a-ab98-3d808dc02fa9") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let cal_id = match Uuid::parse_str("2e301e01-2d6a-4262-bf49-bc1000b2d57a") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let created_at = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap();
+//     let date = Utc.with_ymd_and_hms(2026, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
+//     println!("vor xyz");
+//     let xyz = change_calendar_event_unchecked(CalendarEvent {
+//         id,
+//         summary: "Testevent 42".to_string(),
+//         description: Some("was changed once again".to_string()),
+//         calendar_id: cal_id,
+//         created_at,
+//         created_by: id,
+//         from_date_time: date,
+//         to_date_time: None,
+//         attachment: Some("anderes anhängsel".to_string()),
+//         recurrence: None,
+//         recurrence_exception: None,
+//         location: Some("wo anders".to_string()),
+//         categories: Some(vec!["Hallo".to_string(), "Welt!".to_string()]),
+//         is_all_day: false,
+//         last_mod: date,
+//     })
+//     .await;
+//     println!("Testfunktion durchgelaufen mit {}", xyz.unwrap());
+//     Ok(())
+// }
