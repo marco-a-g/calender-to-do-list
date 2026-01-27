@@ -3,11 +3,12 @@ use dioxus::prelude::ServerFnError;
 use uuid::Uuid;
 
 use crate::auth::backend::*;
+use crate::utils::functions::get_calendar_event_from_remote;
 use crate::utils::structs::*;
 
 const summary_max_length: usize = 25;
 
-pub fn check_input_sensibility(
+pub async fn check_input_sensibility(
     summary: String,
     // description: Option<String>,
     calendar_id: Uuid,
@@ -29,7 +30,6 @@ pub fn check_input_sensibility(
             summary_max_length
         )));
     }
-    // TODO: check if calendar_id is accessible for this user
     if let Some(end) = to_date_time {
         if end < from_date_time {
             return Err(ServerFnError::new(
@@ -51,6 +51,26 @@ pub fn check_input_sensibility(
     }
     if let Some(rec_ex) = recurrence_exception {
         // TODO: check if recurrence_id refers to an recurrent event.
+        let parent = get_calendar_event_from_remote(rec_ex.recurrence_id).await?;
+        if let Some(rec) = parent.recurrence {
+            if let Some(over) = rec_ex.overrides {
+                if parent.from_date_time < over.overrides_datetime
+                    && rec.recurrence_until > over.overrides_datetime
+                { //TODO: check for validly overriding 
+                    // let d_dif =
+                    // match parent.rrule {
+                    //     Rrule::Daily =>
+                }
+            } else {
+                return Err(ServerFnError::new(
+                    "On this DateTime is no instance of the recurrent event to be overridden",
+                ));
+            }
+        } else {
+            return Err(ServerFnError::new(
+                "There cannot be an RecurrenceException to a non recurrent event.",
+            ));
+        }
     }
     core::result::Result::Ok(())
 }
