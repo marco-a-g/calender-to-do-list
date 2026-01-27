@@ -51,7 +51,9 @@ pub async fn create_calendar_event(
         to_date_time.clone(),
         recurrence.clone(),
         recurrence_exception.clone(),
-    ) {
+    )
+    .await
+    {
         Ok(()) => {
             match create_calendar_event_unchecked(
                 summary,
@@ -79,7 +81,7 @@ pub async fn create_calendar_event(
         }
         Err(e) => {
             return Err(ServerFnError::new(format!(
-                "chek_input_sensibility error: {}",
+                "check_input_sensibility Error: {}",
                 e
             )));
         }
@@ -104,15 +106,7 @@ pub async fn create_calendar_event_unchecked(
 ) -> core::result::Result<StatusCode, ServerFnError> {
     // get the session token
     // println!("create_cal gestartet");
-    let current_user = match get_user_id_and_session_token().await {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!(
-                "get_session_token Error: {}",
-                e
-            )));
-        }
-    };
+    let current_user = get_user_id_and_session_token().await?;
     // println!("user_id und token erstellt");
     // fit data into a NewCalendarEvent for building the json
     let new_cal_event = NewCalendarEvent {
@@ -176,37 +170,37 @@ pub async fn create_calendar_event_unchecked(
 
 //Test:
 
-pub async fn test_create_cal_event() -> core::result::Result<(), ServerFnError> {
-    println!("Testfunktion gestartet");
-    let cal_id = match Uuid::parse_str("2e301e01-2d6a-4262-bf49-bc1000b2d57a") {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-        }
-    };
-    let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
-        }
-    };
-    let date = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
+// pub async fn test_create_cal_event() -> core::result::Result<(), ServerFnError> {
+//     println!("Testfunktion gestartet");
+//     let cal_id = match Uuid::parse_str("2e301e01-2d6a-4262-bf49-bc1000b2d57a") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let recurrence_id = match Uuid::parse_str("606e5574-f2bd-460b-888e-ac9bf9c7e817") {
+//         Ok(c) => c,
+//         Err(e) => {
+//             return Err(ServerFnError::new(format!("calendar_id Error: {}", e)));
+//         }
+//     };
+//     let date = Utc.with_ymd_and_hms(2027, 4, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
 
-    println!("vor xyz");
-    let xyz = create_calendar_event(
-        "Testevent 27".to_string(),
-        Some("to be deleted".to_string()),
-        cal_id,
-        date,
-        None,
-        None,
-        None,
-        None,
-        Some("wo anders".to_string()),
-        None,
-        true,
-    )
-    .await;
-    println!("Testfunktion durchgelaufen");
-    Ok(())
-}
+//     println!("vor xyz");
+//     let xyz = create_calendar_event(
+//         "Testevent 27".to_string(),
+//         Some("to be deleted".to_string()),
+//         cal_id,
+//         date,
+//         None,
+//         None,
+//         None,
+//         None,
+//         Some("wo anders".to_string()),
+//         None,
+//         true,
+//     )
+//     .await;
+//     println!("Testfunktion durchgelaufen");
+//     Ok(())
+// }
