@@ -21,12 +21,34 @@ pub async fn delete_calendar_event_without_sub_events(
     Ok(())
 }
 
+///used to delete an (recurrent) calendar_event completely with all instances.
 // #[server]
 pub async fn delete_calendar_event_with_sub_events(
     event_id: Uuid,
 ) -> core::result::Result<(), ServerFnError> {
-    // TODO: check, if element is recurrent
-    // if so, delete all elements with event_id as recurrence_id
+    if let Some(parent_recurrent) = get_calendar_event_from_remote(event_id).await?.recurrence {
+        let mut children = get_calendar_events_ids_by_recurrence_id(event_id).await?;
+        children.push(event_id);
+        let mut deleted: Vec<(Uuid, StatusCode)> = Vec::new();
+        for id in children {
+            let stat = delete_single_calendar_event_unchecked(id).await?;
+            deleted.push((id, stat));
+        }
+        let mut failed_to_delete: Vec<Uuid> = Vec::new();
+        for del in deleted {
+            //TODO: add check, if elemnts were really deleted
+        }
+        if failed_to_delete.len() == 0 {
+            return Ok(());
+        } else {
+            return Err(ServerFnError::new(format!(
+                "Failed to delete the following elements: {:?}",
+                failed_to_delete
+            )));
+        }
+    } else {
+        delete_single_calendar_event(event_id);
+    }
     Ok(())
 }
 
