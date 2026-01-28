@@ -61,7 +61,7 @@ pub struct CalendarEventUp {
 // }
 
 // #[server]
-async fn change_calendar_event_unchecked(
+pub async fn change_calendar_event_unchecked(
     changed_event: CalendarEvent,
 ) -> core::result::Result<StatusCode, ServerFnError> {
     // get the session token
