@@ -86,7 +86,7 @@ pub async fn create_calendar_event(
             )));
         }
     }
-    let _ = sync_local_to_remote_db();
+    sync_local_to_remote_db().await?;
     Ok(())
 }
 

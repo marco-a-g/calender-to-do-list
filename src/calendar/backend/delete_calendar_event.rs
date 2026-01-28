@@ -47,6 +47,7 @@ pub async fn delete_calendar_event_with_sub_events(
     } else {
         delete_single_calendar_event(event_id);
     }
+    sync_local_to_remote_db().await?;
     Ok(())
 }
 
@@ -75,6 +76,7 @@ pub async fn delete_single_calendar_event(
         },
     }
     // TODO: add check, whether the event was really deleted
+    sync_local_to_remote_db().await?;
     Ok(())
 }
 
