@@ -74,3 +74,26 @@ pub async fn check_input_sensibility(
     }
     core::result::Result::Ok(())
 }
+
+pub async fn check_deleted(id: Uuid, status: reqwest::StatusCode) -> Result<(), ServerFnError> {
+    let sc = reqwest::StatusCode::from_u16(204)
+        .map_err(|e| ServerFnError::new(format!("Delete Error: {}", e)))?;
+    if status == sc {
+        let hopefully_gone = get_calendar_event_from_remote(id).await;
+        match hopefully_gone {
+            Ok(_) => {
+                return Err(ServerFnError::new(format!(
+                    "Deletion Error: Failed to delete the following element: {:?}",
+                    id
+                )));
+            }
+            Err(_) => {}
+        }
+    } else {
+        return Err(ServerFnError::new(format!(
+            "Deletion Error: unexpected Status: {}",
+            sc
+        )));
+    }
+    Ok(())
+}
