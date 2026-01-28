@@ -1,5 +1,7 @@
 use crate::todos::frontend::filter_todos::{GroupFilter, ListFilter};
-use crate::utils::structs::{GroupLight, ProfileLight, TodoEventLight, TodoListLight};
+use crate::utils::structs::{
+    CalendarEventLight, GroupLight, ProfileLight, TodoEventLight, TodoListLight,
+};
 use chrono::{DateTime, Duration, Local, NaiveDate};
 use dioxus::prelude::*;
 
@@ -9,47 +11,119 @@ pub fn OpenToDoView(
     all_lists: Vec<TodoListLight>,
     groups: Vec<GroupLight>,
     all_profiles: Vec<ProfileLight>,
+    all_events: Vec<CalendarEventLight>,
     selected_category: GroupFilter,
     selected_list_filter: ListFilter,
     on_complete: EventHandler<String>,
 ) -> Element {
-    //Tasks filtern
+    // 1. Tasks filtern
     let filtered_tasks: Vec<TodoEventLight> = todos_list
         .iter()
         .filter(|task| {
-            // GPT-Ergänzung: Falls du Tasks ohne Liste anzeigen willst, müsstest du hier "|| task.todo_list_id.is_none()" erlauben und unten im ToDoItem den Fall parent_list = None behandeln.
-            if let Some(parent_list) = all_lists.iter().find(|l| l.id == task.todo_list_id) {
-                let category_match = match &selected_category {
-                    GroupFilter::All => true,
-                    GroupFilter::Personal => parent_list.list_type == "private",
-                    GroupFilter::Group(g_id) => parent_list.group_id.as_deref() == Some(g_id),
-                };
-                let list_match = match &selected_list_filter {
-                    ListFilter::AllInContext => true,
-                    ListFilter::SpecificList(l_id) => &parent_list.id == l_id,
-                };
-                return category_match && list_match;
+            let parent_list_opt = all_lists.iter().find(|l| l.id == task.todo_list_id);
+            match parent_list_opt {
+                Some(parent_list) => {
+                    let category_match = match &selected_category {
+                        GroupFilter::AllGroups => true,
+                        GroupFilter::Personal => parent_list.list_type == "private",
+                        GroupFilter::Group(g_id) => parent_list.group_id.as_deref() == Some(g_id),
+                    };
+                    let list_match = match &selected_list_filter {
+                        ListFilter::AllLists => true,
+                        ListFilter::SpecificList(l_id) => &parent_list.id == l_id,
+                    };
+                    category_match && list_match
+                }
+                None => {
+                    matches!(selected_category, GroupFilter::AllGroups)
+                        && matches!(selected_list_filter, ListFilter::AllLists)
+                }
             }
-            false
         })
         .cloned()
         .collect();
 
     let (today_list, week_list, later_list) = categorize_todos(&filtered_tasks);
 
-    //Titel
+    // 2. Titel bestimmen (Dynamisch angepasst)
     let title = match &selected_list_filter {
-        ListFilter::SpecificList(id) => all_lists
-            .iter()
-            .find(|l| &l.id == id)
-            .map(|l| l.name.clone())
-            .unwrap_or("Unknown List".to_string()),
-        ListFilter::AllInContext => match &selected_category {
-            GroupFilter::All => "All To-Do's".to_string(),
+        // Fall A: Eine spezifische Liste ist ausgewählt
+        ListFilter::SpecificList(id) => {
+            if let Some(list) = all_lists.iter().find(|l| &l.id == id) {
+                if list.list_type == "private" {
+                    // Personal Liste: "Personal To-Do-List 'Name'"
+                    format!("Personal To-Do-List \"{}\"", list.name)
+                } else {
+                    // Gruppen Liste: "To-Do-List 'Name' from Group: Name"
+                    let group_name = list
+                        .group_id
+                        .as_ref()
+                        .and_then(|gid| groups.iter().find(|g| &g.id == gid))
+                        .map(|g| g.name.clone())
+                        .unwrap_or("Unknown Group".to_string());
+
+                    format!("To-Do-List \"{}\" from Group: {}", list.name, group_name)
+                }
+            } else {
+                "Unknown List".to_string()
+            }
+        }
+        // Fall B: Kontext-Auswahl (Alle, Personal oder eine ganze Gruppe)
+        ListFilter::AllLists => match &selected_category {
+            GroupFilter::AllGroups => "All To-Do's".to_string(),
             GroupFilter::Personal => "Personal To-Do's".to_string(),
-            GroupFilter::Group(_) => "Group To-Do's".to_string(),
+            GroupFilter::Group(g_id) => {
+                let group_name = groups
+                    .iter()
+                    .find(|g| &g.id == g_id)
+                    .map(|g| g.name.clone())
+                    .unwrap_or("Unknown Group".to_string());
+
+                format!("To-Do's for \"{}\"", group_name)
+            }
         },
     };
+
+    // 3. Listen-Metadaten (Datum & Description & Priority) für Header
+    let (list_due_display, list_description, list_priority) =
+        if let ListFilter::SpecificList(id) = &selected_list_filter {
+            if let Some(list) = all_lists.iter().find(|l| &l.id == id) {
+                // A) Datum
+                let date_str = if let Some(due) = &list.due_datetime {
+                    if !due.is_empty() {
+                        let clean_ts = due.replace(" ", "T");
+                        if let Ok(dt_utc) = DateTime::parse_from_rfc3339(&clean_ts) {
+                            let dt_local = dt_utc.with_timezone(&Local);
+                            Some(dt_local.format("%d.%m.%Y").to_string())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                // B) Description
+                let desc = list.description.clone().filter(|d| !d.is_empty());
+
+                // C) Priority
+                let raw_prio = list.priority.clone().unwrap_or("normal".to_string());
+                let (p_label, p_color) = match raw_prio.to_lowercase().as_str() {
+                    "low" => ("Low", "#3b82f6"),   // Blau
+                    "high" => ("High", "#f59e0b"), // Orange
+                    "top" => ("Top", "#ef4444"),   // Rot
+                    _ => ("Normal", "#9ca3af"),    // Grau
+                };
+
+                (date_str, desc, Some((p_label, p_color)))
+            } else {
+                (None, None, None)
+            }
+        } else {
+            (None, None, None)
+        };
 
     rsx! {
         div {
@@ -60,14 +134,48 @@ pub fn OpenToDoView(
                 // Header
                 div {
                     style: "border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 16px; margin-bottom: 8px;",
-                    h2 { style: "margin: 0 0 4px 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af;", "Tasks" }
-                    h1 { style: "margin: 0; font-size: 24px; font-weight: 600; color: #f9fafb;", "{title}" }
+
+                    div { style: "display: flex; justify-content: space-between; align-items: flex-start;",
+                        // Titel Links
+                        div {
+                             h2 { style: "margin: 0 0 4px 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af;", "Tasks" }
+                             h1 { style: "margin: 0; font-size: 24px; font-weight: 600; color: #f9fafb;", "{title}" }
+                        }
+
+                        // Metadaten Rechts (Description | Priority | Due Date)
+                        div { style: "display: flex; gap: 24px; text-align: right;",
+
+                            // 1. Description der Liste
+                            if let Some(desc) = list_description {
+                                div { style: "max-width: 300px;",
+                                    span { style: "font-size: 11px; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 2px;", "Description" }
+                                    span { style: "font-size: 13px; color: #e5e7eb; display: block; line-height: 1.4;", "{desc}" }
+                                }
+                            }
+
+                            // 2. Priority der Liste
+                            if let Some((label, color)) = list_priority {
+                                div {
+                                    span { style: "font-size: 11px; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 2px;", "Priority" }
+                                    span { style: "font-size: 14px; color: {color}; font-weight: 600;", "{label}" }
+                                }
+                            }
+
+                            // 3. Due Date der Liste
+                            if let Some(due_date) = list_due_display {
+                                div {
+                                    span { style: "font-size: 11px; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 2px;", "List Due Date" }
+                                    span { style: "font-size: 14px; color: #f3f4f6; font-weight: 500;", "{due_date}" }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Liste
                 div { class: "flex-1 overflow-y-auto pr-2 flex flex-col gap-3",
 
-                    // Due Today oder overdue
+                    // --- TODAY ---
                     div { style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 8px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;", "Due Today / Overdue" }
                     if today_list.is_empty() { div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No Tasks." } }
                     for task in today_list {
@@ -77,11 +185,12 @@ pub fn OpenToDoView(
                             parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
                             parent_group: all_lists.iter().find(|l| l.id == task.todo_list_id).and_then(|l| l.group_id.as_ref()).and_then(|gid| groups.iter().find(|g| &g.id == gid).cloned()),
                             all_profiles: all_profiles.clone(),
+                            all_events: all_events.clone(),
                             on_complete: move |id| on_complete.call(id)
                         }
                     }
 
-                    //  Due in den nächsten 7 Tagen
+                    // --- WEEK ---
                     div { style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 24px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;", "Due in the next 7 days" }
                     if week_list.is_empty() { div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No Tasks." } }
                     for task in week_list {
@@ -91,12 +200,13 @@ pub fn OpenToDoView(
                             parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
                             parent_group: all_lists.iter().find(|l| l.id == task.todo_list_id).and_then(|l| l.group_id.as_ref()).and_then(|gid| groups.iter().find(|g| &g.id == gid).cloned()),
                             all_profiles: all_profiles.clone(),
+                            all_events: all_events.clone(),
                             on_complete: move |id| on_complete.call(id)
                         }
                     }
 
-                    // Due mehr als 1 Woche in Zukunft
-                    div { style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 24px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;", "Due Later" }
+                    // --- LATER ---
+                    div { style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 24px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;", "Due Later or no Due-Date" }
                     if later_list.is_empty() { div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No Tasks." } }
                     for task in later_list {
                         ToDoItem {
@@ -105,6 +215,7 @@ pub fn OpenToDoView(
                             parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
                             parent_group: all_lists.iter().find(|l| l.id == task.todo_list_id).and_then(|l| l.group_id.as_ref()).and_then(|gid| groups.iter().find(|g| &g.id == gid).cloned()),
                             all_profiles: all_profiles.clone(),
+                            all_events: all_events.clone(),
                             on_complete: move |id| on_complete.call(id)
                         }
                     }
@@ -120,48 +231,82 @@ fn ToDoItem(
     parent_list: Option<TodoListLight>,
     parent_group: Option<GroupLight>,
     all_profiles: Vec<ProfileLight>,
+    all_events: Vec<CalendarEventLight>,
     on_complete: EventHandler<String>,
 ) -> Element {
+    // 1. Datum Logik
     let due_str_raw = task.due_datetime.clone().unwrap_or_default();
     let now = Local::now().date_naive();
-
     let (date_color, font_weight, display_date) = if due_str_raw.is_empty() {
         ("#6b7280", "400", String::new())
     } else {
-        // Parse als DateTime mit Zeitzone (RFC3339?)
-        if let Ok(dt_utc) = DateTime::parse_from_rfc3339(&due_str_raw) {
+        let clean_ts = due_str_raw.replace(" ", "T");
+        if let Ok(dt_utc) = DateTime::parse_from_rfc3339(&clean_ts) {
             let dt_local = dt_utc.with_timezone(&Local);
             let parsed_date = dt_local.date_naive();
             let german_format = dt_local.format("%d.%m.%Y").to_string();
             if parsed_date <= now {
-                ("#ef4444", "600", german_format) // Rot, fett
+                ("#ef4444", "600", german_format)
             } else {
-                ("#6b7280", "400", german_format) // Grau, normal
+                ("#6b7280", "400", german_format)
             }
         } else {
-            // Wenn Parsing fehlschlägt, zeige String
             ("#6b7280", "400", due_str_raw)
         }
     };
 
-    // Tags für Todos
-    let (context_badge_label, is_event) = if let Some(list) = &parent_list {
-        let is_evt = list.attached_to_calendar_event.is_some();
-        let label = if list.list_type == "private" {
-            format!("Personal: {}", list.name)
+    // 2. Priority Logik
+    let raw_priority = task.priority.clone().unwrap_or("normal".to_string());
+    let (priority_label, priority_color) = match raw_priority.to_lowercase().as_str() {
+        "low" => ("Low", "#3b82f6"),
+        "high" => ("High", "#f59e0b"),
+        "top" => ("Top", "#ef4444"),
+        _ => ("Normal", "#9ca3af"),
+    };
+
+    // 3. Description Logik
+    let raw_desc = task.description.clone().unwrap_or_default();
+    let (desc_text, desc_color) = if raw_desc.is_empty() {
+        ("-".to_string(), "#4b5563")
+    } else {
+        (raw_desc, "#e5e7eb")
+    };
+
+    // 4. Getrennte Labels (Group & List)
+    let (group_badge, list_badge) = if let Some(list) = &parent_list {
+        let g_text = if list.list_type == "private" {
+            "Personal".to_string()
         } else {
-            let group_name = parent_group
+            let g_name = parent_group
                 .as_ref()
                 .map(|g| g.name.clone())
                 .unwrap_or("Group".to_string());
-            format!("{}: {}", group_name, list.name)
+            format!("Group: {}", g_name)
         };
-        (Some(label), is_evt)
+
+        let l_text = format!("List: {}", list.name);
+
+        (Some(g_text), Some(l_text))
     } else {
-        (None, false)
+        (None, None)
     };
 
-    // Zugeiwesener User
+    // 5. Event Label Logic
+    let event_badge = if let Some(list) = &parent_list {
+        if let Some(event_id) = &list.attached_to_calendar_event {
+            if let Some(event) = all_events.iter().find(|e| &e.id == event_id) {
+                Some(format!("Event: {}", event.summary))
+            } else {
+                Some("Event".to_string())
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // 6. Assignee
     let (assignee_label, assignee_color) = if let Some(user_id) = &task.assigned_to_user {
         if let Some(user) = all_profiles.iter().find(|p| &p.id == user_id) {
             (user.username.clone(), "#e5e7eb")
@@ -183,35 +328,58 @@ fn ToDoItem(
                 class: "hover:border-blue-500"
             }
 
-            // Tags und Titel von Todo
-            div { style: "flex: 1; display: flex; flex-direction: column; gap: 4px;",
-                div { style: "color: #f3f4f6; font-weight: 500; font-size: 15px;", "{task.summary}" }
-
+            // Mitte: Summary, Date, Badges
+            div { style: "flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;",
+                div { style: "color: #f3f4f6; font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;", "{task.summary}" }
                 div { style: "display: flex; align-items: center; gap: 8px;",
                     if !display_date.is_empty() {
                         span { style: "font-size: 12px; color: {date_color}; font-weight: {font_weight};", "Due: {display_date}" }
                     }
-
-                    if let Some(label) = context_badge_label {
+                    if let Some(label) = group_badge {
                          span { style: "font-size: 10px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;", "{label}" }
                     }
-
-                    if is_event {
-                         span { style: "font-size: 10px; background: rgba(255, 255, 255, 0.1); color: #9ca3af; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;", "Event" }
+                    if let Some(label) = list_badge {
+                         span { style: "font-size: 10px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;", "{label}" }
+                    }
+                    if let Some(evt_label) = event_badge {
+                         span { style: "font-size: 10px; background: rgba(255, 255, 255, 0.1); color: #9ca3af; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;", "{evt_label}" }
                     }
                 }
             }
 
-            // Assigned to
-            div { style: "text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 80px;",
-                span { style: "font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;", "Assigned to:" }
-                span { style: "font-size: 13px; color: {assignee_color}; font-weight: 500;", "{assignee_label}" }
+            // Rechts: Metadaten
+            div { style: "display: flex; align-items: center; gap: 16px;",
+
+                // Description
+                div { style: "text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 80px; max-width: 150px;",
+                    span { style: "font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;", "Description" }
+                    span {
+                        style: "font-size: 13px; color: {desc_color}; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: right;",
+                        title: "{desc_text}",
+                        "{desc_text}"
+                    }
+                }
+
+                div { style: "width: 1px; height: 24px; background: rgba(255,255,255,0.1);" }
+
+                // Priority
+                div { style: "text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 60px;",
+                    span { style: "font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;", "Priority" }
+                    span { style: "font-size: 13px; color: {priority_color}; font-weight: 600;", "{priority_label}" }
+                }
+
+                div { style: "width: 1px; height: 24px; background: rgba(255,255,255,0.1);" }
+
+                // Assigned To
+                div { style: "text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 80px;",
+                    span { style: "font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;", "Assigned to" }
+                    span { style: "font-size: 13px; color: {assignee_color}; font-weight: 500;", "{assignee_label}" }
+                }
             }
         }
     }
 }
 
-// Todos kategorisieren
 fn categorize_todos(
     list: &Vec<TodoEventLight>,
 ) -> (
@@ -221,24 +389,20 @@ fn categorize_todos(
 ) {
     let now_date = Local::now().date_naive();
     let next_week_date = now_date + Duration::days(7);
-
     let mut today = vec![];
     let mut week = vec![];
     let mut later = vec![];
-
     for item in list {
         let owned_item = item.clone();
-
         if let Some(due_str) = &item.due_datetime {
             if due_str.is_empty() {
                 later.push(owned_item);
                 continue;
             }
-
-            match DateTime::parse_from_rfc3339(&due_str) {
+            let clean_ts = due_str.replace(" ", "T");
+            match DateTime::parse_from_rfc3339(&clean_ts) {
                 Ok(dt_utc) => {
                     let item_date = dt_utc.with_timezone(&Local).date_naive();
-
                     if item_date <= now_date {
                         today.push(owned_item);
                     } else if item_date <= next_week_date {
@@ -248,10 +412,11 @@ fn categorize_todos(
                     }
                 }
                 Err(_) => {
-                    //Fehler beim Parsen -> in later rein
                     later.push(owned_item);
                 }
             }
+        } else {
+            later.push(owned_item);
         }
     }
     (today, week, later)

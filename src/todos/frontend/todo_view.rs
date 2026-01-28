@@ -1,4 +1,5 @@
 #![allow(unused_mut)]
+#![allow(unused_imports)]
 
 use super::create_todo::{CreateToDoButton, CreateToDoModal};
 use super::create_todolist::{CreateListButton, CreateListModal};
@@ -15,24 +16,26 @@ use crate::utils::structs::{
 };
 use chrono::Local;
 use dioxus::prelude::*;
-use sqlx::Error;
 use tokio::join;
 
 #[component]
 pub fn ToDoView() -> Element {
     let today_date = use_signal(|| Local::now().format("%A, %d.%m.%Y").to_string());
 
-    let mut selected_category = use_signal(|| GroupFilter::All);
-    let mut selected_list_filter = use_signal(|| ListFilter::AllInContext);
+    //Standardwerte für ToDoView setzen
+    let mut selected_category = use_signal(|| GroupFilter::AllGroups);
+    let mut selected_list_filter = use_signal(|| ListFilter::AllLists);
     let mut show_create_todo_modal = use_signal(|| false);
     let mut show_create_list_modal = use_signal(|| false);
+    //leeres Set aus Tasks erstellen um nachher geladenen tasks trennen zu können in erledigt / nicht erledigt
     let mut tasks_signal = use_signal(|| Vec::<TodoEventLight>::new());
+
+    //alle Daten aus lokaler Datenbank ziehen und joinen -> in Startup später rein? und refresh mit Heartbeat?
     let mut full_data_resource = use_resource(move || async move {
         match init_database().await {
             Ok(_) => println!("Frontend: DB Init OK"),
             Err(e) => println!("Frontend: DB Init FEHLER: {:?}", e),
         };
-
         let results = join!(
             fetch_groups(),
             fetch_todo_lists(),
@@ -42,18 +45,20 @@ pub fn ToDoView() -> Element {
             fetch_calendar_events(),
             fetch_calendars()
         );
-
         results
     });
 
+    //läuft sobald sich Abhänigkeiten ändern, lädt daten neu wenn full_data_resource fertig geladen hat und schreibt sie in tasks_signal
     use_effect(move || {
         if let Some((_, _, Ok(tasks), _, _, _, _)) = &*full_data_resource.read() {
+            //if let Some heißt in diesem diesem fall daten haben fertig geladen
             if tasks_signal.read().is_empty() {
                 tasks_signal.set(tasks.clone());
             }
         }
     });
 
+    //solange datenbankdaten noch nicht geladen sind Ladeanimation?
     if full_data_resource.read().is_none() {
         return rsx! {
             div {
@@ -65,6 +70,7 @@ pub fn ToDoView() -> Element {
         };
     }
 
+    //Hier die gejointen Datenbankdaten auseinander ziehen und in ein jeweils eigenen Vec
     let data_lock = full_data_resource.read();
     let (groups_res, lists_res, _, profiles_res, members_res, events_res, calendars_res) =
         data_lock.as_ref().unwrap();
@@ -104,7 +110,6 @@ pub fn ToDoView() -> Element {
             vec![]
         }
     };
-
     let calendars_data = match calendars_res {
         Ok(data) => data.clone(),
         Err(e) => {
@@ -113,12 +118,14 @@ pub fn ToDoView() -> Element {
         }
     };
 
+    //über ToDo-Events itterieren und erledigte sammeln
     let history_data: Vec<TodoEventLight> = tasks_signal
         .read()
         .iter()
         .filter(|t| t.completed)
         .cloned()
         .collect();
+    //über ToDo-Events itterieren und offene sammeln
     let active_tasks_data: Vec<TodoEventLight> = tasks_signal
         .read()
         .iter()
@@ -126,17 +133,20 @@ pub fn ToDoView() -> Element {
         .cloned()
         .collect();
 
-    let handle_refresh_from_cache = move |_| {
+    //Datenbankdaten neu laden
+    let handle_refresh = move |_| {
         full_data_resource.restart();
     };
 
+    //-----------------------
+    //An OpenToDoView übergeben aber später evtl. RemoteDB Insert/Update
     let handle_complete_task = move |task_id: String| {
         let mut tasks = tasks_signal.write();
         if let Some(task) = tasks.iter_mut().find(|t| t.id == task_id) {
-            task.completed = true;
-            task.due_datetime = Some(Local::now().format("%Y-%m-%d").to_string());
+            task.completed = true; //setzt completed des zu runtime erstellten ToDoEvents auf completed, nicht in DB
         }
     };
+    //-----------------------
 
     rsx! {
         div {
@@ -144,25 +154,28 @@ pub fn ToDoView() -> Element {
 
             if show_create_todo_modal() {
                 CreateToDoModal {
+                    //create ToDo-Komponente rendern und Listen übergeben
                     groups: groups_data.clone(),
                     all_lists: lists_data.clone(),
                     all_profiles: profiles_data.clone(),
                     all_group_members: members_data.clone(),
                     show_modal: show_create_todo_modal,
-                    on_refresh: handle_refresh_from_cache
+                    on_refresh: handle_refresh
                 }
             }
             if show_create_list_modal() {
+                //create Liste-Komponente rendern und Listen übergeben
                 CreateListModal {
                     groups: groups_data.clone(),
                     all_events: events_data.clone(),
                     all_calendars: calendars_data.clone(),
                     show_modal: show_create_list_modal,
-                    on_refresh: handle_refresh_from_cache
+                    on_refresh: handle_refresh
                 }
             }
 
             div {
+                //Sidebar-Komponente rendern und Listen übergeben
                 style: "height: 100%; padding: 24px 0 24px 24px;",
                 FilterSidebar {
                     groups: groups_data.clone(),
@@ -173,10 +186,12 @@ pub fn ToDoView() -> Element {
             }
 
             OpenToDoView {
+                //Offene ToDos-Komponente rendern und Listen übergeben
                 todos_list: active_tasks_data,
                 all_lists: lists_data.clone(),
                 groups: groups_data.clone(),
                 all_profiles: profiles_data.clone(),
+                all_events: events_data.clone(),
                 selected_category: selected_category(),
                 selected_list_filter: selected_list_filter(),
                 on_complete: handle_complete_task
@@ -194,12 +209,14 @@ pub fn ToDoView() -> Element {
                 div {
                     style: "background: linear-gradient(145deg, #222531 0%, #171923 100%); border-radius: 18px; padding: 18px; box-shadow: 0 22px 45px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 14px;",
                     h2 { style: "margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af;", "Actions" }
+                    //Zeige Erstellungsmaske bei Klick drauf, indem show_modal auf true gesetzt wird
                     CreateToDoButton { onclick: move |_| show_create_todo_modal.set(true) }
                     CreateListButton { onclick: move |_| show_create_list_modal.set(true) }
                 }
 
                 div {
                     style: "flex: 1; display: flex; flex-direction: column; overflow: hidden;",
+                    //History-Komponente rendern und Listen übergeben
                     HistoryView {
                         history_tasks: history_data,
                         all_lists: lists_data.clone(),

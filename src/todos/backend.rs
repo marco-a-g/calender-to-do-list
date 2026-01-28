@@ -16,39 +16,26 @@ use std::sync::{LazyLock, Mutex, OnceLock};
 
 // Local DB-Config
 const DB_PATH: &str = "src/database/local/local_Database.db";
-
 static CONNECTION_OPTIONS: LazyLock<SqliteConnectOptions> = LazyLock::new(|| {
     let url = format!("sqlite:{}", DB_PATH);
-    SqliteConnectOptions::from_str(&url)
-        .expect("Fehler: DB URL Format falsch")
-        .create_if_missing(true)
-        .foreign_keys(false)
+    SqliteConnectOptions::from_str(&url).expect("Fehler: DB URL Format falsch")
 });
-
 pub static POOL_LOCAL_DB: OnceLock<SqlitePool> = OnceLock::new();
 
-#[server]
+//#[server]
 pub async fn init_database() -> Result<(), ServerFnError> {
     if POOL_LOCAL_DB.get().is_some() {
         return Ok(());
     }
 
-    println!("SERVER: Initialisiere Datenbank Verbindung...");
-
     let pool = SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect(&format!("sqlite://{}", DB_PATH))
+        .max_connections(7) //7 fetch funktionen zum Daten ziehen
+        .connect_with(CONNECTION_OPTIONS.clone())
         .await
         .map_err(|e| ServerFnError::new(format!("Konnte DB nicht verbinden: {}", e)))?;
 
-    // Foreign Keys aktivieren für SQLite
-    sqlx::query("PRAGMA foreign_keys = ON;")
-        .execute(&pool)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Pragma Error: {}", e)))?;
-
-    let _ = POOL_LOCAL_DB.set(pool);
-    println!("SERVER: Datenbank erfolgreich verbunden!");
+    let _ = POOL_LOCAL_DB.set(pool); //OnceLock setzen, jetzt nicht mehr änderbar
+    println!("Lokale Datenbank verbunden");
 
     Ok(())
 }
@@ -56,10 +43,10 @@ pub async fn init_database() -> Result<(), ServerFnError> {
 fn get_pool() -> Result<&'static sqlx::SqlitePool, ServerFnError> {
     POOL_LOCAL_DB
         .get()
-        .ok_or_else(|| ServerFnError::new("Datenbank ist nicht initialisiert!"))
+        .ok_or_else(|| ServerFnError::new("Datenbank getter fehlgeschlagen"))
 }
 
-#[server]
+//#[server]
 pub async fn fetch_groups() -> Result<Vec<GroupLight>, ServerFnError> {
     let pool = get_pool()?;
     let groups = sqlx::query_as::<_, GroupLight>("SELECT * FROM groups")
@@ -69,25 +56,23 @@ pub async fn fetch_groups() -> Result<Vec<GroupLight>, ServerFnError> {
     Ok(groups)
 }
 
-#[server]
+//#[server]
 pub async fn fetch_todo_lists() -> Result<Vec<TodoListLight>, ServerFnError> {
     let pool = get_pool()?;
+    //hier anders weil in lokaler db heißt coloumn type und in structs list_type
     let sql = r#"
         SELECT *, 
-               type AS list_type, 
-               attached_to_calendar_event AS attachment 
+               type AS list_type 
         FROM todo_lists
     "#;
-
     let lists = sqlx::query_as::<_, TodoListLight>(sql)
         .fetch_all(pool)
         .await
         .map_err(|e| ServerFnError::new(format!("SQL Fehler (Todo Lists): {}", e)))?;
-
     Ok(lists)
 }
 
-#[server]
+//#[server]
 pub async fn fetch_todo_events() -> Result<Vec<TodoEventLight>, ServerFnError> {
     let pool = get_pool()?;
     let tasks = sqlx::query_as::<_, TodoEventLight>("SELECT * FROM todo_events")
@@ -97,7 +82,7 @@ pub async fn fetch_todo_events() -> Result<Vec<TodoEventLight>, ServerFnError> {
     Ok(tasks)
 }
 
-#[server]
+//#[server]
 pub async fn fetch_group_members() -> Result<Vec<GroupMemberLight>, ServerFnError> {
     let pool = get_pool()?;
     let members = sqlx::query_as::<_, GroupMemberLight>("SELECT * FROM group_members")
@@ -107,7 +92,7 @@ pub async fn fetch_group_members() -> Result<Vec<GroupMemberLight>, ServerFnErro
     Ok(members)
 }
 
-#[server]
+//#[server]
 pub async fn fetch_profiles() -> Result<Vec<ProfileLight>, ServerFnError> {
     let pool = get_pool()?;
     let profiles = sqlx::query_as::<_, ProfileLight>("SELECT * FROM profiles")
@@ -117,7 +102,7 @@ pub async fn fetch_profiles() -> Result<Vec<ProfileLight>, ServerFnError> {
     Ok(profiles)
 }
 
-#[server]
+//#[server]
 pub async fn fetch_calendar_events() -> Result<Vec<CalendarEventLight>, ServerFnError> {
     let pool = get_pool()?;
     let events = sqlx::query_as::<_, CalendarEventLight>("SELECT * FROM calendar_events")
@@ -127,7 +112,7 @@ pub async fn fetch_calendar_events() -> Result<Vec<CalendarEventLight>, ServerFn
     Ok(events)
 }
 
-#[server]
+//#[server]
 pub async fn fetch_calendars() -> Result<Vec<CalendarLight>, ServerFnError> {
     let pool = get_pool()?;
     let calendars =
@@ -138,7 +123,7 @@ pub async fn fetch_calendars() -> Result<Vec<CalendarLight>, ServerFnError> {
     Ok(calendars)
 }
 
-#[server]
+//#[server]
 pub async fn create_todo_event(todo: TodoEventLight) -> Result<(), ServerFnError> {
     //Hier Insert zu Remote-DB
     println!("Create Todo Server Funktion wurde aufgerufen{:?}", todo);
@@ -151,7 +136,7 @@ pub async fn create_todo_event(todo: TodoEventLight) -> Result<(), ServerFnError
     //-------------------------------------------
 }
 
-#[server]
+//#[server]
 pub async fn create_todo_list(list: TodoListLight) -> Result<(), ServerFnError> {
     //Hier Insert zu Remote-DB
     println!(
@@ -167,7 +152,7 @@ pub async fn create_todo_list(list: TodoListLight) -> Result<(), ServerFnError> 
     //-------------------------------------------
 }
 
-//Helper:
+/* //Helper:
 // Wandelt Timestamp in deutsche Darstellung um.
 pub fn format_timestamp(raw_ts: &str) -> String {
     match DateTime::parse_from_rfc3339(&raw_ts) {
@@ -177,4 +162,4 @@ pub fn format_timestamp(raw_ts: &str) -> String {
         }
         Err(_) => "Ungültiges Datum".to_string(),
     }
-}
+} */

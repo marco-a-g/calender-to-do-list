@@ -1,5 +1,5 @@
 use crate::utils::structs::{GroupLight, TodoEventLight, TodoListLight};
-use chrono::{DateTime, Duration, Local, NaiveDate};
+use chrono::{DateTime, Local};
 use dioxus::prelude::*;
 
 #[component]
@@ -17,9 +17,11 @@ pub fn HistoryView(
             }
 
             div { class: "flex-1 overflow-y-auto pr-1 flex flex-col gap-2",
+                //über alle completed Tasks itterieren und dazugehörige liste und gruppe holen für Label und rendern
                 for task in history_tasks {
                     {
                         let parent_list = all_lists.iter().find(|l| l.id == task.todo_list_id).cloned();
+                        //hier über listen itterieren um über liste Gruppe finden -> Todo hat keine eigene Gruppe bis jetzt?
                         let parent_group = all_lists.iter()
                             .find(|l| l.id == task.todo_list_id)
                             .and_then(|l| l.group_id.as_ref())
@@ -27,6 +29,7 @@ pub fn HistoryView(
                             .cloned();
 
                         rsx! {
+                            //Erledigte Tasks rendern mit Tags
                             HistoryItem {
                                 key: "{task.id}",
                                 task: task.clone(),
@@ -47,64 +50,70 @@ fn HistoryItem(
     parent_list: Option<TodoListLight>,
     parent_group: Option<GroupLight>,
 ) -> Element {
-    let due_str_raw = task.due_datetime.clone().unwrap_or_default();
-    let display_date = if due_str_raw.is_empty() {
+    // Datum Formatierung
+    let datetime_raw = task.due_datetime.clone().unwrap_or_default();
+    let datetime_formatted = if datetime_raw.is_empty() {
         String::new()
     } else {
-        if let Ok(dt_utc) = DateTime::parse_from_rfc3339(&due_str_raw) {
+        if let Ok(dt_utc) = DateTime::parse_from_rfc3339(&datetime_raw) {
             let dt_local = dt_utc.with_timezone(&Local);
             dt_local.format("%d.%m.%Y").to_string()
         } else {
-            due_str_raw
+            datetime_raw //wenn nicht umfomratierbar dann raw-date String ausgeben
         }
     };
 
-    let badge_label = if let Some(list) = &parent_list {
-        if list.list_type == "private" {
-            format!("Personal: {}", list.name)
+    //Label für Liste und Gruppe extrahieren als Tupel extrahieren
+    let (group_label, list_label) = if let Some(list) = &parent_list {
+        let group_text = if list.list_type == "private" {
+            "Personal".to_string()
         } else {
-            let group_name = parent_group
+            let g_name = parent_group
                 .as_ref()
                 .map(|g| g.name.clone())
                 .unwrap_or("Group".to_string());
-            format!("{}: {}", group_name, list.name)
-        }
+            format!("Group: {}", g_name)
+        };
+        let list_text = format!("List: {}", list.name);
+        (Some(group_text), Some(list_text))
     } else {
-        String::new()
+        (None, None) //Sollte Nicht auch Gruppe ohne liste möglich sein? In JF fragen
     };
 
+    //div für die einzelnen Abgeschlossenen Items
     rsx! {
         div {
             style: "display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03);",
-
-            // Checkmark Icon
+            // Checkbox
             div {
                 style: "width: 16px; height: 16px; border-radius: 50%; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; margin-top: 2px;",
                 "✓"
             }
-
             div {
                 style: "display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;",
-
                 // Titel durchgestrichen
                 span { style: "font-size: 13px; color: #6b7280; text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;",
                     "{task.summary}"
                 }
-
                 // Metadaten
                 div {
                     style: "display: flex; align-items: center; gap: 6px; flex-wrap: wrap;",
-
-                    if !display_date.is_empty() {
+                    if !datetime_formatted.is_empty() {
                         span { style: "font-size: 10px; color: #4b5563;",
-                            "due: {display_date}"
+                            "Due: {datetime_formatted}"
                         }
                     }
-
-                    if !badge_label.is_empty() {
+                    // Zugehöriges Listen- & Gruppen-Badge, nur anzeigen if label vorhanden
+                    if let Some(label) = group_label {
                         span {
                             style: "font-size: 9px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 1px 5px; border-radius: 3px; font-weight: 500; text-transform: uppercase;",
-                            "{badge_label}"
+                            "{label}"
+                        }
+                    }
+                    if let Some(label) = list_label {
+                        span {
+                            style: "font-size: 9px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 1px 5px; border-radius: 3px; font-weight: 500; text-transform: uppercase;",
+                            "{label}"
                         }
                     }
                 }
