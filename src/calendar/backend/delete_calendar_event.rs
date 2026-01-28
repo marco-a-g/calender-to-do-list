@@ -21,11 +21,12 @@ pub async fn delete_calendar_event_without_sub_events(
     Ok(())
 }
 
-///used to delete an (recurrent) calendar_event completely with all instances.
+///used to delete an (recurrent or non recurrent) calendar_event completely with all instances.
 // #[server]
 pub async fn delete_calendar_event_with_sub_events(
     event_id: Uuid,
 ) -> core::result::Result<(), ServerFnError> {
+    // check wether event is recurrent and delete element and instances
     if let Some(parent_recurrent) = get_calendar_event_from_remote(event_id).await?.recurrence {
         let mut children = get_calendar_events_ids_by_recurrence_id(event_id).await?;
         children.push(event_id);
@@ -34,23 +35,27 @@ pub async fn delete_calendar_event_with_sub_events(
             let stat = delete_single_calendar_event_unchecked(id).await?;
             deleted.push((id, stat));
         }
-        let mut failed_to_delete: Vec<Uuid> = Vec::new();
-        for del in deleted {
-            //TODO: add check, if elemnts were really deleted
+        //check if elemnts were really deleted
+        let mut failed_to_delete: Vec<(Uuid, StatusCode, ServerFnError)> = Vec::new();
+        for hopefully_gone in deleted {
+            match check_deleted(hopefully_gone.0, hopefully_gone.1).await {
+                Err(e) => failed_to_delete.push((hopefully_gone.0, hopefully_gone.1, e)),
+                Ok(()) => {}
+            }
         }
-        if failed_to_delete.len() == 0 {
-            return Ok(());
-        } else {
+        if failed_to_delete.len() != 0 {
             return Err(ServerFnError::new(format!(
-                "Failed to delete the following elements: {:?}",
+                "Failed to delete the following elements (id, StatusCode, Error): {:?}",
                 failed_to_delete
             )));
         }
-    } else {
-        delete_single_calendar_event(event_id);
+        sync_local_to_remote_db().await?;
+        return Ok(());
     }
-    sync_local_to_remote_db().await?;
-    Ok(())
+    //element non-recurrent
+    else {
+        delete_single_calendar_event(event_id).await
+    }
 }
 
 /// to delete a non-recurrent element. Will return an Error if the element is recurrent.
