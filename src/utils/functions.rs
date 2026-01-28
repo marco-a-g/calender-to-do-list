@@ -113,9 +113,7 @@ pub async fn get_calendar_events_ids_by_recurrence_id(
         .text()
         .await
         .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
-    // Json in Vec von Events parsen
-    // let light_event: CalendarEventLight = serde_json::from_str(&response_event_text)
-    //     .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
+    // Json in Vec von Ids parsen
     let ids: Vec<Uuid> = serde_json::from_str(&response_ids_text)
         .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
     Ok(ids)
