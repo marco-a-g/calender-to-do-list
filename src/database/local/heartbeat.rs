@@ -6,8 +6,6 @@ pub async fn start_heartbeat() {
     //startet neuen parallelen Task für heartbeat
     tokio::spawn(async move {
         loop {
-            // bestimmte Zeit warten
-            sleep(Duration::from_secs(10)).await;
             println!("Heartbeat triggered: starting sync of local DB");
             match sync_local_to_remote_db().await {
                 Ok(_) => {}
@@ -15,6 +13,8 @@ pub async fn start_heartbeat() {
                     eprintln!("Error on heartbeat-sync: {}", e);
                 }
             }
+            // bestimmte Zeit warten
+            sleep(Duration::from_secs(10)).await;
         }
     });
 }
