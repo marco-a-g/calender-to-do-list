@@ -2,18 +2,24 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::fmt;
+use strum::EnumString;
 use uuid::Uuid;
 
 /// Is currently limited do the frequency of recurrence. Building recurrent events is described at
 /// struct "Recurrent".
-
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString)]
 pub enum Rrule {
+    #[strum(ascii_case_insensitive)]
     Daily,
+    #[strum(ascii_case_insensitive)]
     Weekly,
+    #[strum(ascii_case_insensitive)]
     Fortnight,
+    #[strum(ascii_case_insensitive)]
     OnWeekDays,
+    #[strum(ascii_case_insensitive)]
     Monthly,
+    #[strum(ascii_case_insensitive)]
     Annual,
 }
 impl fmt::Display for Rrule {
@@ -22,9 +28,11 @@ impl fmt::Display for Rrule {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString)]
 pub enum OwnerType {
+    #[strum(ascii_case_insensitive)]
     Private,
+    #[strum(ascii_case_insensitive)]
     Group,
 }
 impl fmt::Display for OwnerType {
@@ -33,11 +41,15 @@ impl fmt::Display for OwnerType {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString)]
 pub enum Role {
+    #[strum(ascii_case_insensitive)]
     Owner,
+    #[strum(ascii_case_insensitive)]
     Admin,
+    #[strum(ascii_case_insensitive)]
     Member,
+    #[strum(ascii_case_insensitive)]
     Guest,
 }
 impl fmt::Display for Role {
@@ -46,11 +58,15 @@ impl fmt::Display for Role {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString)]
 pub enum Priority {
+    #[strum(ascii_case_insensitive)]
     Low,
+    #[strum(ascii_case_insensitive)]
     Normal,
+    #[strum(ascii_case_insensitive)]
     High,
+    #[strum(ascii_case_insensitive)]
     Top,
 }
 impl fmt::Display for Priority {
@@ -68,8 +84,8 @@ impl fmt::Display for Priority {
 /// An element that is used as an recurrence exception must not be recurrent itself.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct RecurrenceException {
-    recurrence_id: Uuid,
-    overrides: Option<Overrides>,
+    pub recurrence_id: Uuid,
+    pub overrides: Option<Overrides>,
 }
 impl fmt::Display for RecurrenceException {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -91,8 +107,8 @@ impl fmt::Display for RecurrenceException {
 /// of it that is used is overrides_datetime.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Overrides {
-    overrides_datetime: DateTime<Utc>,
-    skipped: bool,
+    pub overrides_datetime: DateTime<Utc>,
+    pub skipped: bool,
 }
 impl fmt::Display for Overrides {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -161,6 +177,7 @@ pub struct GroupMemberOf {
 pub struct Profile {
     pub id: Uuid,
     pub username: String,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
