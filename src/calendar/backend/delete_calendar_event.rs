@@ -6,7 +6,7 @@ use supabase::client::*;
 use uuid::Uuid;
 
 use crate::auth::backend::*;
-use crate::calendar::backend::utils::check_input_sensibility;
+use crate::calendar::backend::utils::{check_deleted, check_input_sensibility};
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::{functions::*, structs::*};
 
@@ -51,36 +51,34 @@ pub async fn delete_calendar_event_with_sub_events(
     Ok(())
 }
 
+/// to delete a non-recurrent element. Will return an Error if the element is recurrent.
 // #[server]
 pub async fn delete_single_calendar_event(
     event_id: Uuid,
 ) -> core::result::Result<(), ServerFnError> {
-    // TODO: check, if recurrence == None, -> Error
-    let delete = delete_single_calendar_event_unchecked(event_id).await;
-    let sc = StatusCode::from_u16(204).unwrap();
-    match delete {
-        Err(e) => {
+    // check, if element is not recurrent
+    let remote_event = get_calendar_event_from_remote(event_id).await?;
+    match remote_event.recurrence {
+        Some(_) => {
             return Err(ServerFnError::new(format!(
-                "delete_single_calendar_event Error: {}",
-                e
+                "delete_single_calendar_event Error: CalendarEvent with id: {:?} is recurrent",
+                event_id
             )));
         }
-        Ok(x) => match x {
-            sc => {}
-            _ => {
-                return Err(ServerFnError::new(format!(
-                    "delete_single_calendar_event Error: unexpected Status: {}",
-                    x
-                )));
-            }
-        },
+        None => {}
     }
-    // TODO: add check, whether the event was really deleted
+    // delete element
+    let delete = delete_single_calendar_event_unchecked(event_id).await?;
+
+    // check wether deletion was successful
+    check_deleted(event_id, delete).await?;
+
+    // sync
     sync_local_to_remote_db().await?;
     Ok(())
 }
 
-//returns 204 No Content even when delete is successfull so an addiotional approval is necessary.
+//returns 204 No Content even when delete is successful so an additional approval is necessary.
 // #[server]
 async fn delete_single_calendar_event_unchecked(
     event_id: Uuid,
@@ -111,11 +109,11 @@ async fn delete_single_calendar_event_unchecked(
 
 // test
 
-pub async fn test_delete() -> core::result::Result<(), ServerFnError> {
-    println!("00");
-    let id = Uuid::parse_str("21d3df71-a300-47f0-9302-6aff593adcdc").unwrap();
-    println!("01");
-    let deletion = delete_single_calendar_event(id).await?;
-    //println!("Deleted with status: {}", deletion);
-    Ok(())
-}
+// pub async fn test_delete() -> core::result::Result<(), ServerFnError> {
+//     println!("00");
+//     let id = Uuid::parse_str("08b6bbfd-1519-420d-bef6-f23d9146894d").unwrap();
+//     println!("01");
+//     let deletion = delete_single_calendar_event(id).await?;
+//     //println!("Deleted with status: {}", deletion);
+//     Ok(())
+// }
