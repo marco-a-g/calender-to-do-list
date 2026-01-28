@@ -177,6 +177,7 @@ pub struct GroupMemberOf {
 pub struct Profile {
     pub id: Uuid,
     pub username: String,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
