@@ -7,7 +7,6 @@ mod navbar;
 mod todos;
 mod user;
 mod utils;
-
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
 use crate::database::local::heartbeat::start_heartbeat;
@@ -18,10 +17,10 @@ use crate::todos::frontend::todo_view::*;
 use crate::user::frontend::{create_profile::CreateProfileView, profile_view::ProfileView};
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
-
 static CSS: Asset = asset!("/assets/tailwind.css");
 
 fn main() {
+    dotenvy::dotenv().ok();
     dioxus::launch(App);
 }
 
@@ -30,13 +29,10 @@ enum Route {
     #[layout(navbar::ui::Navbar)]
     #[route("/")]
     DashboardView,
-
     #[route("/todos")]
     ToDoView,
-
     #[route("/Calendar")]
     Calendar,
-
     #[route("/Groups")]
     Groups,
 
@@ -44,7 +40,7 @@ enum Route {
     ProfileView,
 
     #[route("/groups/:id")]
-    GroupDetail { id: i32 },
+    GroupDetail { id: String },
 }
 
 #[component]
@@ -82,6 +78,7 @@ fn App() -> Element {
             });
         }
     });
+
 
     rsx! {
         document::Stylesheet { href: CSS }
@@ -145,10 +142,14 @@ fn Calendar() -> Element {
 
 #[component]
 fn Groups() -> Element {
-    rsx! { crate::groups::frontend::GroupsPage {} }
+    let auth_status = use_context::<Signal<AuthStatus>>();
+
+    rsx! { GroupsPage { auth_status } }
 }
 
 #[component]
-fn GroupDetail(id: i32) -> Element {
-    rsx!(GroupDetailPage { id })
+fn GroupDetail(id: String) -> Element {
+    let auth_status = use_context::<Signal<AuthStatus>>();
+
+    rsx!(GroupDetailPage { id, auth_status })
 }

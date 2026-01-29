@@ -3,7 +3,7 @@ use dioxus_router::use_navigator;
 
 use crate::Route;
 
-pub type GroupsRes = Resource<Result<Vec<(i32, String, String, i32)>, ServerFnError>>;
+pub type GroupsRes = Resource<Result<Vec<(String, String, String, i32)>, ServerFnError>>;
 
 #[component]
 pub fn GroupsOverview(groups_res: GroupsRes) -> Element {
@@ -16,7 +16,7 @@ pub fn GroupsOverview(groups_res: GroupsRes) -> Element {
                     div { class: "flex flex-col gap-2",
                         for (id, name, color, member_count) in list.iter() {
                             GroupRow {
-                                id: *id,
+                                id: id.clone(),
                                 name: name.clone(),
                                 color: color.clone(),
                                 member_count: *member_count
@@ -32,18 +32,22 @@ pub fn GroupsOverview(groups_res: GroupsRes) -> Element {
 }
 
 #[component]
-fn GroupRow(id: i32, name: String, color: String, member_count: i32) -> Element {
+fn GroupRow(id: String, name: String, color: String, member_count: i32) -> Element {
     let nav = use_navigator();
 
     rsx! {
         div {
-            onclick: move |_| {
-                nav.push(Route::GroupDetail { id });
+            onclick: {
+                let nav = nav.clone();
+                let id = id.clone();
+                move |_| {
+                    nav.push(Route::GroupDetail { id: id.clone() });
+                }
             },
             class: "cursor-pointer
-                    bg-white/5 border border-white/10 
-                    backdrop-blur-xl rounded-2xl 
-                    px-4 py-3 
+                    bg-white/5 border border-white/10
+                    backdrop-blur-xl rounded-2xl
+                    px-4 py-3
                     hover:bg-white/10",
 
             div { class: "flex justify-between items-center",

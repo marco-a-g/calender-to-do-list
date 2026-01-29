@@ -1,118 +1,55 @@
 use dioxus::prelude::*;
-use std::sync::{LazyLock, Mutex};
+use sqlx::{ConnectOptions, SqlitePool};
+use std::str::FromStr;
 
-pub type MemberTransfer = (i32, i32, String, String); // (group_id, user_id, name, role)
+// (group_id, user_id, username, role)
+pub type MemberTransfer = (String, String, String, String);
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Member {
-    pub group_id: i32,
-    pub user_id: i32,
-    pub name: String,
-    pub role: String,
-    pub removed: bool,
-}
+async fn get_local_db_pool() -> Result<SqlitePool, ServerFnError> {
+    let db_path = "sqlite:src/database/local/local_Database.db";
+    let connect_options = sqlx::sqlite::SqliteConnectOptions::from_str(db_path)
+        .map_err(|e| ServerFnError::new(format!("DB path error: {e}")))?
+        .create_if_missing(false)
+        .foreign_keys(true)
+        .disable_statement_logging();
 
-pub(crate) static MOCK_MEMBERS: LazyLock<Mutex<Vec<Member>>> = LazyLock::new(|| {
-    Mutex::new(vec![
-        Member {
-            group_id: 11,
-            user_id: 1,
-            name: "Lero".into(),
-            role: "Owner".into(),
-            removed: false,
-        },
-        Member {
-            group_id: 11,
-            user_id: 2,
-            name: "Marco".into(),
-            role: "Admin".into(),
-            removed: false,
-        },
-        Member {
-            group_id: 11,
-            user_id: 3,
-            name: "Anna".into(),
-            role: "Member".into(),
-            removed: false,
-        },
-        Member {
-            group_id: 11,
-            user_id: 4,
-            name: "Ben".into(),
-            role: "Member".into(),
-            removed: false,
-        },
-        Member {
-            group_id: 10,
-            user_id: 5,
-            name: "Chris".into(),
-            role: "Owner".into(),
-            removed: false,
-        },
-        Member {
-            group_id: 13,
-            user_id: 6,
-            name: "Mia".into(),
-            role: "Owner".into(),
-            removed: false,
-        },
-    ])
-});
-
-fn to_transfer(m: &Member) -> MemberTransfer {
-    (m.group_id, m.user_id, m.name.clone(), m.role.clone())
+    SqlitePool::connect_with(connect_options)
+        .await
+        .map_err(|e| ServerFnError::new(format!("DB connection error: {e}")))
 }
 
 #[server]
-pub async fn fetch_members(group_id: i32) -> Result<Vec<MemberTransfer>, ServerFnError> {
-    let members = MOCK_MEMBERS.lock().unwrap();
-    Ok(members
-        .iter()
-        .filter(|m| m.group_id == group_id && !m.removed)
-        .map(to_transfer)
-        .collect())
-}
+pub async fn fetch_members(group_id: String) -> Result<Vec<MemberTransfer>, ServerFnError> {
+    let pool = get_local_db_pool().await?;
 
-#[server]
-pub async fn invite_member(group_id: i32, name: String, role: String) -> Result<(), ServerFnError> {
-    let mut members = MOCK_MEMBERS.lock().unwrap();
+    let rows: Vec<(String, Option<String>, String)> = sqlx::query_as(
+        r#"
+        SELECT
+            gm.user_id,
+            p.username,
+            gm.role
+        FROM group_members gm
+        LEFT JOIN profiles p ON gm.user_id = p.id
+        WHERE gm.group_id = ?
+        ORDER BY gm.joined_at ASC
+        "#,
+    )
+    .bind(&group_id)
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| ServerFnError::new(format!("DB query error (fetch_members): {e}")))?;
 
-    let new_user_id = members.iter().map(|m| m.user_id).max().unwrap_or(0) + 1;
-    members.push(Member {
-        group_id,
-        user_id: new_user_id,
-        name,
-        role,
-        removed: false,
-    });
+    let result = rows
+        .into_iter()
+        .map(|(user_id, username_opt, role)| {
+            (
+                group_id.clone(),
+                user_id,
+                username_opt.unwrap_or_else(|| "<no profile>".to_string()),
+                role,
+            )
+        })
+        .collect();
 
-    Ok(())
-}
-
-#[server]
-pub async fn remove_member(group_id: i32, user_id: i32) -> Result<(), ServerFnError> {
-    let mut members = MOCK_MEMBERS.lock().unwrap();
-    if let Some(m) = members
-        .iter_mut()
-        .find(|m| m.group_id == group_id && m.user_id == user_id)
-    {
-        m.removed = true;
-    }
-    Ok(())
-}
-
-#[server]
-pub async fn update_member_role(
-    group_id: i32,
-    user_id: i32,
-    role: String,
-) -> Result<(), ServerFnError> {
-    let mut members = MOCK_MEMBERS.lock().unwrap();
-    if let Some(m) = members
-        .iter_mut()
-        .find(|m| m.group_id == group_id && m.user_id == user_id)
-    {
-        m.role = role;
-    }
-    Ok(())
+    Ok(result)
 }
