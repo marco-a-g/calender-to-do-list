@@ -4,7 +4,10 @@
 // - (optional) auth event listener with on_auth_state_change
 // - maybe put api key into env var or config file
 #![allow(dead_code, unused_imports)]
-use dioxus::fullstack::{http::response, serde::de::value::Error};
+use dioxus::{
+    fullstack::{http::response, serde::de::value::Error},
+    prelude::ServerFnError,
+};
 use std::fmt;
 use std::sync::OnceLock;
 use supabase::{Auth, Client};
@@ -50,6 +53,13 @@ pub enum AuthError {
     NoUserReturned,
     UserAlreadyExists,
     Supabase(supabase::Error),
+    Server(ServerFnError),
+}
+// convert ServerFnError to AuthError until we have a clean error setup
+impl From<ServerFnError> for AuthError {
+    fn from(error: ServerFnError) -> Self {
+        AuthError::Server(error)
+    }
 }
 
 impl From<supabase::Error> for AuthError {
@@ -80,6 +90,7 @@ impl fmt::Display for AuthError {
             AuthError::NoUserReturned => write!(f, "Auth returned no user"),
             AuthError::UserAlreadyExists => write!(f, "User already exists"),
             AuthError::Supabase(error) => write!(f, "{}", error),
+            AuthError::Server(error) => write!(f, "{}", error),
         }
     }
 }
