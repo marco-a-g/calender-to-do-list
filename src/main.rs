@@ -11,6 +11,7 @@ mod utils;
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
 use crate::database::local::heartbeat::start_heartbeat;
+use crate::database::local::init_fetch::init_fetch_local_db::init_database;
 use crate::todos::frontend::todo_view::*;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
@@ -42,6 +43,7 @@ fn App() -> Element {
     let auth_status = use_signal(|| AuthStatus::Unauthenticated);
     let auth_view = use_signal(|| AuthView::Login);
     let initialized = use_signal(|| false); // use later to enable offline mode/view, maybe enum ClientState {Ready, Offline, Error(AuthError)}
+    let mut db_is_ready = use_signal(|| false);
 
     // initialize Supabase client
     // maybe wrap with use_effect
@@ -52,9 +54,25 @@ fn App() -> Element {
         }
     });
 
-    use_future(|| async move {
-        start_heartbeat().await;
+    use_effect(move || {
+        // DB init & Heartbeat startet erst, wenn user auth ist
+        if let AuthStatus::Authenticated { .. } = auth_status() {
+            spawn(async move {
+                println!("Login erfolgreich. Starte Local-DB-Initialisierung...");
+                match init_database().await {
+                    Ok(_) => {
+                        println!("DB Init erfolgreich.");
+                        db_is_ready.set(true);
+                        start_heartbeat().await;
+                    }
+                    Err(e) => {
+                        eprintln!("Datenbank konnte nicht initialisiert werden: {}", e);
+                    }
+                }
+            });
+        }
     });
+
     rsx! {
         document::Stylesheet { href: CSS }
 
@@ -75,7 +93,16 @@ fn App() -> Element {
                 }
             ),
             AuthStatus::Authenticated { .. } => rsx!(
-                Router::<Route> {}
+                if db_is_ready() {
+                    Router::<Route> {}
+                } else {
+                    // Ladebildschirm während init_database() läuft
+                    div {
+                        class: "h-screen w-screen flex flex-col items-center justify-center bg-[#080910] text-white gap-4",
+                        div { class: "animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500" }
+                        div { "Loading DB..." }
+                    }
+                }
             ),
         }
     }
