@@ -50,7 +50,7 @@ fn HistoryItem(
     parent_list: Option<TodoListLight>,
     parent_group: Option<GroupLight>,
 ) -> Element {
-    // Datum Formatierung
+    // Datum Formatierung // Hier nochamal angehen allgemein wo Funktion für Datumsumwandlung?
     let datetime_raw = task.due_datetime.clone().unwrap_or_default();
     let datetime_formatted = if datetime_raw.is_empty() {
         String::new()
@@ -63,8 +63,9 @@ fn HistoryItem(
         }
     };
 
-    //Label für Liste und Gruppe extrahieren als Tupel extrahieren
+    //Label für Liste und Gruppe als Tupel extrahieren
     let (group_label, list_label) = if let Some(list) = &parent_list {
+        //wenn private Liste = Personal Label
         let group_text = if list.list_type == "private" {
             "Personal".to_string()
         } else {
