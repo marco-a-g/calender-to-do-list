@@ -1,6 +1,7 @@
 use crate::auth::backend::{AuthError, get_client};
 use crate::todos::backend::create_todo::create_todo_event;
 use crate::todos::backend::edit_todo::edit_todo_event;
+use crate::utils::date_formatting::db_to_html_input;
 use crate::utils::structs::{
     GroupLight, GroupMemberLight, ProfileLight, TodoEventLight, TodoListLight,
 };
@@ -83,24 +84,11 @@ pub fn CreateEditToDoModal(
                     new_task_group_id.set(String::new()); //jeder Nutzer, jede Gruppe sollte doch eine private "freie" Liste haben -> JF
                 }
             }
-
-            // Datum parsen // auslagern und für verschiedene Fälle wie diesen handeln
-            if let Some(due) = &todo.due_datetime {
-                // Supabase liefert oft ISO String. Wir nehmen einfach die ersten 10 Zeichen (YYYY-MM-DD)
-                if due.len() >= 10 {
-                    new_task_due_date.set(due[0..10].to_string());
-                } else {
-                    new_task_due_date.set(due.clone());
-                }
-            }
-            // Until-Datum parsen // auslagern und für verschiedene Fälle wie diesen handeln
-            if let Some(until) = &todo.recurrence_until {
-                if until.len() >= 10 {
-                    new_task_recurrence_until.set(until[0..10].to_string());
-                } else {
-                    new_task_recurrence_until.set(until.clone());
-                }
-            }
+            //Due Datum
+            new_task_due_date.set(db_to_html_input(&todo.due_datetime).unwrap_or_default());
+            // Rec-Until Datum
+            new_task_recurrence_until
+                .set(db_to_html_input(&todo.recurrence_until).unwrap_or_default());
         } else {
             // Bei keinem Todo_to_edit -> Werte bleiben Standardwerte
         }

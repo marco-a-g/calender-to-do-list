@@ -1,4 +1,5 @@
 use crate::todos::frontend::filter_todos::{GroupFilter, ListFilter};
+use crate::utils::date_formatting::db_to_display_only_date;
 use crate::utils::structs::{
     CalendarEventLight, GroupLight, ProfileLight, TodoEventLight, TodoListLight,
 };
@@ -92,23 +93,13 @@ pub fn OpenToDoView(
         if let ListFilter::SpecificList(id) = &selected_list_filter {
             if let Some(list) = all_lists.iter().find(|l| &l.id == id) {
                 // Due Datum der Liste
-                let date_str = if let Some(due) = &list.due_datetime {
-                    if !due.is_empty() {
-                        let clean_ts = due.replace(" ", "T"); //auslagern?
-                        if let Ok(dt_utc) = DateTime::parse_from_rfc3339(&clean_ts) {
-                            let dt_local = dt_utc.with_timezone(&Local);
-                            Some(dt_local.format("%d.%m.%Y").to_string())
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
+                let date_str = db_to_display_only_date(&list.due_datetime)
+                    .ok()
+                    .filter(|s| !s.is_empty());
+
                 // Beschreibung
                 let description = list.description.clone().filter(|d| !d.is_empty());
+
                 // Prio
                 let raw_prio = list.priority.clone().unwrap_or("normal".to_string());
                 let (p_label, p_color) = match raw_prio.to_lowercase().as_str() {
@@ -117,7 +108,6 @@ pub fn OpenToDoView(
                     "top" => ("Top", "#ef4444"),
                     _ => ("Normal", "#9ca3af"),
                 };
-
                 (date_str, description, Some((p_label, p_color)))
             } else {
                 (None, None, None)
@@ -291,25 +281,23 @@ fn ToDoItem(
     let task_click = task.clone();
     // ToDo Completen > task_complete auf dieses todo setzen
     let task_complete = task.clone();
-    // Datum //Nochmal Formatierung überlegen, funktion auslegen
-    let due_str_raw = task.due_datetime.clone().unwrap_or_default();
+    // Datum
     let now = Local::now().date_naive();
-    let (date_color, font_weight, display_date) = if due_str_raw.is_empty() {
-        ("#6b7280", "400", String::new())
-    } else {
-        let clean_ts = due_str_raw.replace(" ", "T");
-        if let Ok(dt_utc) = DateTime::parse_from_rfc3339(&clean_ts) {
-            let dt_local = dt_utc.with_timezone(&Local);
-            let parsed_date = dt_local.date_naive();
-            let german_format = dt_local.format("%d.%m.%Y").to_string();
-            if parsed_date <= now {
-                ("#ef4444", "600", german_format)
+    let (date_color, font_weight, display_date) = match db_to_display_only_date(&task.due_datetime)
+    {
+        Ok(german_format) if !german_format.is_empty() => {
+            if let Ok(parsed_date) = NaiveDate::parse_from_str(&german_format, "%d.%m.%Y") {
+                if parsed_date <= now {
+                    ("#ef4444", "600", german_format)
+                } else {
+                    ("#6b7280", "400", german_format)
+                }
             } else {
-                ("#6b7280", "400", german_format)
+                ("#6b7280", "400", german_format) //falls Fehler beim Parsen, sollte aber nicht
             }
-        } else {
-            ("#6b7280", "400", due_str_raw)
         }
+        // Bei Fehler, None oder leerem String nicht anzeigen
+        _ => ("#6b7280", "400", String::new()),
     };
 
     // Prio
@@ -483,15 +471,10 @@ fn categorize_todos(
     for todo in list {
         let todo_to_sort = todo.clone();
         // Alles Ungültige (None, leer, Parse-Fehler) wird hier zu None.
-        let valid_date = todo
-            .due_datetime
-            .as_deref()
-            .filter(|s| !s.is_empty()) // Falls nicht None aber String leer
-            .and_then(|s| {
-                let raw_dr = s.replace(" ", "T");
-                DateTime::parse_from_rfc3339(&raw_dr).ok() // Fehler wird zu None
-            })
-            .map(|dt| dt.with_timezone(&Local).date_naive());
+        let valid_date: Option<_> = db_to_display_only_date(&todo.due_datetime)
+            .ok()
+            .filter(|s| !s.is_empty())
+            .and_then(|s| NaiveDate::parse_from_str(&s, "%d.%m.%Y").ok());
 
         // In jeweilige vecs pushen (Parse Fehler, None, oder leerer String wird zu later)
         if let Some(item_date) = valid_date {

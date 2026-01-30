@@ -1,6 +1,7 @@
 use crate::auth::backend::SUPABASE_URL;
 use crate::auth::backend::*;
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
+use crate::utils::date_formatting::html_input_to_db;
 use crate::utils::functions::get_user_id_and_session_token;
 use crate::utils::structs::{Priority, TodoEventLight};
 use chrono::{DateTime, Utc};
@@ -34,60 +35,46 @@ struct ToDoTransfer {
     skipped: bool,
 }
 
-//die hier nutzen an den anderen Stellen? //DAtum Parsen
-fn parse_date_flexible(input: &str) -> Option<DateTime<Utc>> {
-    if input.is_empty() {
-        return None;
-    }
-    let clean = input.trim().replace(" ", "T");
-    if let Ok(dt) = DateTime::parse_from_rfc3339(&clean) {
-        return Some(dt.with_timezone(&Utc));
-    }
-    if clean.len() == 10 {
-        let full_iso = format!("{}T00:00:00Z", clean);
-        if let Ok(dt) = DateTime::parse_from_rfc3339(&full_iso) {
-            return Some(dt.with_timezone(&Utc));
-        }
-    }
-    None
-}
-//LightToDo in TransferTodo Objekt
+// LightToDo in TransferTodo Objekt
 fn light_todo_into_transfertodo(
     light: TodoEventLight,
 ) -> Result<ToDoTransfer, Box<dyn std::error::Error>> {
-    //Wieso Box Error?
-
+    // Box<Error> kann versch. Fehlerarten zurückgeben, falls welche auftreten
     let todo_list_id_transfer = Uuid::parse_str(&light.todo_list_id).ok();
-    let due_datetime_transfer = if let Some(d) = light.due_datetime {
-        parse_date_flexible(&d)
-    } else {
-        None
-    };
+
+    let due_datetime_transfer = light
+        .due_datetime
+        .as_deref()
+        .and_then(|s| html_input_to_db(s).unwrap_or(None));
+
     let priority_transfer = light
         .priority
         .unwrap_or("normal".to_string())
         .to_lowercase();
+
     let assigned_to_user_transfer = match light.assigned_to_user {
         Some(user_id) => Uuid::parse_str(&user_id).ok(),
         None => None,
     };
-    let recurrence_until_transfer = if let Some(d) = light.recurrence_until {
-        parse_date_flexible(&d)
-    } else {
-        None
-    };
-    let overrides_transfer = if let Some(d) = light.overrides_datetime {
-        parse_date_flexible(&d)
-    } else {
-        None
-    };
+
+    let recurrence_until_transfer = light
+        .recurrence_until
+        .as_deref()
+        .and_then(|s| html_input_to_db(s).unwrap_or(None));
+
+    let overrides_transfer = light
+        .overrides_datetime
+        .as_deref()
+        .and_then(|s| html_input_to_db(s).unwrap_or(None));
+
     let recurrence_id_transfer = if let Some(rid) = light.recurrence_id {
         Uuid::parse_str(&rid).ok()
     } else {
         None
     };
-    //rest kann so genommen werden
-    //Transferobjekt bauen
+
+    // Rest kann so genommen werden
+    // Transferobjekt bauen
     Ok(ToDoTransfer {
         summary: light.summary,
         description: light.description,

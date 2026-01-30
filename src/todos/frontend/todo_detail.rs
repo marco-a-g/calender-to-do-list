@@ -1,6 +1,5 @@
-//KOMMENTARE NICHT FERTIG
-
 use crate::todos::backend::delete_todo::delete_todo_event;
+use crate::utils::date_formatting::db_to_display_only_date;
 use crate::utils::structs::{GroupLight, ProfileLight, TodoEventLight, TodoListLight};
 use chrono::{DateTime, Local};
 use dioxus::prelude::*;
@@ -16,22 +15,17 @@ pub fn ToDoDetailModal(
     on_refresh: EventHandler<()>,
     on_edit: EventHandler<TodoEventLight>,
 ) -> Element {
-    // 1. Zugriff auf Daten sichern
+    // Ausgewähltes ToDo refenzieren
     let current_todo_ref = selected_todo.read();
     let Some(todo) = &*current_todo_ref else {
         return rsx! {};
-    };
+    }; //kein ausgewähltes ToDo -> nichts rendern
 
-    // --- DATEN AUFBEREITUNG ---
-
-    // A) Titel & Beschreibung
+    // Daten aufbereiten
     let title = todo.summary.clone();
     let description = todo.description.clone().unwrap_or_default();
 
-    // B) Liste & Gruppe finden
-    // (Wir parsen hier nur für den Vergleich, falls nötig, sonst String-Vergleich)
     let list_opt = all_lists.iter().find(|l| l.id == todo.todo_list_id);
-
     let list_name = list_opt
         .map(|l| l.name.clone())
         .unwrap_or("Unknown List".to_string());
@@ -52,7 +46,6 @@ pub fn ToDoDetailModal(
         "-".to_string()
     };
 
-    // C) Assignee finden
     let assignee_name = if let Some(uid) = &todo.assigned_to_user {
         all_profiles
             .iter()
@@ -63,23 +56,12 @@ pub fn ToDoDetailModal(
         "Unassigned".to_string()
     };
 
-    // D) Fälligkeitsdatum Formatieren
-    let due_date_display = if let Some(d) = &todo.due_datetime {
-        if d.is_empty() {
-            "-".to_string()
-        } else {
-            let clean_ts = d.replace(" ", "T");
-            if let Ok(dt) = DateTime::parse_from_rfc3339(&clean_ts) {
-                dt.with_timezone(&Local).format("%d.%m.%Y").to_string()
-            } else {
-                d.clone()
-            }
-        }
-    } else {
-        "-".to_string()
+    let due_date_display = match db_to_display_only_date(&todo.due_datetime) {
+        Ok(s) if !s.is_empty() => s,
+        _ => "-".to_string(),
     };
 
-    // E) Priority
+    // Prio parsen
     let priority = todo.priority.clone().unwrap_or("normal".to_string());
     let priority_display = match priority.to_lowercase().as_str() {
         "low" => "Low",
@@ -88,7 +70,7 @@ pub fn ToDoDetailModal(
         _ => "Normal",
     };
 
-    // F) Recurrence (Kombiniert)
+    // Reccurence
     let rrule_raw = todo.rrule.clone().unwrap_or_default();
 
     let recurrence_text = if rrule_raw.is_empty() {
@@ -104,26 +86,15 @@ pub fn ToDoDetailModal(
             _ => rrule_raw.as_str(),
         };
 
-        if let Some(until_raw) = &todo.recurrence_until {
-            if !until_raw.is_empty() {
-                let until_formatted = if let Ok(naive_date) =
-                    chrono::NaiveDate::parse_from_str(until_raw, "%Y-%m-%d")
-                {
-                    naive_date.format("%d.%m.%Y").to_string()
-                } else {
-                    until_raw.clone()
-                };
-                format!("{}, until: {}", rule_name, until_formatted)
-            } else {
-                rule_name.to_string()
-            }
+        let until_formatted = db_to_display_only_date(&todo.recurrence_until).unwrap_or_default();
+        if !until_formatted.is_empty() {
+            format!("{}, until: {}", rule_name, until_formatted)
         } else {
             rule_name.to_string()
         }
     };
 
-    // --- HANDLER ---
-    // Wir klonen die ID als String für den Delete-Handler
+    // Für Handler vorbereiten
     let todo_id_str = todo.id.clone();
     let todo_for_edit = todo.clone();
 
@@ -131,21 +102,19 @@ pub fn ToDoDetailModal(
         let id_string = todo_id_str.clone();
 
         spawn(async move {
-            // WICHTIG: String ID in UUID umwandeln für das Backend
             if let Ok(uuid) = Uuid::from_str(&id_string) {
                 if delete_todo_event(uuid).await.is_ok() {
                     selected_todo.set(None);
                     on_refresh.call(());
                 } else {
-                    println!("❌ Fehler beim Löschen");
+                    println!("Error on deleting");
                 }
             } else {
-                println!("❌ Ungültige UUID im Todo: {}", id_string);
+                println!("Invalid UUid: {}", id_string);
             }
         });
     };
 
-    // --- STYLES ---
     let input_style = "background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; color: white; outline: none; width: 100%; display: block; min-height: 42px; display: flex; align-items: center;";
     let label_style = "font-size: 12px; color: #9ca3af; text-transform: uppercase;";
 
@@ -168,13 +137,13 @@ pub fn ToDoDetailModal(
                     }
                 }
 
-                // 1. Name
+                // Name
                 div { class: "flex flex-col gap-2",
                     label { style: "{label_style}", "To-Do Name" }
                     div { style: "{input_style} font-weight: 600;", "{title}" }
                 }
 
-                // 2. Beschreibung
+                // Beschreibung
                 if !description.is_empty() {
                     div { class: "flex flex-col gap-2",
                         label { style: "{label_style}", "Description" }
@@ -185,7 +154,7 @@ pub fn ToDoDetailModal(
                     }
                 }
 
-                // 3. Row: Due Date & Priority
+                // Prio und Fälligkeitsdatum
                 div { style: "display: flex; gap: 10px;",
                     div { class: "flex flex-col gap-2 flex-1",
                         label { style: "{label_style}", "Due Date" }
@@ -204,25 +173,25 @@ pub fn ToDoDetailModal(
                     }
                 }
 
-                // 4. Recurrence
+                // Recurrence
                 div { class: "flex flex-col gap-2",
                     label { style: "{label_style}", "Recurrence" }
                     div { style: "{input_style}", "{recurrence_text}" }
                 }
 
-                // 5. Group
+                // Gruppe
                 div { class: "flex flex-col gap-2",
                     label { style: "{label_style}", "Group" }
                     div { style: "{input_style}", "{group_name}" }
                 }
 
-                // 6. List
+                // Liste
                 div { class: "flex flex-col gap-2",
                     label { style: "{label_style}", "List" }
                     div { style: "{input_style}", "{list_name}" }
                 }
 
-                // 7. Assignee
+                // Zugewiesener User
                 div { class: "flex flex-col gap-2",
                     label { style: "{label_style}", "Assigned To" }
                     div { style: "{input_style}", "{assignee_name}" }

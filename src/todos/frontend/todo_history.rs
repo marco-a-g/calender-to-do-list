@@ -1,3 +1,4 @@
+use crate::utils::date_formatting::db_to_display_only_date;
 use crate::utils::structs::{GroupLight, TodoEventLight, TodoListLight};
 use chrono::{DateTime, Local};
 use dioxus::prelude::*;
@@ -50,18 +51,8 @@ fn HistoryItem(
     parent_list: Option<TodoListLight>,
     parent_group: Option<GroupLight>,
 ) -> Element {
-    // Datum Formatierung // Hier nochamal angehen allgemein wo Funktion für Datumsumwandlung?
-    let datetime_raw = task.due_datetime.clone().unwrap_or_default();
-    let datetime_formatted = if datetime_raw.is_empty() {
-        String::new()
-    } else {
-        if let Ok(dt_utc) = DateTime::parse_from_rfc3339(&datetime_raw) {
-            let dt_local = dt_utc.with_timezone(&Local);
-            dt_local.format("%d.%m.%Y").to_string()
-        } else {
-            datetime_raw //wenn nicht umfomratierbar dann raw-date String ausgeben
-        }
-    };
+    // Datum Formatierung
+    let datetime_formatted = db_to_display_only_date(&task.due_datetime).unwrap_or_default();
 
     //Label für Liste und Gruppe als Tupel extrahieren
     let (group_label, list_label) = if let Some(list) = &parent_list {
