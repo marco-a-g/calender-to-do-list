@@ -152,9 +152,9 @@ pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -
 pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
     let mut firstname = use_signal(|| String::new());
     let mut lastname = use_signal(|| String::new());
+    let mut phone = use_signal(|| String::new());
     let mut username = use_signal(|| String::new());
     let mut email = use_signal(|| String::new());
-    let mut phone = use_signal(|| String::new());
     let mut password = use_signal(|| String::new());
     let mut error = use_signal(|| None::<String>);
     let mut info = use_signal(|| None::<String>);
@@ -186,9 +186,9 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
 
                 input { placeholder: "First name", value: "{firstname}", oninput: move |e| firstname.set(e.value()), style: input_style() }
                 input { placeholder: "Last name", value: "{lastname}", oninput: move |e| lastname.set(e.value()), style: input_style() }
+                input { placeholder: "Phone", value: "{phone}", oninput: move |e| phone.set(e.value()), style: input_style() }
                 input { placeholder: "Username", value: "{username}", oninput: move |e| username.set(e.value()), style: input_style() }
                 input { placeholder: "Email", value: "{email}", oninput: move |e| email.set(e.value()), style: input_style() }
-                input { placeholder: "Phone", value: "{phone}", oninput: move |e| phone.set(e.value()), style: input_style() }
                 input { r#type: "password", placeholder: "Password", value: "{password}", oninput: move |e| password.set(e.value()), style: input_style() }
 
                 if let Some(msg) = error() {
@@ -219,7 +219,7 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
                     ",
                     onclick: move |_| {
                         spawn(async move {
-                            match signup(&email(), &password()).await {
+                            match signup(&email(), &password(), &username()).await {
                                     Ok(_) => {
                                         info.set(Some("Signup successful".to_string()));
                                         error.set(None);

@@ -13,7 +13,9 @@ use std::sync::OnceLock;
 use supabase::{Auth, Client};
 use uuid::Uuid;
 
-static SUPABASE_CLIENT: OnceLock<Client> = OnceLock::new();
+use crate::user::{self, backend::create_profile};
+
+static SUPABASE_CLIENT: OnceLock<Client> = OnceLock::new(); // durch AI von OnceLock erfahren
 pub const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
 pub const ANON_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5cWF3bm5rcHVzZ3RuaG1lZWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NDM5MjksImV4cCI6MjA4MTQxOTkyOX0.0_m5aLSKNdqiqCNFWI8Hfa5iSOKrjf97qb9ZXxnboGA";
 
@@ -62,6 +64,7 @@ impl From<ServerFnError> for AuthError {
     }
 }
 
+// Struktur von Implementierung durch AI erfragt
 impl From<supabase::Error> for AuthError {
     fn from(error: supabase::Error) -> Self {
         match &error {
@@ -109,15 +112,17 @@ pub async fn login(username: &str, password: &str) -> Result<AuthStatus, AuthErr
     })
 }
 
-pub async fn signup(email: &str, password: &str) -> Result<(), AuthError> {
+pub async fn signup(email: &str, password: &str, username: &str) -> Result<(), AuthError> {
     let client = get_client()?;
 
     let response = client
         .auth()
         .sign_up_with_email_and_password(email, password)
         .await?;
-
     println!("Response: {:?}", response);
+
+    create_profile(username).await?;
+
     Ok(())
     // sign_up_with_email_password_and_data:
     // data = {
