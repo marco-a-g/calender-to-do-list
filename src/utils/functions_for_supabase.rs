@@ -1,10 +1,13 @@
-use dioxus::{fullstack::Transportable, prelude::*};
-use reqwest::*;
-use std::{clone, io::Error, str::FromStr};
-use supabase::Client;
-use uuid::Uuid;
+#![allow(dead_code)]
+#![allow(unused_imports)]
 
-use crate::{auth::backend::*, utils::structs::*};
+use dioxus::prelude::*;
+use reqwest::*;
+
+use crate::{
+    auth::backend::*,
+    utils::{functions::*, structs::*},
+};
 
 /// used to get elements from the remote database. The string must lead to the supabase database table including the query.
 /// it returns the .text element of the json as a string.
@@ -39,7 +42,7 @@ pub async fn get_elements_from_remote_by_url_string_unchecked(
 
 /// for parsing an string formated answer of an supabase query into an calendar_event.
 // #[server]
-pub async fn parse_response_string_to_calendar_event(
+pub async fn parse_response_string_to_calendar_events(
     response_event_text: String,
 ) -> core::result::Result<Vec<CalendarEvent>, ServerFnError> {
     let light_events: Vec<CalendarEventLight> = serde_json::from_str(&response_event_text)
