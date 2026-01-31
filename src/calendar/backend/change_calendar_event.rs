@@ -1,19 +1,14 @@
-use std::num::NonZeroI64;
-
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+use dioxus::html::{ol, tr};
 use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
-use serde_json::error::Category;
-use supabase::client::*;
 use uuid::Uuid;
 
 use crate::auth::backend::*;
-use crate::calendar::backend::utils::check_input_sensibility;
+use crate::calendar::backend::{delete_calendar_event::*, utils::check_input_sensibility};
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::{functions::*, structs::*};
-
-///
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct CalendarEventUp {
@@ -33,32 +28,144 @@ pub struct CalendarEventUp {
     pub skipped: String,
 }
 
-// // #[server]
-// pub async fn change_calendar_event(
-//     //check validity of new version itself
-//     new_version: CalendarEvent,
-// ) -> core::result::Result<(), ServerFnError> {
-//     match check_input_sensibility(
-//         new_version.summary,
-//         new_version.calendar_id,
-//         new_version.from_date_time,
-//         new_version.to_date_time,
-//         new_version.recurrence,
-//         new_version.recurrence_exception,
-//     ) {
-//         Err(e) => {
-//             return Err(ServerFnError::new(format!(
-//                 "change_calendar_event Error: {}",
-//                 e
-//             )));
-//         }
-//         Ok(_) => {}
-//     };
+// fehlt noch:
+//   - from_date_time auch für children ändern, die die selbe from_date_time
+//   - handle out-of-range
+//   - handle depending to_do_lists
 
-//     // get old version from the server to compare for changes that effect other elements because of recurrence
-//     let old_version =
-//     Ok(())
-// }
+///
+// #[server]
+pub async fn change_calendar_event(
+    new_version: CalendarEvent,
+    keep_overridings: Option<bool>, // set this to true if recurrence exceptions that override dates that leave the range of the events recurrence, defaults to false
+    keep_orphans: Option<bool>, // set this to true to keep recurrence exceptions as single elements if the event is turned to non-recurrent, defaults to false
+) -> core::result::Result<(), ServerFnError> {
+    //check validity of new version itself
+    check_input_sensibility(
+        new_version.summary.clone(),
+        new_version.calendar_id,
+        new_version.from_date_time,
+        new_version.to_date_time,
+        new_version.recurrence.clone(),
+        new_version.recurrence_exception.clone(),
+    )
+    .await?;
+
+    // get old version from the server to compare for changes that effect other elements because of recurrence
+    let old_version = get_calendar_event_from_remote(new_version.id).await?;
+    let mut to_be_del: Vec<CalendarEvent> = Vec::new();
+    let mut to_non_override: Vec<CalendarEvent> = Vec::new();
+    let mut to_be_orphaned: Vec<CalendarEvent> = Vec::new();
+
+    // check, wether the range of the recurrence is decreased to handle the exceptions now out of range
+    if let Some(new_recurrence) = new_version.recurrence.clone()
+        && let Some(old_recurrence) = old_version.recurrence.clone()
+    {
+        // in case from_date_time is changed, it must also be changed for all recurrence_exceptions that share the from_date_time till now
+        if new_version.from_date_time != old_version.from_date_time {
+            let perhaps_need_shift = format!(
+                "{}/rest/v1/calendar_events?recurrence_id=eq.{}and(from_date_time.gte.{},recurrence_until.lte.{})",
+                SUPABASE_URL,
+                new_version.id,
+                old_version.from_date_time,
+                old_recurrence.recurrence_until
+            );
+            // TODO: parse to Vec
+            for shifty in perhaps_need_shift_vec {}
+        }
+        // in case, the new versions recurrence is shorter then the old, handle the unused recurrence exceptions
+        if old_version.from_date_time < new_version.from_date_time
+            || new_recurrence.recurrence_until < old_recurrence.recurrence_until
+        {
+            let out_of_scope_string = format!(
+                "{}/rest/v1/calendar_events?recurrence_id=eq.{}&or=(and(from_date_time.gte.{},from_date_time.lt.{}),(recurrence_until.gt.{},recurrence_until.lte{}))",
+                SUPABASE_URL,
+                new_version.id,
+                old_version.from_date_time,
+                new_version.from_date_time,
+                new_recurrence.recurrence_until,
+                old_recurrence.recurrence_until
+            );
+            //get, parse to CalendarEvent and fit into to_be_del or to_non_override
+        }
+    }
+    // in case, the element is switched to non-recurrent, check for depending events to handle them
+    if let Some(_) = old_version.recurrence
+        && let None = new_version.recurrence.clone()
+    {
+        let to_be_deleted_or_orphaned =
+            get_calendar_events_by_recurrence_id(new_version.id).await?;
+        for child in to_be_deleted_or_orphaned {
+            if let Some(rec_ex) = &child.recurrence_exception {
+                match (&rec_ex.overrides, keep_overridings, keep_orphans) {
+                    (Some(over), Some(true), Some(true)) => {
+                        if over.skipped {
+                            to_be_del.push(child);
+                        } else {
+                            to_be_orphaned.push(child);
+                        }
+                    }
+                    (Some(over), _, _) => to_be_del.push(child),
+                    (None, _, Some(true)) => to_be_orphaned.push(child),
+                    _ => to_be_del.push(child),
+                }
+            } else {
+                return Err(ServerFnError::new(format!(
+                    "Unexpected Error: The CalendarEvent {} was either parsed wrong or is in an invalid state",
+                    child.id
+                )));
+            }
+        }
+    }
+    for delete in to_be_del {
+        delete_single_calendar_event(delete.id).await?;
+    }
+    for orphanise in to_be_orphaned {
+        change_calendar_event_unchecked(CalendarEvent {
+            id: orphanise.id,
+            summary: orphanise.summary,
+            description: orphanise.description,
+            calendar_id: orphanise.calendar_id,
+            created_at: orphanise.created_at,
+            created_by: orphanise.created_by,
+            from_date_time: orphanise.from_date_time,
+            to_date_time: orphanise.to_date_time,
+            attachment: orphanise.attachment,
+            recurrence: orphanise.recurrence,
+            recurrence_exception: None,
+            location: orphanise.location,
+            categories: orphanise.categories,
+            is_all_day: orphanise.is_all_day,
+            last_mod: Utc::now(),
+        })
+        .await?;
+    }
+    for non_over in to_non_override {
+        change_calendar_event_unchecked(CalendarEvent {
+            id: non_over.id,
+            summary: non_over.summary,
+            description: non_over.description,
+            calendar_id: non_over.calendar_id,
+            created_at: non_over.created_at,
+            created_by: non_over.created_by,
+            from_date_time: non_over.from_date_time,
+            to_date_time: non_over.to_date_time,
+            attachment: non_over.attachment,
+            recurrence: non_over.recurrence,
+            recurrence_exception: Some(RecurrenceException {
+                recurrence_id: new_version.id,
+                overrides: None,
+            }),
+            location: non_over.location,
+            categories: non_over.categories,
+            is_all_day: non_over.is_all_day,
+            last_mod: Utc::now(),
+        })
+        .await?;
+    }
+    change_calendar_event_unchecked(new_version).await?;
+    Ok(())
+}
 
 // #[server]
 pub async fn change_calendar_event_unchecked(
@@ -114,7 +221,6 @@ pub async fn change_calendar_event_unchecked(
     let insert_event = reqwest::Client::new()
         .patch(url_events)
         .query(&[("id", format!("eq.{}", changed_event.id))])
-        //.bearer_auth(current_user.1)
         .header("apikey", ANON_KEY)
         .header("Authorization", format!("Bearer {}", current_user.1))
         .header("Content-Type", "application/json")
