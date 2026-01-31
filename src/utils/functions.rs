@@ -84,80 +84,6 @@ pub async fn get_calendar_events_ids_by_recurrence_id(
     Ok(ids)
 }
 
-pub async fn get_calendar_events_by_recurrence_id(
-    recurrence_id: Uuid,
-) -> core::result::Result<Vec<CalendarEvent>, ServerFnError> {
-    //get the data from the server
-    let current_user = get_user_id_and_session_token().await?;
-    let url_events = format!(
-        "{}/rest/v1/calendar_events?recurrence_id=eq.{}",
-        SUPABASE_URL, recurrence_id
-    );
-    let response_event = reqwest::Client::new()
-        .get(&url_events)
-        .header("apikey", ANON_KEY)
-        .header("Authorization", format!("Bearer {}", current_user.1))
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Http Request Events Error: {}", e)))?;
-    if !response_event.status().is_success() {
-        let err = response_event.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!(
-            "Supabase Error Events: {}",
-            err
-        )));
-    }
-    // Response in Json parsen
-    let response_event_text = response_event
-        .text()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
-    // Json in Vec von Events parsen
-    let light_events: Vec<CalendarEventLight> = serde_json::from_str(&response_event_text)
-        .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
-    let mut cal_events: Vec<CalendarEvent> = Vec::new();
-    for light_ev in light_events {
-        cal_events.push(parse_calendar_event_light_to_calendar_event(light_ev)?);
-    }
-    Ok(cal_events)
-}
-
-pub async fn get_calendar_events_ids_by_recurrence_id(
-    rec_id: Uuid,
-) -> core::result::Result<Vec<Uuid>, ServerFnError> {
-    //get the data from the server
-    let current_user = get_user_id_and_session_token().await?;
-    let url_events = format!(
-        "{}/rest/v1/calendar_events?select=id&recurrence_id=eq.{}",
-        SUPABASE_URL, rec_id
-    );
-    let response_ids = reqwest::Client::new()
-        .get(&url_events)
-        .header("apikey", ANON_KEY)
-        .header("Authorization", format!("Bearer {}", current_user.1))
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Http Request Events Error: {}", e)))?;
-    if !response_ids.status().is_success() {
-        let err = response_ids.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!(
-            "Supabase Error Events: {}",
-            err
-        )));
-    }
-    // Response in Json parsen
-    let response_ids_text = response_ids
-        .text()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
-    // Json in Vec von Ids parsen
-    let ids: Vec<Uuid> = serde_json::from_str(&response_ids_text)
-        .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
-    Ok(ids)
-}
-
 pub fn parse_calendar_event_to_light(event: CalendarEvent) -> CalendarEventLight {
     CalendarEventLight {
         id: event.id.to_string(),
@@ -349,5 +275,3 @@ pub async fn parse_response_string_to_calendar_events(
     }
     Ok(cal_events)
 }
-
-//get_user_id_ and_session_token

@@ -63,15 +63,22 @@ pub async fn change_calendar_event(
     {
         // in case from_date_time is changed, it must also be changed for all recurrence_exceptions that share the from_date_time till now
         if new_version.from_date_time != old_version.from_date_time {
-            let perhaps_need_shift = format!(
-                "{}/rest/v1/calendar_events?recurrence_id=eq.{}and(from_date_time.gte.{},recurrence_until.lte.{})",
+            let url_query = format!(
+                "{}/rest/v1/calendar_events?recurrence_id=eq.{}&and(from_date_time.gte.{},recurrence_until.lte.{})",
                 SUPABASE_URL,
                 new_version.id,
                 old_version.from_date_time,
                 old_recurrence.recurrence_until
             );
-            // TODO: parse to Vec
-            for shifty in perhaps_need_shift_vec {}
+            let perhaps_need_shift =
+                get_elements_from_remote_by_url_string_unchecked(url_query).await?;
+            let perhaps_need_shift_vec =
+                parse_response_string_to_calendar_events(perhaps_need_shift).await?;
+            for shifty in perhaps_need_shift_vec {
+                if shifty.from_date_time == old_version.from_date_time {
+                    //change_calendar_event_unchecked(CalendarEvent{id: shifty.id, summary: shifty.summary, description: shifty.description, calendar_id:shifty.calendar_id, created_at: shifty.created_at, created_by: shifty.created_by, from_date_time: })
+                }
+            }
         }
         // in case, the new versions recurrence is shorter then the old, handle the unused recurrence exceptions
         if old_version.from_date_time < new_version.from_date_time
