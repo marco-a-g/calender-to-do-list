@@ -8,7 +8,6 @@ use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use uuid::Uuid;
 //Transferobjekt dür Kommunikation an Supabase
 #[derive(Debug, Deserialize, Serialize)]

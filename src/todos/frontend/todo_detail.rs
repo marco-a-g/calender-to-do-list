@@ -1,7 +1,6 @@
 use crate::todos::backend::delete_todo::delete_todo_event;
 use crate::utils::date_formatting::db_to_display_only_date;
 use crate::utils::structs::{GroupLight, ProfileLight, TodoEventLight, TodoListLight};
-use chrono::{DateTime, Local};
 use dioxus::prelude::*;
 use std::str::FromStr;
 use uuid::Uuid;

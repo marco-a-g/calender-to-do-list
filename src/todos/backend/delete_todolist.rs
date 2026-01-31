@@ -1,21 +1,52 @@
-use crate::utils::structs::{
-    CalendarEventLight, CalendarLight, GroupLight, GroupMemberLight, ProfileLight, TodoEventLight,
-    TodoListLight,
-};
+use crate::auth::backend::SUPABASE_URL;
+use crate::auth::backend::*;
+use crate::database::local::sync_local_db::sync_local_to_remote_db;
+use crate::utils::functions::get_user_id_and_session_token;
 use dioxus::prelude::*;
+use reqwest::StatusCode;
+use uuid::Uuid;
 
-//#[server]
-pub async fn delete_todo_list(list: TodoListLight) -> Result<(), ServerFnError> {
-    //Hier Insert zu Remote-DB
-    println!(
-        "Delete Todo-List Server Funktion wurde aufgerufen mit: {:?}",
-        list
-    );
-    //damit Server function akzeptiert wird-----
-    let x = 1;
-    match x {
-        1 => Ok(()),
-        _ => Err(ServerFnError::new("")),
+// #[server]
+pub async fn delete_todo_event(todo_id: Uuid) -> Result<StatusCode, ServerFnError> {
+    println!("Starting delete_todo_event for:'{}'", todo_id);
+
+    let (_user_id_str, token) = match get_user_id_and_session_token().await {
+        Ok(data) => data,
+        Err(e) => {
+            println!("Error: Not auhed");
+            return Err(e);
+        }
+    };
+
+    // HTTP Config
+    let url_delete = format!("{}/rest/v1/todo_events?id=eq.{}", SUPABASE_URL, todo_id);
+    let client = reqwest::Client::new();
+    let response_result = client
+        .delete(&url_delete)
+        .bearer_auth(token)
+        .header("apikey", ANON_KEY)
+        .header("Content-Type", "application/json")
+        .send()
+        .await;
+
+    // Response check
+    match response_result {
+        Ok(response) => {
+            let status = response.status();
+            if !status.is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                println!("Supabase respons error: {}", error_text);
+                return Err(ServerFnError::new(format!(
+                    "Supabase Error {}: {}",
+                    status, error_text
+                )));
+            }
+            println!("Deleted ToDo in Supabase.");
+            if let Err(e) = sync_local_to_remote_db().await {
+                println!("Error on sync after delete_todo: {:?}", e);
+            }
+            Ok(status)
+        }
+        Err(e) => Err(ServerFnError::new(format!("Network Error?: {}", e))),
     }
-    //-------------------------------------------
 }

@@ -3,7 +3,7 @@ use crate::utils::date_formatting::db_to_display_only_date;
 use crate::utils::structs::{
     CalendarEventLight, GroupLight, ProfileLight, TodoEventLight, TodoListLight,
 };
-use chrono::{DateTime, Duration, Local, NaiveDate};
+use chrono::{Duration, Local, NaiveDate};
 use dioxus::prelude::*;
 
 #[component]

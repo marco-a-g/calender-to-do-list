@@ -1,5 +1,6 @@
-use crate::auth::backend::{AuthError, get_client};
-use crate::todos::backend::create_todo::create_todo_event;
+use crate::todos::backend::create_todo::{
+    create_todo_event, frontend_input_to_todo, todo_event_into_to_do_transfer,
+};
 use crate::todos::backend::edit_todo::edit_todo_event;
 use crate::utils::date_formatting::db_to_html_input;
 use crate::utils::structs::{
@@ -7,7 +8,6 @@ use crate::utils::structs::{
 };
 use chrono::Local;
 use dioxus::prelude::*;
-use uuid::Uuid;
 
 #[component]
 pub fn CreateToDoButton(onclick: EventHandler<MouseEvent>) -> Element {
@@ -44,7 +44,6 @@ pub fn CreateEditToDoModal(
     on_refresh: EventHandler<()>,
     todo_to_edit: Signal<Option<TodoEventLight>>,
 ) -> Element {
-    //let u_id = get_client().current_user(); //  current user id oder Supabase?
     //Standards fürs erstellen setzen
     let mut new_task_title = use_signal(|| String::new());
     let mut new_task_description = use_signal(|| String::new());
@@ -125,6 +124,10 @@ pub fn CreateEditToDoModal(
         "Create To-Do"
     };
 
+    // Validierung für eingabemaske, gültig wenn: Titel nicht leer || RRule eingaben gültig
+    let is_form_valid = !new_task_title().is_empty()
+        && (new_task_rrule().is_empty() || !new_task_recurrence_until().is_empty());
+
     let handle_create = move |_| {
         let all_lists_inner = all_lists_for_handler.clone();
         //Werte für neues ToDo-Setzen
@@ -155,7 +158,7 @@ pub fn CreateEditToDoModal(
                 } else {
                     Some(new_task_description())
                 };
-                //Listen&Gruppe
+                //Listen&Gruppe --> Nochmal überarbeiten sobald Hierarchie in Supabase für nicht-Listen-basierte-Todos steht
                 let list_id = if !new_task_list_id().is_empty() {
                     new_task_list_id()
                 } else {
@@ -175,7 +178,7 @@ pub fn CreateEditToDoModal(
                     }) {
                         l.id.clone()
                     } else {
-                        "unknown-list-id".to_string() //eigentlich nicht nötig?
+                        "".to_string() //eigentlich nicht nötig?
                     }
                 };
 
@@ -210,31 +213,49 @@ pub fn CreateEditToDoModal(
                         overrides_datetime: existing_todo.overrides_datetime.clone(),
                     };
 
-                    let _ = edit_todo_event(updated_todo).await; // Edit Funkrion an Remote -DB 
+                    let _ = edit_todo_event(updated_todo).await; // Edit Funkrion an Remote -DB //nochmal anpassen mit recc
                 } else {
                     // Create-Modus
-                    let new_todo = TodoEventLight {
-                        //Hier light creieren und in backend funktion in Transfer Objekt wandeln
-                        id: Uuid::new_v4().to_string(), //bzw leer? Supabase handhaben lassen
-                        todo_list_id: list_id,
-                        summary: new_task_title(),
-                        description: description,
-                        completed: false,
-                        due_datetime: due_date,
-                        priority: Some(new_task_priority()),
-                        attachment: None,
-                        rrule: rrule,
-                        recurrence_until: recurrence_until,
-                        recurrence_id: None,
-                        created_by: "---".to_string(), //user id holen //bzw leer? Supabase handhaben lassen
-                        created_at: Local::now().to_rfc3339(), //supabase
-                        last_mod: Local::now().to_rfc3339(), //supabase
-                        assigned_to_user: assignee,
-                        skipped: false,
-                        overrides_datetime: None,
-                    };
+                    let new_todo_list_id = list_id;
+                    let new_summary = new_task_title();
+                    let new_description = description;
+                    let new_due_datetime = due_date;
+                    let new_priority = Some(new_task_priority());
+                    let new_rrule = rrule;
+                    let new_recurrence_until = recurrence_until;
+                    let new_assigned_to_user = assignee;
 
-                    let _ = create_todo_event(new_todo).await; // CREATE Backend Funktion aufrufen
+                    //lässt sich input erfolgreich in ToDoEvent umwandeln
+                    match frontend_input_to_todo(
+                        new_todo_list_id,
+                        new_summary,
+                        new_description,
+                        new_due_datetime,
+                        new_priority,
+                        new_rrule,
+                        new_recurrence_until,
+                        new_assigned_to_user,
+                    ) {
+                        //Wenn ja in ToDoTransfer umwandeln
+                        Ok(new_todo_struct) => {
+                            match todo_event_into_to_do_transfer(new_todo_struct) {
+                                Ok(todo_transfer) => {
+                                    // Erfolgreich umgewandelt -> create damit aufrufen
+                                    let _ = create_todo_event(todo_transfer).await;
+                                } //Sollte Fehler beim umwandeln entstehen Error werfen
+                                Err(e) => {
+                                    println!("Fehler beim Erstellen des Transfer-Objekts: {}", e);
+                                }
+                            }
+                        }
+                        //Falls Umwandlung in ToDoTransfer fehlschlägt
+                        Err(e) => {
+                            println!(
+                                "Fehler bei den Eingabedaten (z.B. falsches Datumsformat): {}",
+                                e
+                            );
+                        }
+                    }
                 }
 
                 //Nach erstellen eines Todos Standardwerte der Maske wieder zurücksetzen
@@ -424,7 +445,15 @@ pub fn CreateEditToDoModal(
                         "Cancel"
                     }
                     button {
-                        style: "flex: 1; padding: 10px; border-radius: 8px; background: #3A6BFF; color: white; border: none; font-weight: 600; cursor: pointer;",
+                        // Save bzw. Edit Button nur gültig, wenn RRule und Runtil gültig
+                        style: format!(
+                            "flex: 1; padding: 10px; border-radius: 8px; background: {}; color: white; border: none; font-weight: 600; cursor: {}; opacity: {};",
+                            if is_form_valid { "#3A6BFF" } else { "#4b5563" }, // Blau oder Grau
+                            if is_form_valid { "pointer" } else { "not-allowed" },
+                            if is_form_valid { "1" } else { "0.5" }
+                        ),
+                        // Button deaktivieren, wenn Formular ungültig
+                        disabled: !is_form_valid,
                         onclick: handle_create,
                         "{button_text}"
                     }

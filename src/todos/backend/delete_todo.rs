@@ -1,6 +1,6 @@
 use crate::auth::backend::SUPABASE_URL;
 use crate::auth::backend::*;
-use crate::database::local::sync_local_db::sync_local_to_remote_db; // <--- NEUER IMPORT
+use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::functions::get_user_id_and_session_token;
 use dioxus::prelude::*;
 use reqwest::StatusCode;
