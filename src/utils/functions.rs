@@ -1,8 +1,10 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use chrono::{DateTime, Utc};
-use dioxus::{fullstack::Transportable, prelude::*};
+use dioxus::prelude::*;
 use reqwest::*;
-use std::{clone, io::Error, str::FromStr};
-use supabase::Client;
+use std::*;
 use uuid::Uuid;
 
 use crate::auth::backend::*;
@@ -42,111 +44,40 @@ pub async fn get_user_id_and_session_token() -> core::result::Result<(Uuid, Stri
 pub async fn get_calendar_event_from_remote(
     id: Uuid,
 ) -> core::result::Result<CalendarEvent, ServerFnError> {
-    //get the data from the server
-    let current_user = get_user_id_and_session_token().await?;
     let url_events = format!("{}/rest/v1/calendar_events?id=eq.{}", SUPABASE_URL, id);
-    let response_event = reqwest::Client::new()
-        .get(&url_events)
-        .header("apikey", ANON_KEY)
-        .header("Authorization", format!("Bearer {}", current_user.1))
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Http Request Events Error: {}", e)))?;
-    if !response_event.status().is_success() {
-        let err = response_event.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!(
-            "Supabase Error Events: {}",
-            err
-        )));
+    let response_event = get_elements_from_remote_by_url_string_unchecked(url_events).await?;
+    let mut events = parse_response_string_to_calendar_events(response_event).await?;
+    match events.pop() {
+        None => {
+            return Err(ServerFnError::new(format!(
+                "get_calendar_event_from_remote Error: No element found"
+            )));
+        }
+        Some(ev) => return Ok(ev),
     }
-    // Response in Json parsen
-    let response_event_text = response_event
-        .text()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
-    // Json in Vec von Events parsen
-    // let light_event: CalendarEventLight = serde_json::from_str(&response_event_text)
-    //     .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
-    let mut light_events: Vec<CalendarEventLight> = serde_json::from_str(&response_event_text)
-        .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
-    if let Some(light_ev) = light_events.pop() {
-        let event = parse_calendar_event_light_to_calendar_event(light_ev)?;
-        return Ok(event);
-    }
-    Err(ServerFnError::new(format!(
-        "get_calendar_event_from_remote Error: No element found"
-    )))
 }
 
 pub async fn get_calendar_events_by_recurrence_id(
     recurrence_id: Uuid,
 ) -> core::result::Result<Vec<CalendarEvent>, ServerFnError> {
     //get the data from the server
-    let current_user = get_user_id_and_session_token().await?;
     let url_events = format!(
         "{}/rest/v1/calendar_events?recurrence_id=eq.{}",
         SUPABASE_URL, recurrence_id
     );
-    let response_event = reqwest::Client::new()
-        .get(&url_events)
-        .header("apikey", ANON_KEY)
-        .header("Authorization", format!("Bearer {}", current_user.1))
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Http Request Events Error: {}", e)))?;
-    if !response_event.status().is_success() {
-        let err = response_event.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!(
-            "Supabase Error Events: {}",
-            err
-        )));
-    }
-    // Response in Json parsen
-    let response_event_text = response_event
-        .text()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
-    // Json in Vec von Events parsen
-    let light_events: Vec<CalendarEventLight> = serde_json::from_str(&response_event_text)
-        .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
-    let mut cal_events: Vec<CalendarEvent> = Vec::new();
-    for light_ev in light_events {
-        cal_events.push(parse_calendar_event_light_to_calendar_event(light_ev)?);
-    }
+    let response_event_text = get_elements_from_remote_by_url_string_unchecked(url_events).await?;
+    let cal_events = parse_response_string_to_calendar_events(response_event_text).await?;
     Ok(cal_events)
 }
 
 pub async fn get_calendar_events_ids_by_recurrence_id(
     rec_id: Uuid,
 ) -> core::result::Result<Vec<Uuid>, ServerFnError> {
-    //get the data from the server
-    let current_user = get_user_id_and_session_token().await?;
     let url_events = format!(
         "{}/rest/v1/calendar_events?select=id&recurrence_id=eq.{}",
         SUPABASE_URL, rec_id
     );
-    let response_ids = reqwest::Client::new()
-        .get(&url_events)
-        .header("apikey", ANON_KEY)
-        .header("Authorization", format!("Bearer {}", current_user.1))
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Http Request Events Error: {}", e)))?;
-    if !response_ids.status().is_success() {
-        let err = response_ids.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!(
-            "Supabase Error Events: {}",
-            err
-        )));
-    }
-    // Response in Json parsen
-    let response_ids_text = response_ids
-        .text()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
+    let response_ids_text = get_elements_from_remote_by_url_string_unchecked(url_events).await?;
     // Json in Vec von Ids parsen
     let ids: Vec<Uuid> = serde_json::from_str(&response_ids_text)
         .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
@@ -298,4 +229,49 @@ pub fn parse_calendar_event_light_to_calendar_event(
         last_mod,
     };
     Ok(cal_event)
+}
+
+/// used to get elements from the remote database. The string must lead to the supabase database table including the query.
+/// it returns the .text element of the json as a string.
+// #[server]
+pub async fn get_elements_from_remote_by_url_string_unchecked(
+    url_query: String,
+) -> core::result::Result<String, ServerFnError> {
+    let current_user = get_user_id_and_session_token().await?;
+    //get data from remote
+    let response_event = reqwest::Client::new()
+        .get(&url_query)
+        .header("apikey", ANON_KEY)
+        .header("Authorization", format!("Bearer {}", current_user.1))
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Http Request Error: {}", e)))?;
+    if !response_event.status().is_success() {
+        let err = response_event.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!(
+            "Get From Supabase Error: {}",
+            err
+        )));
+    }
+    // pars response text into json string for simple parsing to struct
+    let response_event_text = response_event
+        .text()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Text Error: {}", e)))?;
+    Ok(response_event_text)
+}
+
+/// for parsing an string formated answer of an supabase query into an calendar_event.
+// #[server]
+pub async fn parse_response_string_to_calendar_events(
+    response_event_text: String,
+) -> core::result::Result<Vec<CalendarEvent>, ServerFnError> {
+    let light_events: Vec<CalendarEventLight> = serde_json::from_str(&response_event_text)
+        .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
+    let mut cal_events: Vec<CalendarEvent> = Vec::new();
+    for light_ev in light_events {
+        cal_events.push(parse_calendar_event_light_to_calendar_event(light_ev)?);
+    }
+    Ok(cal_events)
 }
