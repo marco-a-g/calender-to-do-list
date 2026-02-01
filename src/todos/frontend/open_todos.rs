@@ -65,7 +65,7 @@ pub fn OpenToDoView(
                         .and_then(|gid| groups.iter().find(|g| &g.id == gid))
                         .map(|g| g.name.clone())
                         .unwrap_or("Unknown Group".to_string());
-                    format!("To-Do-List \"{}\" from Group: {}", list.name, group_name)
+                    format!("List \"{}\" (Group: {})", list.name, group_name)
                 }
             } else {
                 //Keine zugehörige Liste gefunden -> Unknown List, sollte aber auch nicht passieren -> Sollte extra Liste pro User/Gruppe geben, die "nicht Listen zugewiesene ToDos" hat

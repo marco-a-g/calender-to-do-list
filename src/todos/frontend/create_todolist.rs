@@ -1,8 +1,9 @@
-use crate::todos::backend::create_todolist::create_todo_list;
-use crate::utils::structs::{CalendarEventLight, CalendarLight, GroupLight, TodoListLight};
-use chrono::Local;
+use crate::todos::backend::create_todolist::{
+    create_todo_list, frontend_input_to_todo_list, todo_list_into_todo_list_transfer,
+};
+use crate::utils::functions::get_user_id_and_session_token;
+use crate::utils::structs::{CalendarEventLight, CalendarLight, GroupLight};
 use dioxus::prelude::*;
-use uuid::Uuid;
 
 #[component]
 pub fn CreateListButton(onclick: EventHandler<MouseEvent>) -> Element {
@@ -62,87 +63,100 @@ pub fn CreateListModal(
     //Erstellte Liste handhaben
     let handle_create = move |_| async move {
         if !new_list_title().is_empty() {
-            //Zugewiesene Gruppe
-            let gid = if new_list_group_id().is_empty() {
+            let title = new_list_title();
+            let desc_str = new_list_description();
+            let group_id_str = new_list_group_id();
+            let event_id_str = new_list_event_id();
+            let due_date_str = new_list_due_date();
+            let prio_str = new_list_priority();
+            let rrule_str = new_list_rrule();
+            let until_str = new_list_recurrence_until();
+            // User-ID holen
+            let (user_id, _token) = match get_user_id_and_session_token().await {
+                Ok(data) => data,
+                Err(e) => {
+                    println!("Nicht authentifiziert: {:?}", e);
+                    return;
+                }
+            };
+            let user_id_str = format!("{:?}", user_id);
+
+            let description = if desc_str.is_empty() {
                 None
             } else {
-                Some(new_list_group_id())
+                Some(desc_str)
             };
-            //Zugewiesenes Evebt
-            let event_id_opt = if new_list_event_id().is_empty() {
+
+            let event_id_opt = if event_id_str.is_empty() {
                 None
             } else {
-                Some(new_list_event_id())
+                Some(event_id_str)
             };
-            //Due-Date
-            let due_date = if new_list_due_date().is_empty() {
+
+            let due_date = if due_date_str.is_empty() {
                 None
             } else {
-                Some(new_list_due_date())
+                Some(due_date_str)
             };
-            //Beschreibung
-            let description = if new_list_description().is_empty() {
+
+            let priority_opt = Some(prio_str);
+
+            let rrule_opt = if rrule_str.is_empty() {
                 None
             } else {
-                Some(new_list_description())
+                Some(rrule_str.clone())
             };
-            //Recurence Rule
-            let rrule_opt = if new_list_rrule().is_empty() {
+
+            let recurrence_until_opt = if until_str.is_empty() || rrule_str.is_empty() {
                 None
             } else {
-                Some(new_list_rrule())
-            };
-            //Recurrence bis
-            let recurrence_until_opt =
-                if new_list_recurrence_until().is_empty() || new_list_rrule().is_empty() {
-                    None
-                } else {
-                    Some(new_list_recurrence_until())
-                };
-
-            //Ist Liste Privat oder Gruppe
-            let list_type = if gid.is_some() {
-                "group".to_string()
-            } else {
-                "private".to_string()
+                Some(until_str)
             };
 
-            //Neue Listen Felder zusammenfügen
-            let new_list = TodoListLight {
-                id: Uuid::new_v4().to_string(), //bzw leer? Supabase handhaben lassen
-                name: new_list_title(),
-                list_type: list_type,
-                owner_id: Some("local-user(hier noch uid rausfischen)".to_string()), //bzw leer? Supabase handhaben lassen
-                group_id: gid,
-                attached_to_calendar_event: event_id_opt,
-                description: description,
-                due_datetime: due_date,
-                priority: Some(new_list_priority()),
-                attachment: None,
-                rrule: rrule_opt,
-                recurrence_until: recurrence_until_opt,
-                recurrence_id: None,
-                created_by: "local-user(hier noch uid rausfischen)".to_string(), //bzw leer? Supabase handhaben lassen
-                created_at: Local::now().to_rfc3339(), //bzw leer? Supabase handhaben lassen
-                last_mod: Local::now().to_rfc3339(),   //bzw leer? Supabase handhaben lassen
-                skipped: false,
-                overrides_datetime: None,
+            //input in ToDoList parsen
+            match frontend_input_to_todo_list(
+                title,
+                description,
+                group_id_str,
+                user_id_str,
+                due_date,
+                priority_opt,
+                rrule_opt,
+                recurrence_until_opt,
+                event_id_opt,
+            ) {
+                // Parsing klappt
+                Ok(new_list_struct) => {
+                    //ToDoList in ToDoListTransfer umwandeln
+                    match todo_list_into_todo_list_transfer(new_list_struct) {
+                        // Parsing klappt
+                        Ok(transfer_obj) => {
+                            // ToDoListTransfer an Supabase senden
+                            let _ = create_todo_list(transfer_obj).await;
+
+                            // Eingabemaske zurück setzen
+                            new_list_title.set(String::new());
+                            new_list_description.set(String::new());
+                            new_list_group_id.set(String::new());
+                            new_list_event_id.set(String::new());
+                            new_list_due_date.set(String::new());
+                            new_list_priority.set("normal".to_string());
+                            new_list_rrule.set(String::new());
+                            new_list_recurrence_until.set(String::new());
+                            show_modal.set(false);
+                            on_refresh.call(());
+                        }
+                        // Falls TransferObjekt erstellung nicht klappen sollte
+                        Err(e) => {
+                            println!("Fehler beim Erstellen des Transfer-Objekts: {}", e);
+                        }
+                    }
+                }
+                // Falls Input nicht in ToDoList geparsed werden konnte
+                Err(e) => {
+                    println!("Fehler bei den Eingabedaten: {}", e);
+                }
             };
-
-            let _ = create_todo_list(new_list).await; //Backend Funktion in Remote DB
-
-            //Bei Kreieren einer Liste wieder Werte auf Standard setzen
-            new_list_title.set(String::new());
-            new_list_description.set(String::new());
-            new_list_group_id.set(String::new());
-            new_list_event_id.set(String::new());
-            new_list_due_date.set(String::new());
-            new_list_priority.set("normal".to_string());
-            new_list_rrule.set(String::new());
-            new_list_recurrence_until.set(String::new());
-
-            show_modal.set(false);
-            on_refresh.call(());
         }
     };
 
@@ -287,9 +301,13 @@ pub fn CreateListModal(
                         onclick: close_modal,
                         "Cancel"
                     }
-                    button {
-                        style: "flex: 1; padding: 10px; border-radius: 8px; background: #3A6BFF; color: white; border: none; font-weight: 600; cursor: pointer;",
-                        onclick: handle_create, //ruft handle create oben auf
+                 button {
+                        disabled: !new_list_rrule().is_empty() && new_list_recurrence_until().is_empty(),
+                        style: format!("flex: 1; padding: 10px; border-radius: 8px; background: #3A6BFF; color: white; border: none; font-weight: 600; cursor: {}; opacity: {};",
+                            if !new_list_rrule().is_empty() && new_list_recurrence_until().is_empty() { "not-allowed" } else { "pointer" },
+                            if !new_list_rrule().is_empty() && new_list_recurrence_until().is_empty() { "0.5" } else { "1" }
+                        ),
+                        onclick: handle_create,
                         "Create List"
                     }
                 }
