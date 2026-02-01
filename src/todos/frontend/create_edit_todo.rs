@@ -80,7 +80,7 @@ pub fn CreateEditToDoModal(
                     new_task_group_id.set(gid.clone());
                 } else {
                     // Private Liste / Personal
-                    new_task_group_id.set(String::new()); //jeder Nutzer, jede Gruppe sollte doch eine private "freie" Liste haben -> JF
+                    new_task_group_id.set(String::new()); //jeder Nutzer, jede Gruppe sollte doch eine private "freie" Liste haben -> JF besprechen
                 }
             }
             //Due Datum
