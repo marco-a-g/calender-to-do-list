@@ -164,10 +164,7 @@ pub fn todo_list_into_todo_list_transfer(
 //Zu erstellendes ToDo-List-Transferobjekt an Supabase senden
 // #[server]
 pub async fn create_todo_list(todo_list: ToDoListTransfer) -> Result<StatusCode, ServerFnError> {
-    println!(
-        "Startin create_todo_list function with: '{}'",
-        todo_list.name
-    );
+    println!("Startin create_todo_list function with: '{:#?}'", todo_list);
 
     let (_user_id_str, token) = match get_user_id_and_session_token().await {
         Ok(data) => data,

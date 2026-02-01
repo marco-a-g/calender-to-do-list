@@ -326,9 +326,9 @@ fn ToDoItem(
                 .as_ref()
                 .map(|g| g.name.clone())
                 .unwrap_or("Group".to_string());
-            format!("Group: {}", g_name)
+            format!("{}", g_name)
         };
-        let l_text = format!("List: {}", list.name);
+        let l_text = format!("{}", list.name);
         (Some(g_text), Some(l_text))
     } else {
         (None, None) //Sollte auch Liste ohne Gruppe möglich sein oder? In JF besprechen

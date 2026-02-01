@@ -63,9 +63,9 @@ fn HistoryItem(
                 .as_ref()
                 .map(|g| g.name.clone())
                 .unwrap_or("Group".to_string());
-            format!("Group: {}", g_name)
+            format!("{}", g_name)
         };
-        let list_text = format!("List: {}", list.name);
+        let list_text = format!("{}", list.name);
         (Some(group_text), Some(list_text))
     } else {
         (None, None) //Sollte Nicht auch Gruppe ohne liste möglich sein? In JF fragen
