@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use chrono::{DateTime, Utc, *};
+use chrono::{DateTime, Datelike, Utc, Weekday};
 use dioxus::prelude::*;
 use reqwest::*;
 use std::*;
@@ -274,4 +274,41 @@ pub async fn parse_response_string_to_calendar_events(
         cal_events.push(parse_calendar_event_light_to_calendar_event(light_ev)?);
     }
     Ok(cal_events)
+}
+
+pub fn check_overriding_recurrence(
+    child_overrides_dt: DateTime<Utc>,
+    parent_from_dt: DateTime<Utc>,
+    parent_recurrence_until: DateTime<Utc>,
+    rrule: Rrule,
+) -> bool {
+    if parent_from_dt.time() != child_overrides_dt.time()
+        || parent_from_dt >= child_overrides_dt
+        || child_overrides_dt >= parent_recurrence_until
+    {
+        return false;
+    }
+    match rrule {
+        Rrule::Daily => return true,
+        Rrule::Weekly => {
+            return (child_overrides_dt
+                .signed_duration_since(parent_from_dt)
+                .num_days()
+                % 7)
+                == 0;
+        }
+        Rrule::Fortnight => {
+            return (child_overrides_dt
+                .signed_duration_since(parent_from_dt)
+                .num_days()
+                % 14)
+                == 0;
+        }
+        Rrule::Annual => {
+            return (child_overrides_dt.day() == parent_from_dt.day()
+                && child_overrides_dt.month() == parent_from_dt.month());
+        }
+        Rrule::Monthly => return (child_overrides_dt.day() == parent_from_dt.day()),
+        Rrule::OnWeekDays => return child_overrides_dt.weekday().num_days_from_monday() <= 5,
+    }
 }
