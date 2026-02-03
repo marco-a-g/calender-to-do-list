@@ -31,7 +31,8 @@ enum Route {
     #[route("/")]
     DashboardView,
     #[route("/todos")]
-    ToDoView,
+    ToDoDashboard,
+
     #[route("/Calendar")]
     Calendar,
     #[route("/Groups")]

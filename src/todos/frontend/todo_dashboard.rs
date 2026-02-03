@@ -13,10 +13,12 @@ use crate::database::local::init_fetch::init_fetch_local_db::{
     fetch_todo_lists_lokal_db,
 };
 use crate::todos::backend::complete_todo::complete_todo_event;
+use crate::todos::backend::handle_recurrence_todos::expand_recurring_todos;
 use crate::utils::structs::{
     CalendarEventLight, CalendarLight, GroupLight, GroupMemberLight, ProfileLight, TodoEventLight,
     TodoListLight,
 };
+
 use chrono::Local;
 use dioxus::prelude::*;
 use std::str::FromStr;
@@ -24,7 +26,7 @@ use tokio::join;
 use uuid::Uuid;
 
 #[component]
-pub fn ToDoView() -> Element {
+pub fn ToDoDashboard() -> Element {
     let today_date = use_signal(|| Local::now().format("%A, %d.%m.%Y").to_string());
 
     //Standardwerte für ToDoView setzen
@@ -52,10 +54,24 @@ pub fn ToDoView() -> Element {
         results
     });
 
-    //läuft sobald sich Abhänigkeiten ändern, lädt daten neu wenn full_data_resource fertig geladen hat und schreibt todos in tasks_signal
+    //läuft sobald sich Abhänigkeiten ändern, lädt todo daten neu wenn full_data_resource fertig geladen hat und schreibt todos in tasks_signal
     use_effect(move || {
-        if let Some((_, _, Ok(tasks), _, _, _, _)) = &*full_data_resource.read() {
-            tasks_signal.set(tasks.clone());
+        if let Some((_, _, Ok(raw_tasks_from_db), _, _, _, _)) = &*full_data_resource.read() {
+            let input_tasks = raw_tasks_from_db.clone();
+            //recurrence handeln in todos
+            match expand_recurring_todos(input_tasks) {
+                Ok(expanded_tasks) => {
+                    // Expanding klappt -> expandete tasks in tasks_signal setzen
+                    //let test_tasks = expanded_tasks.clone();
+                    tasks_signal.set(expanded_tasks);
+                    //println!("{:?}", test_tasks);
+                }
+                Err(e) => {
+                    // wenn expanden nicht klappt unexpandete ausgeben
+                    println!("Error expanding recurring tasks: {}", e);
+                    tasks_signal.set(raw_tasks_from_db.clone());
+                }
+            }
         }
     });
 
@@ -229,7 +245,7 @@ pub fn ToDoView() -> Element {
 
             OpenToDoView {
                 //Offene ToDos-Komponente rendern und Listen übergeben
-                todos_list: active_tasks_data,
+                todos: active_tasks_data,
                 all_lists: lists_data.clone(),
                 groups: groups_data.clone(),
                 all_profiles: profiles_data.clone(),

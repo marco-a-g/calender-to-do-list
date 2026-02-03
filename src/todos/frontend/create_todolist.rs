@@ -248,7 +248,9 @@ pub fn CreateListModal(
                             option { value: "daily", "Daily" }
                             option { value: "weekly", "Weekly" }
                             option { value: "fortnight", "Fortnight (2 Weeks)" }
-                            option { value: "onweekdays", "On Weekdays (Mon-Fri)" }
+                            option { value: "weekdays", "On Weekdays (Mon-Fri)" }
+                            option { value: "monthly_on_weekday", "Monthly (Weekday)" }
+                            option { value: "monthly_on_date", "Monthly (Date)" }
                             option { value: "monthly", "Monthly" }
                             option { value: "annual", "Annual" }
                         }

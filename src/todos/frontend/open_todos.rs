@@ -8,7 +8,7 @@ use dioxus::prelude::*;
 
 #[component]
 pub fn OpenToDoView(
-    todos_list: Vec<TodoEventLight>,
+    todos: Vec<TodoEventLight>,
     all_lists: Vec<TodoListLight>,
     groups: Vec<GroupLight>,
     all_profiles: Vec<ProfileLight>,
@@ -19,7 +19,7 @@ pub fn OpenToDoView(
     on_select_todo: EventHandler<TodoEventLight>,
 ) -> Element {
     // Über die Übergebenen Todos alle Listen und Gruppen für Sidebar heraussuchen
-    let filtered_tasks: Vec<TodoEventLight> = todos_list
+    let filtered_tasks: Vec<TodoEventLight> = todos
         .iter()
         .filter(|task| {
             let parent_list_opt = all_lists.iter().find(|l| l.id == task.todo_list_id);
@@ -489,5 +489,9 @@ fn categorize_todos(
             later.push(todo_to_sort);
         }
     }
+    today.sort_by(|a, b| a.due_datetime.cmp(&b.due_datetime));
+    week.sort_by(|a, b| a.due_datetime.cmp(&b.due_datetime));
+    later.sort_by(|a, b| a.due_datetime.cmp(&b.due_datetime));
+
     (today, week, later)
 }

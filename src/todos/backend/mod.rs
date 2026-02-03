@@ -5,3 +5,4 @@ pub mod delete_todo;
 pub mod delete_todolist;
 pub mod edit_todo;
 pub mod edit_todolist;
+pub mod handle_recurrence_todos;

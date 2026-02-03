@@ -3,7 +3,7 @@ use crate::auth::backend::*;
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::date_formatting::html_input_to_db;
 use crate::utils::functions::get_user_id_and_session_token;
-use crate::utils::structs::{Priority, TodoEventLight};
+use crate::utils::structs::TodoEventLight;
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use reqwest::StatusCode;
