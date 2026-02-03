@@ -2,7 +2,7 @@ use dioxus::{fullstack::headers::Server, prelude::*};
 
 use crate::{
     auth::{
-        backend::{ANON_KEY, AuthError, SUPABASE_URL, get_client},
+        backend::{ANON_KEY, AuthError, AuthStatus, SUPABASE_URL, get_client},
         ui::RegisterView,
     },
     utils::{
@@ -45,15 +45,21 @@ pub async fn get_user_by_username(username: &str) -> Result<Profile, ServerFnErr
     Ok(user)
 }
 
-// #[server]
-pub async fn create_profile(username: &str) -> Result<(), ServerFnError> {
-    // wenn username schon vergeben ist, wird Konto erstellt, aber Profil nicht. Und nochmal auf den gleichen Button drücken, wirft Fehler, weil Konto ja schon existiert. Also Usernamevergabe vllt in extra Window
-    // und dann nicht Create drücken und schauen was passiert, sondern automatisch nach Eingabe oder extra Button testen, ob der Verfügbar ist, das wird angezeigt und dann drückt man erst
+pub async fn is_username_available(username: &str) -> bool {
     if get_user_by_username(username).await.is_ok() {
+        return false;
+    }
+    true
+}
+
+// #[server]
+pub async fn create_profile(username: &str) -> Result<AuthStatus, ServerFnError> {
+    if !is_username_available(username).await {
         return Err(ServerFnError::new("Username already taken"));
     }
 
     let url = format!("{}/rest/v1/profiles", SUPABASE_URL);
+    let id = get_user_id_and_session_token().await?.0;
     let token = get_user_id_and_session_token().await?.1;
 
     let profile = ProfileWrite {
@@ -63,14 +69,13 @@ pub async fn create_profile(username: &str) -> Result<(), ServerFnError> {
     let reqwest_client = reqwest::Client::new();
     let res = reqwest_client
         .post(url)
-        .bearer_auth(token) //einfacher als, aber gleich: header("Authorization", format!("Bearer {}", token))
+        .bearer_auth(token)
         .header("apikey", ANON_KEY)
         .header("Content-Type", "application/json")
-        .header("Prefer", "return=representation") // um ggf. values zurückzubekommen
         .json(&profile)
         .send()
         .await
         .map_err(|e| ServerFnError::new(format!("create_profile: Reqwest error: {}", e)))?;
 
-    Ok(())
+    Ok(AuthStatus::Authenticated { user_id: id })
 }

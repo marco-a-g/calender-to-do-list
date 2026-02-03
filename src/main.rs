@@ -9,7 +9,7 @@ mod user;
 mod utils;
 
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
-use crate::auth::ui::{LoginView, RegisterView};
+use crate::auth::ui::{CreateProfileView, LoginView, RegisterView};
 use crate::database::local::heartbeat::start_heartbeat;
 use crate::database::local::init_fetch::init_fetch_local_db::init_database;
 use crate::todos::frontend::todo_view::*;
@@ -76,6 +76,7 @@ fn App() -> Element {
     rsx! {
         document::Stylesheet { href: CSS }
 
+        // nach signup (bei aktivierter Email Verification auch erst danach) ist man schon authenticated, heißt CreateProfile müsste vielleicht in AuthStatus::Authenticated, aber das kann Probleme geben, weil App vllt davon ausgeht, dass Profil schon existiert
         match auth_status() {
             AuthStatus::Unauthenticated => rsx!(
                 match auth_view() {
@@ -87,6 +88,12 @@ fn App() -> Element {
                     ),
                     AuthView::Register => rsx!(
                         RegisterView {
+                            auth_view,
+                        }
+                    ),
+                    AuthView::CreateProfile => rsx!(
+                        CreateProfileView {
+                            auth_status,
                             auth_view,
                         }
                     ),

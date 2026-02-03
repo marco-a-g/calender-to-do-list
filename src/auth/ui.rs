@@ -1,5 +1,11 @@
-use crate::auth::backend::*;
+use std::time::Duration;
+
+use crate::{
+    auth::backend::*,
+    user::backend::{create_profile, is_username_available},
+};
 use dioxus::prelude::*;
+use tokio::time::sleep;
 
 fn input_style() -> &'static str {
     "
@@ -65,7 +71,7 @@ pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -
                         text-align: center;
                         margin-bottom: 8px;
                     ",
-                    "PLANTIFY"
+                    "PLANIFY"
                 }
 
                 input {
@@ -153,7 +159,6 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
     let mut firstname = use_signal(|| String::new());
     let mut lastname = use_signal(|| String::new());
     let mut phone = use_signal(|| String::new());
-    let mut username = use_signal(|| String::new());
     let mut email = use_signal(|| String::new());
     let mut password = use_signal(|| String::new());
     let mut error = use_signal(|| None::<String>);
@@ -187,7 +192,6 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
                 input { placeholder: "First name", value: "{firstname}", oninput: move |e| firstname.set(e.value()), style: input_style() }
                 input { placeholder: "Last name", value: "{lastname}", oninput: move |e| lastname.set(e.value()), style: input_style() }
                 input { placeholder: "Phone", value: "{phone}", oninput: move |e| phone.set(e.value()), style: input_style() }
-                input { placeholder: "Username", value: "{username}", oninput: move |e| username.set(e.value()), style: input_style() }
                 input { placeholder: "Email", value: "{email}", oninput: move |e| email.set(e.value()), style: input_style() }
                 input { r#type: "password", placeholder: "Password", value: "{password}", oninput: move |e| password.set(e.value()), style: input_style() }
 
@@ -219,10 +223,167 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
                     ",
                     onclick: move |_| {
                         spawn(async move {
-                            match signup(&email(), &password(), &username()).await {
+                            match signup(&email(), &password()).await {
                                     Ok(_) => {
+                                        // später wird ja Email Verification eingeführt, dafür noch nen Screen
                                         info.set(Some("Signup successful".to_string()));
                                         error.set(None);
+                                        auth_view.set(AuthView::CreateProfile);
+                                    },
+                                    Err(msg) => {
+                                        info.set(None);
+                                        error.set(Some(msg.to_string()));
+                                    },
+                                }
+                            });
+                    },
+                    "Create account"
+                }
+
+                button {
+                    style: "
+                        background: none;
+                        border: none;
+                        color: #9ca3af;
+                        font-size: 13px;
+                        cursor: pointer;
+                    ",
+                    onclick: move |_| auth_view.set(AuthView::Login),
+                    "Back to login"
+                }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn CreateProfileView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -> Element {
+    let mut username = use_signal(|| String::new());
+    let mut error = use_signal(|| None::<String>);
+    let mut info = use_signal(|| None::<String>);
+    let mut status = use_signal(|| None::<bool>);
+    let mut checking = use_signal(|| false);
+
+    // konzeptionelle Hilfe von KI
+    use_effect(move || {
+        let name = username();
+
+        // check only on input
+        if name.len() <= 0 {
+            checking.set(false);
+            status.set(None);
+            return;
+        }
+
+        checking.set(true);
+        status.set(None); // makes loading icon appear when typing
+
+        spawn(async move {
+            sleep(Duration::from_millis(500)).await;
+
+            if username() != name {
+                // prevents race condition with checking only most recent input
+                return;
+            }
+
+            let available = is_username_available(&name).await;
+            status.set(Some(available));
+            checking.set(false);
+        });
+    });
+
+    // Idee dieses Konstrukts mit KI entwickelt
+    let username_check = match status() {
+        None if checking() => rsx!(div {
+            class: "animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500",
+            style: "
+            position: absolute;
+            top: 1em;
+            right: 1em;
+            height: 1em;
+            width: 1em;
+            "
+        }),
+        Some(true) => rsx!(span {style: "
+            position: absolute;
+            right: 1em;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+        ", "✅"}),
+        Some(false) => rsx!(span {style: "
+            position: absolute;
+            right: 1em;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+        ", "❌"}),
+        _ => rsx!(),
+    };
+
+    rsx! {
+        div {
+            style: "
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: radial-gradient(circle at top, #11121b, #050609);
+            ",
+
+            div {
+                style: "{card_style(\"420px\")}",
+
+                h1 {
+                    style: "
+                        font-size: 20px;
+                        font-weight: 600;
+                        color: #f9fafb;
+                        text-align: center;
+                        margin-bottom: 6px;
+                    ",
+                    "Choose Username"
+                }
+
+                div { style: "position: relative;",
+                    input { placeholder: "Username", value: "{username}", oninput: move |e| username.set(e.value()), style: input_style() }
+                    {username_check}
+                }
+
+                if let Some(msg) = error() {
+                    div {
+                        style: "color: #f87171; font-size: 13px;",
+                        "{msg}"
+                    }
+                }
+
+                if let Some(msg) = info() {
+                    div {
+                        style: "color: #78dd35ff; font-size: 13px;",
+                        "{msg}"
+                    }
+                }
+
+                button {
+                    style: "
+                        height: 44px;
+                        border-radius: 14px;
+                        background: linear-gradient(180deg, #6b8bff, #4c6fff);
+                        color: white;
+                        font-weight: 600;
+                        cursor: pointer;
+                        box-shadow: 0 14px 30px rgba(107,139,255,0.45);
+                        border: none;
+                        margin-top: 4px;
+                    ",
+                    onclick: move |_| {
+                        spawn(async move {
+                            match create_profile(&username()).await {
+                                    Ok(status) => {
+                                        info.set(Some("Profile created".to_string()));
+                                        error.set(None);
+                                        auth_status.set(status);
                                     },
                                     Err(msg) => {
                                         error.set(Some(msg.to_string()));
@@ -231,7 +392,7 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
                                 }
                             });
                     },
-                    "Create account"
+                    "Create Profile"
                 }
 
                 button {

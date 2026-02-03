@@ -39,13 +39,14 @@ pub fn get_client() -> Result<&'static Client, AuthError> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AuthStatus {
     Unauthenticated,
-    Authenticated { user_id: Uuid },
+    Authenticated { user_id: Uuid }, // brauchts da die id??
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AuthView {
     Login,
     Register,
+    CreateProfile,
 }
 
 pub enum AuthError {
@@ -112,7 +113,7 @@ pub async fn login(username: &str, password: &str) -> Result<AuthStatus, AuthErr
     })
 }
 
-pub async fn signup(email: &str, password: &str, username: &str) -> Result<(), AuthError> {
+pub async fn signup(email: &str, password: &str) -> Result<(), AuthError> {
     let client = get_client()?;
 
     let response = client
@@ -120,8 +121,6 @@ pub async fn signup(email: &str, password: &str, username: &str) -> Result<(), A
         .sign_up_with_email_and_password(email, password)
         .await?;
     println!("Response: {:?}", response);
-
-    create_profile(username).await?;
 
     Ok(())
     // sign_up_with_email_password_and_data:
