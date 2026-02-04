@@ -16,7 +16,7 @@ pub enum Rrule {
     Weekly,
     #[strum(ascii_case_insensitive)]
     Fortnight,
-    #[strum(ascii_case_insensitive)]
+    #[strum(serialize = "weekdays")]
     OnWeekDays,
     #[strum(serialize = "monthly_on_date")]
     MonthlyOnDate, // mind handling 29.-31.
