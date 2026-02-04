@@ -1,5 +1,5 @@
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
-use dioxus::html::{ol, tr};
+use chrono::{DateTime, Days, Local, NaiveDateTime, NaiveTime, TimeZone, Utc};
+use dioxus::html::{ins, ol, tr};
 use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
@@ -32,6 +32,7 @@ pub struct CalendarEventUp {
 //   - from_date_time auch für children ändern, die die selbe from_date_time
 //   - handle out-of-range
 //   - handle depending to_do_lists
+//   - check rrule
 
 ///
 // #[server]
@@ -57,44 +58,142 @@ pub async fn change_calendar_event(
     let mut to_non_override: Vec<CalendarEvent> = Vec::new();
     let mut to_be_orphaned: Vec<CalendarEvent> = Vec::new();
 
-    // check, wether the range of the recurrence is decreased to handle the exceptions now out of range
+    // check, wether the recurrence is changed in a way that needs to check the exceptions
     if let Some(new_recurrence) = new_version.recurrence.clone()
         && let Some(old_recurrence) = old_version.recurrence.clone()
+        && (new_recurrence.recurrence_until < old_recurrence.recurrence_until
+            || new_version.from_date_time != old_version.from_date_time
+            || new_recurrence.rrule != old_recurrence.rrule)
     {
-        // in case from_date_time is changed, it must also be changed for all recurrence_exceptions that share the from_date_time till now
-        if new_version.from_date_time != old_version.from_date_time {
-            let url_query = format!(
-                "{}/rest/v1/calendar_events?recurrence_id=eq.{}&and(from_date_time.gte.{},recurrence_until.lte.{})",
-                SUPABASE_URL,
-                new_version.id,
-                old_version.from_date_time,
-                old_recurrence.recurrence_until
-            );
-            let perhaps_need_shift =
-                get_elements_from_remote_by_url_string_unchecked(url_query).await?;
-            let perhaps_need_shift_vec =
-                parse_response_string_to_calendar_events(perhaps_need_shift).await?;
-            for shifty in perhaps_need_shift_vec {
-                if shifty.from_date_time == old_version.from_date_time {
-                    //change_calendar_event_unchecked(CalendarEvent{id: shifty.id, summary: shifty.summary, description: shifty.description, calendar_id:shifty.calendar_id, created_at: shifty.created_at, created_by: shifty.created_by, from_date_time: })
+        //get all changed instances
+        let url_query = format!(
+            "{}/rest/v1/calendar_events?recurrence_id=eq.{}",
+            SUPABASE_URL, new_version.id,
+        );
+        let perhaps_need_change =
+            get_elements_from_remote_by_url_string_unchecked(url_query).await?;
+        let perhaps_need_change_vec =
+            parse_response_string_to_calendar_events(perhaps_need_change).await?;
+
+        // only recurrence_until is changed
+        if new_version.from_date_time == old_version.from_date_time
+            && new_recurrence.rrule == old_recurrence.rrule
+        {
+            for instance in perhaps_need_change_vec {
+                if let Some(rec_ex) = instance.recurrence_exception.clone()
+                    && let Some(over) = rec_ex.overrides
+                    && over.overrides_datetime > new_recurrence.recurrence_until
+                {
+                    if over.skipped {
+                        to_be_del.push(instance);
+                    } else if let Some(k_o) = keep_overridings
+                        && k_o
+                    {
+                        to_non_override.push(instance);
+                    }
                 }
             }
         }
-        // in case, the new versions recurrence is shorter then the old, handle the unused recurrence exceptions
-        if old_version.from_date_time < new_version.from_date_time
-            || new_recurrence.recurrence_until < old_recurrence.recurrence_until
-        {
-            let out_of_scope_string = format!(
-                "{}/rest/v1/calendar_events?recurrence_id=eq.{}&or=(and(from_date_time.gte.{},from_date_time.lt.{}),(recurrence_until.gt.{},recurrence_until.lte{}))",
-                SUPABASE_URL,
-                new_version.id,
-                old_version.from_date_time,
-                new_version.from_date_time,
-                new_recurrence.recurrence_until,
-                old_recurrence.recurrence_until
-            );
-            //get, parse to CalendarEvent and fit into to_be_del or to_non_override
+        // rrule and / or from_date_time is changed
+        else {
+            match new_recurrence.rrule {
+                Rrule::Daily => {
+                    let to_be_shifted: Vec<CalendarEvent> = Vec::new();
+                    for instance in perhaps_need_change_vec {
+                        if let Some(rec_ex) = instance.recurrence_exception
+                            && let Some(over) = rec_ex.overrides
+                        {
+                            if over.overrides_datetime
+                                <= new_version
+                                    .from_date_time
+                                    .with_time(NaiveTime::MIN)
+                                    .unwrap()
+                                || over.overrides_datetime > new_recurrence.recurrence_until
+                            {
+                                match (keep_overridings, over.skipped) {
+                                    (Some(true), false) => to_non_override.push(instance),
+                                    _ => to_be_del.push(instance),
+                                }
+                            } else {
+                                to_be_shifted.push(instance);
+                            }
+                        }
+                    }
+                    let time_dif =
+                        new_version.from_date_time.time() - old_version.from_date_time.time();
+
+                    for shifty in to_be_shifted {
+                        let overr = shifty.recurrence_exception.unwrap().overrides.unwrap();
+                        let odt = overr.overrides_datetime;
+                        if overr.overrides_datetime.time() == new_version.from_date_time.time() {odt.}
+                        let rec_ex = Some(RecurrenceException {
+                            recurrence_id: new_version.id,
+                            overrides: Some(Overrides {
+                                overrides_datetime: overr
+                                    .overrides_datetime
+                                    .with_time(new_version.from_date_time.time())
+                                    .unwrap(),
+                                skipped: overr.skipped,
+                            }),
+                        });
+
+                        change_calendar_event_unchecked(CalendarEvent {
+                            id: shifty.id,
+                            summary: shifty.summary,
+                            description: shifty.description,
+                            calendar_id: shifty.calendar_id,
+                            created_at: shifty.created_at,
+                            created_by: shifty.created_by,
+                            from_date_time: shifty.from_date_time,
+                            to_date_time: shifty.to_date_time,
+                            attachment: shifty.attachment,
+                            recurrence: None,
+                            recurrence_exception: rec_ex,
+                            location: shifty.location,
+                            categories: shifty.categories,
+                            is_all_day: shifty.is_all_day,
+                            last_mod: Utc::now(),
+                        })
+                        .await?;
+                    }
+                }
+            }
         }
+
+        // in case from_date_time is changed, it must also be changed for all recurrence_exceptions that share the from_date_time till now
+        // if new_version.from_date_time != old_version.from_date_time {
+        //     let url_query = format!(
+        //         "{}/rest/v1/calendar_events?recurrence_id=eq.{}&and(from_date_time.gte.{},from_date_time.lte.{})",
+        //         SUPABASE_URL,
+        //         new_version.id,
+        //         old_version.from_date_time,
+        //         old_recurrence.recurrence_until
+        //     );
+        //     let perhaps_need_shift =
+        //         get_elements_from_remote_by_url_string_unchecked(url_query).await?;
+        //     let perhaps_need_shift_vec =
+        //         parse_response_string_to_calendar_events(perhaps_need_shift).await?;
+        //     for shifty in perhaps_need_shift_vec {
+        //         if shifty.from_date_time == old_version.from_date_time {
+        //             //change_calendar_event_unchecked(CalendarEvent{id: shifty.id, summary: shifty.summary, description: shifty.description, calendar_id:shifty.calendar_id, created_at: shifty.created_at, created_by: shifty.created_by, from_date_time: })
+        //         }
+        //     }
+        // }
+        // // in case, the new versions recurrence is shorter then the old, handle the unused recurrence exceptions
+        // if old_version.from_date_time < new_version.from_date_time
+        //     || new_recurrence.recurrence_until < old_recurrence.recurrence_until
+        // {
+        //     let out_of_scope_string = format!(
+        //         "{}/rest/v1/calendar_events?recurrence_id=eq.{}&or=(and(from_date_time.gte.{},from_date_time.lt.{}),(recurrence_until.gt.{},recurrence_until.lte{}))",
+        //         SUPABASE_URL,
+        //         new_version.id,
+        //         old_version.from_date_time,
+        //         new_version.from_date_time,
+        //         new_recurrence.recurrence_until,
+        //         old_recurrence.recurrence_until
+        //     );
+        //     //get, parse to CalendarEvent and fit into to_be_del or to_non_override
+        // }
     }
     // in case, the element is switched to non-recurrent, check for depending events to handle them
     if let Some(_) = old_version.recurrence
@@ -171,6 +270,55 @@ pub async fn change_calendar_event(
         .await?;
     }
     change_calendar_event_unchecked(new_version).await?;
+    Ok(())
+}
+
+///used for changing a calendar event, that is a non-recurrent event (before) and not an recurrence exception
+// #[server]
+pub async fn change_single_calendar_event(
+    new_version: CalendarEvent,
+) -> core::result::Result<(), ServerFnError> {
+    //check wether it really was a single calendar event
+    let old_version = get_calendar_event_from_remote(new_version.id).await?;
+    if let Some(_) = old_version.recurrence {
+        return Err(ServerFnError::new(
+            "Missmatching Event: The CalendarEvent to be altered is not a single event.",
+        ));
+    };
+    if let Some(_) = old_version.recurrence_exception {
+        return Err(ServerFnError::new(
+            "Missmatching Event: The CalendarEvent to be altered is instance of a recurrent event.",
+        ));
+    };
+
+    //check validity of new version itself
+    check_input_sensibility(
+        new_version.summary.clone(),
+        new_version.calendar_id,
+        new_version.from_date_time,
+        new_version.to_date_time,
+        new_version.recurrence.clone(),
+        new_version.recurrence_exception.clone(),
+    )
+    .await?;
+
+    let stat = change_calendar_event_unchecked(new_version).await?;
+    let uploaded = get_calendar_event_from_remote(new_version.id).await?;
+    if new_version.description != uploaded.description
+        || new_version.from_date_time != uploaded.from_date_time
+        || new_version.to_date_time != uploaded.to_date_time
+        || new_version.attachment != uploaded.attachment
+        || new_version.recurrence != uploaded.recurrence
+        || new_version.location != uploaded.location
+        || new_version.categories != uploaded.categories
+        || new_version.is_all_day != uploaded.is_all_day
+        || new_version.recurrence_exception != uploaded.recurrence_exception
+    {
+        return Err(ServerFnError::new(
+            "Changing CalendarEvent went wrong. Unexpected Error.",
+        ));
+    };
+    sync_local_to_remote_db().await?;
     Ok(())
 }
 

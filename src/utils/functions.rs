@@ -276,6 +276,7 @@ pub async fn parse_response_string_to_calendar_events(
     Ok(cal_events)
 }
 
+/// check for overriding recurrence exception if overrides_datetime is valid according to the recurrent element.
 pub fn check_overriding_recurrence(
     child_overrides_dt: DateTime<Utc>,
     parent_from_dt: DateTime<Utc>,
