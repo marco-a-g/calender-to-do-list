@@ -31,14 +31,15 @@ pub struct ToDoListTransfer {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attachment: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub rrule: Option<String>,
+    //Recurrance bei Listen noch nicht
+    /*    pub rrule: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_until: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub overrides_datetime: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")] */
     pub attached_to_calendar_event: Option<Uuid>,
 }
 
@@ -50,8 +51,8 @@ pub fn frontend_input_to_todo_list(
     current_user: String,
     due_datetime: Option<String>,
     priority: Option<String>,
-    rrule: Option<String>,
-    recurrence_until: Option<String>,
+    //rrule: Option<String>,
+    //recurrence_until: Option<String>,
     attatched_to_cal_evt: Option<String>,
 ) -> Result<ToDoList, Box<dyn std::error::Error>> {
     //Due Date parsen
@@ -64,7 +65,7 @@ pub fn frontend_input_to_todo_list(
         .and_then(|s| Priority::from_str(s).ok())
         .unwrap_or(Priority::Normal);
     //RRUle (Rule und until) parsen, Skipped und overrides bei create irrelevant
-    let recurrence_settings = if let (Some(rule_str), Some(until_str)) = (rrule, recurrence_until) {
+    /* let recurrence_settings = if let (Some(rule_str), Some(until_str)) = (rrule, recurrence_until) {
         if !rule_str.is_empty() && !until_str.is_empty() {
             let parsed_rule = Rrule::from_str(&rule_str).ok();
             let parsed_until = html_input_to_db(&until_str).unwrap_or(None);
@@ -82,6 +83,10 @@ pub fn frontend_input_to_todo_list(
     } else {
         None
     };
+    */
+    //rec bei todolisten doch nicht, daher erstmal auf None
+    let recurrence_settings = None;
+
     //zugehörige Event id parsen wenn vorhanden
     let evt_id = attatched_to_cal_evt
         .as_deref()
@@ -139,7 +144,9 @@ pub fn todo_list_into_todo_list_transfer(
             ),
         };
 
+    //Recurrance für Listen erstmal nicht
     //rrule und until extrahieren wenn vorhanden
+    /*
     let (rrule_transfer, until_transfer) = match todo_list.recurrence {
         Some(rec) => (
             Some(format!("{:?}", rec.rrule).to_lowercase()),
@@ -147,6 +154,8 @@ pub fn todo_list_into_todo_list_transfer(
         ),
         None => (None, None),
     };
+    */
+
     //Neues ToDoListTransfer erstellen
     Ok(ToDoListTransfer {
         name: todo_list.name,
@@ -157,10 +166,10 @@ pub fn todo_list_into_todo_list_transfer(
         due_datetime: todo_list.due_date_time,
         priority: Some(format!("{:?}", todo_list.priority).to_lowercase()),
         attachment: todo_list.attachment,
-        rrule: rrule_transfer,
+        /*      rrule: rrule_transfer,
         recurrence_until: until_transfer,
         recurrence_id: None,
-        overrides_datetime: None,
+        overrides_datetime: None, */
         attached_to_calendar_event: todo_list.attached_to_calendar_event,
     })
 }

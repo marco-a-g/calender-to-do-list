@@ -1,10 +1,12 @@
 use crate::todos::backend::create_todolist::{
     create_todo_list, frontend_input_to_todo_list, todo_list_into_todo_list_transfer,
 };
+use crate::todos::backend::edit_todolist::update_todo_list;
+use crate::utils::date_formatting::db_to_html_input;
 use crate::utils::functions::get_user_id_and_session_token;
-use crate::utils::structs::{CalendarEventLight, CalendarLight, GroupLight};
+use crate::utils::structs::{CalendarEventLight, CalendarLight, GroupLight, TodoListLight};
+use chrono::Local;
 use dioxus::prelude::*;
-
 #[component]
 pub fn CreateListButton(onclick: EventHandler<MouseEvent>) -> Element {
     rsx! {
@@ -30,12 +32,13 @@ pub fn CreateListButton(onclick: EventHandler<MouseEvent>) -> Element {
 }
 
 #[component]
-pub fn CreateListModal(
+pub fn CreateEditListModal(
     groups: Vec<GroupLight>,
     all_events: Vec<CalendarEventLight>,
     all_calendars: Vec<CalendarLight>,
     show_modal: Signal<bool>,
     on_refresh: EventHandler<()>,
+    list_to_edit: Signal<Option<TodoListLight>>,
 ) -> Element {
     //Standardwerte für neue ToDoListe setzen
     let mut new_list_title = use_signal(|| String::new());
@@ -44,20 +47,45 @@ pub fn CreateListModal(
     let mut new_list_event_id = use_signal(|| String::new());
     let mut new_list_due_date = use_signal(|| String::new());
     let mut new_list_priority = use_signal(|| "normal".to_string());
-    let mut new_list_rrule = use_signal(|| String::new());
-    let mut new_list_recurrence_until = use_signal(|| String::new());
+    //Recurrance bei Listen vorerst nicht
+    //let mut new_list_rrule = use_signal(|| String::new());
+    //let mut new_list_recurrence_until = use_signal(|| String::new());
+
+    use_effect(move || {
+        if let Some(list) = list_to_edit() {
+            new_list_title.set(list.name.clone());
+            new_list_description.set(list.description.clone().unwrap_or_default());
+            new_list_priority.set(list.priority.clone().unwrap_or("normal".to_string()));
+            new_list_group_id.set(list.group_id.clone().unwrap_or_default());
+            new_list_event_id.set(list.attached_to_calendar_event.clone().unwrap_or_default());
+            new_list_due_date.set(db_to_html_input(&list.due_datetime).unwrap_or_default());
+        }
+    });
 
     //Bei schließen der Maske wieder Werte auf Standard setzen
     let close_modal = move |_| {
         show_modal.set(false);
+        list_to_edit.set(None); // Reset Edit State
         new_list_title.set(String::new());
         new_list_description.set(String::new());
         new_list_group_id.set(String::new());
         new_list_event_id.set(String::new());
         new_list_due_date.set(String::new());
         new_list_priority.set("normal".to_string());
-        new_list_rrule.set(String::new());
-        new_list_recurrence_until.set(String::new());
+        //new_list_rrule.set(String::new());
+        //new_list_recurrence_until.set(String::new());
+    };
+
+    //Buttontexte je nach Maske (Edit oder Create)
+    let modal_title = if list_to_edit().is_some() {
+        "Edit List"
+    } else {
+        "Create New To-Do List"
+    };
+    let button_text = if list_to_edit().is_some() {
+        "Save Changes"
+    } else {
+        "Create List"
     };
 
     //Erstellte Liste handhaben
@@ -69,8 +97,8 @@ pub fn CreateListModal(
             let event_id_str = new_list_event_id();
             let due_date_str = new_list_due_date();
             let prio_str = new_list_priority();
-            let rrule_str = new_list_rrule();
-            let until_str = new_list_recurrence_until();
+            //let rrule_str = new_list_rrule();
+            //let until_str = new_list_recurrence_until();
             // User-ID holen
             let (user_id, _token) = match get_user_id_and_session_token().await {
                 Ok(data) => data,
@@ -101,65 +129,101 @@ pub fn CreateListModal(
 
             let priority_opt = Some(prio_str);
 
-            let rrule_opt = if rrule_str.is_empty() {
-                None
+            /*let rrule_opt = None;
+            let recurrence_until_opt = None; */
+
+            // Wenn in Edit Mode
+            if let Some(existing_list) = list_to_edit() {
+                let edited_list = TodoListLight {
+                    id: existing_list.id.clone(),
+                    name: title,
+                    description: description,
+                    list_type: if group_id_str.is_empty() {
+                        "private".to_string()
+                    } else {
+                        "group".to_string()
+                    },
+                    group_id: if group_id_str.is_empty() {
+                        None
+                    } else {
+                        Some(group_id_str)
+                    },
+                    due_datetime: due_date,
+                    priority: priority_opt,
+                    attachment: existing_list.attachment.clone(),
+                    // Felder die wir nicht ändern oder resetten:
+                    created_at: existing_list.created_at.clone(),
+                    created_by: existing_list.created_by.clone(),
+                    owner_id: existing_list.owner_id.clone(),
+                    attached_to_calendar_event: event_id_opt,
+                    rrule: None,
+                    recurrence_until: None,
+                    recurrence_id: None,
+                    overrides_datetime: None,
+                    skipped: false,
+                    last_mod: Local::now().to_rfc3339(),
+                };
+                let _ = update_todo_list(edited_list).await; //Backend aufruf
+
+                // Maskenwerte wieder zurücksetzen
+                new_list_title.set(String::new());
+                new_list_description.set(String::new());
+                new_list_group_id.set(String::new());
+                new_list_event_id.set(String::new());
+                new_list_due_date.set(String::new());
+                new_list_priority.set("normal".to_string());
+                list_to_edit.set(None);
+                show_modal.set(false);
+                on_refresh.call(());
             } else {
-                Some(rrule_str.clone())
-            };
+                //Create Modal
+                //input in ToDoList parsen
+                match frontend_input_to_todo_list(
+                    title,
+                    description,
+                    group_id_str,
+                    user_id_str,
+                    due_date,
+                    priority_opt,
+                    //rrule_opt,
+                    //recurrence_until_opt,
+                    event_id_opt,
+                ) {
+                    // Parsing klappt
+                    Ok(new_list_struct) => {
+                        //ToDoList in ToDoListTransfer umwandeln
+                        match todo_list_into_todo_list_transfer(new_list_struct) {
+                            // Parsing klappt
+                            Ok(transfer_obj) => {
+                                // ToDoListTransfer an Supabase senden
+                                let _ = create_todo_list(transfer_obj).await;
 
-            let recurrence_until_opt = if until_str.is_empty() || rrule_str.is_empty() {
-                None
-            } else {
-                Some(until_str)
-            };
-
-            //input in ToDoList parsen
-            match frontend_input_to_todo_list(
-                title,
-                description,
-                group_id_str,
-                user_id_str,
-                due_date,
-                priority_opt,
-                rrule_opt,
-                recurrence_until_opt,
-                event_id_opt,
-            ) {
-                // Parsing klappt
-                Ok(new_list_struct) => {
-                    //ToDoList in ToDoListTransfer umwandeln
-                    match todo_list_into_todo_list_transfer(new_list_struct) {
-                        // Parsing klappt
-                        Ok(transfer_obj) => {
-                            // ToDoListTransfer an Supabase senden
-                            let _ = create_todo_list(transfer_obj).await;
-
-                            // Eingabemaske zurück setzen
-                            new_list_title.set(String::new());
-                            new_list_description.set(String::new());
-                            new_list_group_id.set(String::new());
-                            new_list_event_id.set(String::new());
-                            new_list_due_date.set(String::new());
-                            new_list_priority.set("normal".to_string());
-                            new_list_rrule.set(String::new());
-                            new_list_recurrence_until.set(String::new());
-                            show_modal.set(false);
-                            on_refresh.call(());
-                        }
-                        // Falls TransferObjekt erstellung nicht klappen sollte
-                        Err(e) => {
-                            println!("Fehler beim Erstellen des Transfer-Objekts: {}", e);
+                                // Eingabemaske zurück setzen
+                                new_list_title.set(String::new());
+                                new_list_description.set(String::new());
+                                new_list_group_id.set(String::new());
+                                new_list_event_id.set(String::new());
+                                new_list_due_date.set(String::new());
+                                new_list_priority.set("normal".to_string());
+                                //new_list_rrule.set(String::new());
+                                //new_list_recurrence_until.set(String::new());
+                                show_modal.set(false);
+                                on_refresh.call(());
+                            }
+                            // Falls TransferObjekt erstellung nicht klappen sollte
+                            Err(e) => {
+                                println!("Fehler beim Erstellen des Transfer-Objekts: {}", e);
+                            }
                         }
                     }
-                }
-                // Falls Input nicht in ToDoList geparsed werden konnte
-                Err(e) => {
-                    println!("Fehler bei den Eingabedaten: {}", e);
-                }
-            };
-        }
+                    // Falls Input nicht in ToDoList geparsed werden konnte
+                    Err(e) => {
+                        println!("Fehler bei den Eingabedaten: {}", e);
+                    }
+                };
+            }
+        };
     };
-
     //Listen für Dropdown bei Gruppenzuweisung filtern
     let filtered_events: Vec<CalendarEventLight> = all_events
         .iter()
@@ -184,7 +248,7 @@ pub fn CreateListModal(
                 style: "background: #171923; width: 450px; padding: 24px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.9); display: flex; flex-direction: column; gap: 16px; max-height: 90vh; overflow-y: auto;",
 
                 h2 { style: "color: white; font-size: 18px; margin: 0 0 8px 0;",
-                    "Create New To-Do List"
+                    "{modal_title}"
                 }
 
                 // Name setzen
@@ -303,14 +367,10 @@ pub fn CreateListModal(
                         onclick: close_modal,
                         "Cancel"
                     }
-                 button {
-                        disabled: !new_list_rrule().is_empty() && new_list_recurrence_until().is_empty(),
-                        style: format!("flex: 1; padding: 10px; border-radius: 8px; background: #3A6BFF; color: white; border: none; font-weight: 600; cursor: {}; opacity: {};",
-                            if !new_list_rrule().is_empty() && new_list_recurrence_until().is_empty() { "not-allowed" } else { "pointer" },
-                            if !new_list_rrule().is_empty() && new_list_recurrence_until().is_empty() { "0.5" } else { "1" }
-                        ),
+                     button {
+                        style: "flex: 1; padding: 10px; border-radius: 8px; background: #3A6BFF; color: white; border: none; font-weight: 600; cursor: pointer;",
                         onclick: handle_create,
-                        "Create List"
+                        "{button_text}"
                     }
                 }
             }

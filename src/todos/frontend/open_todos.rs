@@ -17,6 +17,7 @@ pub fn OpenToDoView(
     selected_list_filter: ListFilter,
     on_complete: EventHandler<String>,
     on_select_todo: EventHandler<TodoEventLight>,
+    on_edit_list: EventHandler<TodoListLight>,
 ) -> Element {
     // Über die Übergebenen Todos alle Listen und Gruppen für Sidebar heraussuchen
     let filtered_tasks: Vec<TodoEventLight> = todos
@@ -47,6 +48,12 @@ pub fn OpenToDoView(
 
     //Todos filtern nach due date mit Hilfsfunktion unten
     let (today_list, week_list, later_list) = categorize_todos(&filtered_tasks);
+
+    let current_list_obj = if let ListFilter::SpecificList(id) = &selected_list_filter {
+        all_lists.iter().find(|l| &l.id == id).cloned()
+    } else {
+        None
+    };
 
     // Titel der Ansicht je nach Auswahl der Filter
     let title = match &selected_list_filter {
@@ -117,148 +124,161 @@ pub fn OpenToDoView(
         };
 
     rsx! {
-        div {
-            style: "flex: 1; padding: 24px; display: flex; flex-direction: column; background: #080910;",
             div {
-                style: "background: linear-gradient(145deg, #1f222c 0%, #14161f 100%); border-radius: 18px; padding: 24px; box-shadow: 0 18px 40px rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.06); flex: 1; display: flex; flex-direction: column; gap: 16px; overflow: hidden;",
+                style: "flex: 1; padding: 24px; display: flex; flex-direction: column; background: #080910;",
                 div {
-                    style: "border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 16px; margin-bottom: 8px;",
+                    style: "background: linear-gradient(145deg, #1f222c 0%, #14161f 100%); border-radius: 18px; padding: 24px; box-shadow: 0 18px 40px rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.06); flex: 1; display: flex; flex-direction: column; gap: 16px; overflow: hidden;",
                     div {
-                        style: "display: flex; justify-content: space-between; align-items: flex-start;",
-                        // Titel Links im Header
+                        style: "border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 16px; margin-bottom: 8px;",
                         div {
-                            h2 {
-                                style: "margin: 0 0 4px 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af;",
-                                "Tasks"
-                            }
-                            h1 {
-                                style: "margin: 0; font-size: 24px; font-weight: 600; color: #f9fafb;",
-                                "{title}"
-                            }
-                        }
-                        // Metadaten Rechts im Header (Description, Priority, Due Date)
-                        div {
-                            style: "display: flex; gap: 24px; text-align: right;",
-                            // Description der Liste
-                            if let Some(desc) = list_description {
-                                div {
-                                    style: "max-width: 300px;",
-                                    span {
-                                        style: "font-size: 11px; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 2px;",
-                                        "Description"
-                                    }
-                                    span {
-                                        style: "font-size: 13px; color: #e5e7eb; display: block; line-height: 1.4;",
-                                        "{desc}"
-                                    }
+                            style: "display: flex; justify-content: space-between; align-items: flex-start;",
+                            // Titel Links im Header
+                            div {
+                                h2 {
+                                    style: "margin: 0 0 4px 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af;",
+                                    "Tasks"
+                                }
+                                h1 {
+                                    style: "margin: 0; font-size: 24px; font-weight: 600; color: #f9fafb;",
+                                    "{title}"
                                 }
                             }
-                            // Priority de Liste
-                            if let Some((label, color)) = list_priority {
-                                div {
-                                    span {
-                                        style: "font-size: 11px; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 2px;",
-                                        "Priority"
-                                    }
-                                    span {
-                                        style: "font-size: 14px; color: {color}; font-weight: 600;",
-                                        "{label}"
-                                    }
-                                }
-                            }
-                            // Due Date der Liste
-                            if let Some(due_date) = list_due_display {
-                                div {
-                                    span {
-                                        style: "font-size: 11px; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 2px;",
-                                        "List Due Date"
-                                    }
-                                    span {
-                                        style: "font-size: 14px; color: #f3f4f6; font-weight: 500;",
-                                        "{due_date}"
+                            // Metadaten Rechts im Header (Description, Priority, Due Date)
+                            div {
+                                style: "display: flex; gap: 24px; text-align: right;",
+                                // Description der Liste
+                                if let Some(desc) = list_description {
+                                    div {
+                                        style: "max-width: 300px;",
+                                        span {
+                                            style: "font-size: 11px; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 2px;",
+                                            "Description"
+                                        }
+                                        span {
+                                            style: "font-size: 13px; color: #e5e7eb; display: block; line-height: 1.4;",
+                                            "{desc}"
+                                        }
                                     }
                                 }
+                                // Priority de Liste
+                                if let Some((label, color)) = list_priority {
+                                    div {
+                                        span {
+                                            style: "font-size: 11px; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 2px;",
+                                            "Priority"
+                                        }
+                                        span {
+                                            style: "font-size: 14px; color: {color}; font-weight: 600;",
+                                            "{label}"
+                                        }
+                                    }
+                                }
+                                // Due Date der Liste
+                                if let Some(due_date) = list_due_display {
+                                    div {
+                                        span {
+                                            style: "font-size: 11px; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 2px;",
+                                            "List Due Date"
+                                        }
+                                        span {
+                                            style: "font-size: 14px; color: #f3f4f6; font-weight: 500;",
+                                            "{due_date}"
+                                        }
+                                    }
+                                }
+                                //Bearbeiten symbol für todoliste
+                                if let Some(list_obj) = current_list_obj {
+                                    div {
+                                        style: "margin-left: 10px;",
+                                        button {
+                                            onclick: move |_| on_edit_list.call(list_obj.clone()),
+                                            title: "Edit List",
+                                            style: "background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); cursor: pointer; color: white; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;",
+                                            class: "hover:bg-blue-600 hover:border-blue-500",
+                                            span { style: "font-size: 14px;", "✏️" }
+                                        }
                             }
                         }
                     }
                 }
 
-                div {
-                    class: "flex-1 overflow-y-auto pr-2 flex flex-col gap-3",
-                    // Due heute oder overdue
                     div {
-                        style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 8px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;",
-                        "Due Today / Overdue"
-                    }
-                    if today_list.is_empty() {
-                        div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No Tasks." }
-                    }
-                    for task in today_list {
-                        // alle due heute/overdue ToDos rendern
-                        ToDoItem {
-                            key: "{task.id}",
-                            task: task.clone(),
-                            parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
-                            parent_group: all_lists //alle Gruppen > ToDoList > ToDo finden
-                                .iter()
-                                .find(|l| l.id == task.todo_list_id)
-                                .and_then(|l| l.group_id.as_ref())
-                                .and_then(|gid| groups.iter().find(|g| &g.id == gid).cloned()),
-                            all_profiles: all_profiles.clone(),
-                            all_events: all_events.clone(),
-                            on_complete: move |id| on_complete.call(id),
-                            on_click: move |t| on_select_todo.call(t)
+                        class: "flex-1 overflow-y-auto pr-2 flex flex-col gap-3",
+                        // Due heute oder overdue
+                        div {
+                            style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 8px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;",
+                            "Due Today / Overdue"
                         }
-                    }
+                        if today_list.is_empty() {
+                            div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No Tasks." }
+                        }
+                        for task in today_list {
+                            // alle due heute/overdue ToDos rendern
+                            ToDoItem {
+                                key: "{task.id}",
+                                task: task.clone(),
+                                parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
+                                parent_group: all_lists //alle Gruppen > ToDoList > ToDo finden
+                                    .iter()
+                                    .find(|l| l.id == task.todo_list_id)
+                                    .and_then(|l| l.group_id.as_ref())
+                                    .and_then(|gid| groups.iter().find(|g| &g.id == gid).cloned()),
+                                all_profiles: all_profiles.clone(),
+                                all_events: all_events.clone(),
+                                on_complete: move |id| on_complete.call(id),
+                                on_click: move |t| on_select_todo.call(t)
+                            }
+                        }
 
-                    // Due in einer Woche
-                    div {
-                        style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 24px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;",
-                        "Due in the next 7 days"
-                    }
-                    if week_list.is_empty() {
-                        div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No Tasks." }
-                    }
-                    for task in week_list {
-                    // alle due in einer woche ToDos rendern
-                        ToDoItem {
-                            key: "{task.id}",
-                            task: task.clone(),
-                            parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
-                            parent_group: all_lists //alle Gruppen > ToDoList > ToDo finden
-                                .iter()
-                                .find(|l| l.id == task.todo_list_id)
-                                .and_then(|l| l.group_id.as_ref())
-                                .and_then(|gid| groups.iter().find(|g| &g.id == gid).cloned()),
-                            all_profiles: all_profiles.clone(),
-                            all_events: all_events.clone(),
-                            on_complete: move |id| on_complete.call(id),
-                            on_click: move |t| on_select_todo.call(t)
+                        // Due in einer Woche
+                        div {
+                            style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 24px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;",
+                            "Due in the next 7 days"
                         }
-                    }
-                    // Due Later
-                    div {
-                        style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 24px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;",
-                        "Due Later or no Due-Date"
-                    }
-                    if later_list.is_empty() {
-                        div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No Tasks." }
-                    }
-                    for task in later_list {
-                        //alle Due Later todos rendern
-                        ToDoItem {
-                            key: "{task.id}",
-                            task: task.clone(),
-                            parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
-                            parent_group: all_lists //alle Gruppen > ToDoList > ToDo finden
-                                .iter()
-                                .find(|l| l.id == task.todo_list_id)
-                                .and_then(|l| l.group_id.as_ref())
-                                .and_then(|gid| groups.iter().find(|g| &g.id == gid).cloned()),
-                            all_profiles: all_profiles.clone(),
-                            all_events: all_events.clone(),
-                            on_complete: move |id| on_complete.call(id),
-                            on_click: move |t| on_select_todo.call(t)
+                        if week_list.is_empty() {
+                            div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No Tasks." }
+                        }
+                        for task in week_list {
+                        // alle due in einer woche ToDos rendern
+                            ToDoItem {
+                                key: "{task.id}",
+                                task: task.clone(),
+                                parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
+                                parent_group: all_lists //alle Gruppen > ToDoList > ToDo finden
+                                    .iter()
+                                    .find(|l| l.id == task.todo_list_id)
+                                    .and_then(|l| l.group_id.as_ref())
+                                    .and_then(|gid| groups.iter().find(|g| &g.id == gid).cloned()),
+                                all_profiles: all_profiles.clone(),
+                                all_events: all_events.clone(),
+                                on_complete: move |id| on_complete.call(id),
+                                on_click: move |t| on_select_todo.call(t)
+                            }
+                        }
+                        // Due Later
+                        div {
+                            style: "font-size: 12px; color: #9ca3af; font-weight: 600; margin-top: 24px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;",
+                            "Due Later or no Due-Date"
+                        }
+                        if later_list.is_empty() {
+                            div { style: "font-size: 13px; color: #4b5563; padding: 8px 0;", "No Tasks." }
+                        }
+                        for task in later_list {
+                            //alle Due Later todos rendern
+                            ToDoItem {
+                                key: "{task.id}",
+                                task: task.clone(),
+                                parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
+                                parent_group: all_lists //alle Gruppen > ToDoList > ToDo finden
+                                    .iter()
+                                    .find(|l| l.id == task.todo_list_id)
+                                    .and_then(|l| l.group_id.as_ref())
+                                    .and_then(|gid| groups.iter().find(|g| &g.id == gid).cloned()),
+                                all_profiles: all_profiles.clone(),
+                                all_events: all_events.clone(),
+                                on_complete: move |id| on_complete.call(id),
+                                on_click: move |t| on_select_todo.call(t)
+                            }
                         }
                     }
                 }

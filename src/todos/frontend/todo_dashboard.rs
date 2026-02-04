@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 
 use super::create_edit_todo::{CreateEditToDoModal, CreateToDoButton};
-use super::create_todolist::{CreateListButton, CreateListModal};
+use super::create_edit_todolist::{CreateEditListModal, CreateListButton};
 use super::filter_todos::{FilterSidebar, GroupFilter, ListFilter};
 use super::open_todos::OpenToDoView;
 use super::todo_detail::ToDoDetailModal;
@@ -36,7 +36,7 @@ pub fn ToDoDashboard() -> Element {
     let mut show_create_list_modal = use_signal(|| false);
     let mut selected_todo_for_detail = use_signal(|| None::<TodoEventLight>);
     let mut todo_to_edit = use_signal(|| None::<TodoEventLight>);
-
+    let mut list_to_edit = use_signal(|| None::<TodoListLight>);
     //leeres Set aus Tasks erstellen um u.a. nachher geladenen tasks trennen zu können in erledigt / nicht erledigt
     let mut tasks_signal = use_signal(|| Vec::<TodoEventLight>::new());
 
@@ -167,6 +167,11 @@ pub fn ToDoDashboard() -> Element {
         // Eigabemaske für TODO-Erstellung anzeigen (unterscheidet dann zw. edit und create)
         show_create_todo_modal.set(true);
     };
+    let handle_edit_list_request = move |list: TodoListLight| {
+        selected_todo_for_detail.set(None);
+        list_to_edit.set(Some(list));
+        show_create_list_modal.set(true);
+    };
 
     //Selected ToDo setzen
     let handle_select_todo = move |todo: TodoEventLight| {
@@ -216,12 +221,13 @@ pub fn ToDoDashboard() -> Element {
             }
             if show_create_list_modal() {
                 //create Liste-Komponente rendern und Listen übergeben
-                CreateListModal {
+                CreateEditListModal {
                     groups: groups_data.clone(),
                     all_events: events_data.clone(),
                     all_calendars: calendars_data.clone(),
                     show_modal: show_create_list_modal,
-                    on_refresh: handle_refresh
+                    on_refresh: handle_refresh,
+                    list_to_edit: list_to_edit
                 }
             }
 
@@ -256,7 +262,8 @@ pub fn ToDoDashboard() -> Element {
                 selected_category: selected_category(),
                 selected_list_filter: selected_list_filter(),
                 on_complete: handle_complete_task,
-                on_select_todo: handle_select_todo
+                on_select_todo: handle_select_todo,
+                on_edit_list: handle_edit_list_request
             }
 
             div {
