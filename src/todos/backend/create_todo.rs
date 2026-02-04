@@ -68,7 +68,14 @@ pub fn frontend_input_to_todo(
     //RRUle (Rule und until) parsen, Skipped und overrides bei create irrelevant
     let recurrence_settings = if let (Some(rule_str), Some(until_str)) = (rrule, recurrence_until) {
         if !rule_str.is_empty() && !until_str.is_empty() {
-            let parsed_rule = Rrule::from_str(&rule_str).ok();
+            println!("Versuche rrule zu parsen: '{}'", rule_str);
+            let parsed_rule = match Rrule::from_str(&rule_str) {
+                Ok(r) => Some(r),
+                Err(e) => {
+                    println!("CRITICAL: Rrule parsing error für '{}': {}", rule_str, e);
+                    None
+                }
+            };
             let parsed_until = html_input_to_db(&until_str).unwrap_or(None);
             if let (Some(r), Some(u)) = (parsed_rule, parsed_until) {
                 Some(Recurrent {
@@ -115,12 +122,20 @@ pub fn todo_event_into_to_do_transfer(
 ) -> Result<ToDoTransfer, Box<dyn std::error::Error>> {
     println!("In transfer func gibt vorher {:?}", todo);
 
-    //rrule und until extrahieren wenn vorhanden
+    // rrule und until extrahieren wenn vorhanden
     let (rrule_transfer, until_transfer) = match todo.recurrence {
-        Some(rec) => (
-            Some(format!("{:?}", rec.rrule).to_lowercase()),
-            Some(rec.recurrence_until),
-        ),
+        Some(rec) => {
+            let rrule_str = match rec.rrule {
+                Rrule::Daily => "daily",
+                Rrule::Weekly => "weekly",
+                Rrule::Fortnight => "fortnight",
+                Rrule::OnWeekDays => "weekdays",
+                Rrule::MonthlyOnDate => "monthly_on_date",
+                Rrule::MonthlyOnWeekday => "monthly_on_weekday",
+                Rrule::Annual => "annual",
+            };
+            (Some(rrule_str.to_string()), Some(rec.recurrence_until))
+        }
         None => (None, None),
     };
     //Skipped und overrides DT handeln
