@@ -125,18 +125,23 @@ pub async fn change_calendar_event(
                     for shifty in to_be_shifted {
                         let overr = shifty.recurrence_exception.unwrap().overrides.unwrap();
                         let odt = overr.overrides_datetime;
-                        if overr.overrides_datetime.time() == new_version.from_date_time.time() {odt.}
+                        if overr.overrides_datetime.time() == new_version.from_date_time.time() {
+                            odt.with_time(new_version.from_date_time.time()).unwrap();
+                        } else {
+                            odt.with_time(time)
+                        }
                         let rec_ex = Some(RecurrenceException {
                             recurrence_id: new_version.id,
                             overrides: Some(Overrides {
-                                overrides_datetime: overr
-                                    .overrides_datetime
-                                    .with_time(new_version.from_date_time.time())
-                                    .unwrap(),
+                                overrides_datetime: odt,
                                 skipped: overr.skipped,
                             }),
                         });
-
+                        // in case, the time was not changed in the exception it should also not be changed according to the recurrent event after the shift
+                        let from_dt = shifty.from_date_time;
+                        if shifty.from_date_time == overr.overrides_datetime {
+                            from_dt = odt;
+                        }
                         change_calendar_event_unchecked(CalendarEvent {
                             id: shifty.id,
                             summary: shifty.summary,
@@ -144,7 +149,7 @@ pub async fn change_calendar_event(
                             calendar_id: shifty.calendar_id,
                             created_at: shifty.created_at,
                             created_by: shifty.created_by,
-                            from_date_time: shifty.from_date_time,
+                            from_date_time: from_dt,
                             to_date_time: shifty.to_date_time,
                             attachment: shifty.attachment,
                             recurrence: None,
