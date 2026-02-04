@@ -309,7 +309,27 @@ pub fn check_overriding_recurrence(
             return (child_overrides_dt.day() == parent_from_dt.day()
                 && child_overrides_dt.month() == parent_from_dt.month());
         }
-        Rrule::Monthly => return (child_overrides_dt.day() == parent_from_dt.day()),
+        Rrule::MonthlyOnDate => return (child_overrides_dt.day() == parent_from_dt.day()),
+        Rrule::MonthlyOnWeekday => {
+            if (child_overrides_dt.day() <= 7 && parent_from_dt.day() <= 7)
+                || (child_overrides_dt.day() > 7
+                    && child_overrides_dt.day() <= 14
+                    && parent_from_dt.day() > 7
+                    && parent_from_dt.day() <= 14)
+                || (child_overrides_dt.day() > 14
+                    && child_overrides_dt.day() <= 21
+                    && parent_from_dt.day() > 14
+                    && parent_from_dt.day() <= 21)
+                || (child_overrides_dt.day() > 21
+                    && child_overrides_dt.day() <= 28
+                    && parent_from_dt.day() > 21
+                    && parent_from_dt.day() <= 28)
+            {
+                return (child_overrides_dt.weekday() == parent_from_dt.weekday());
+            } else {
+                false
+            }
+        }
         Rrule::OnWeekDays => return child_overrides_dt.weekday().num_days_from_monday() <= 5,
     }
 }
