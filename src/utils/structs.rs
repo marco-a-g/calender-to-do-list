@@ -17,8 +17,10 @@ pub enum Rrule {
     Fortnight,
     #[strum(ascii_case_insensitive)]
     OnWeekDays,
-    #[strum(ascii_case_insensitive)]
-    Monthly,
+    #[strum(serialize = "monthly_on_date")]
+    MonthlyOnDate,
+    #[strum(serialize = "monthly_on_weekday")]
+    MonthlyOnWeekday,
     #[strum(ascii_case_insensitive)]
     Annual,
 }
@@ -164,7 +166,7 @@ impl fmt::Display for OwnedBy {
 }
 
 /// Used to describe the members of a group. Membership is defined within a group, not within a user.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct GroupMemberOf {
     pub id: Uuid, //id used in the database table "group_members"
     pub user_id: Uuid,
@@ -173,14 +175,14 @@ pub struct GroupMemberOf {
     pub joined_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Profile {
     pub id: Uuid,
     pub username: String,
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Group {
     pub id: Uuid,
     pub name: String,
@@ -191,7 +193,7 @@ pub struct Group {
 }
 
 /// A calendar must either belong to a user or to a group.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Calendar {
     pub id: Uuid,
     pub name: String,
@@ -203,7 +205,7 @@ pub struct Calendar {
 }
 
 ///
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct CalendarEvent {
     pub id: Uuid,
     pub summary: String,
@@ -222,7 +224,7 @@ pub struct CalendarEvent {
     pub last_mod: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct ToDoList {
     pub id: Uuid,
     pub name: String,
@@ -239,7 +241,7 @@ pub struct ToDoList {
     pub last_mod: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct TodoEvent {
     pub id: Uuid,
     pub summary: String,
