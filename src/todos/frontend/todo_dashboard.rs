@@ -64,7 +64,7 @@ pub fn ToDoDashboard() -> Element {
                     // Expanding klappt -> expandete tasks in tasks_signal setzen
                     //let test_tasks = expanded_tasks.clone();
                     tasks_signal.set(expanded_tasks);
-                    //println!("{:?}", test_tasks);
+                    //println!("DU SOLLTEST DOCH FUNKTIONIEREN :{:?}", test_tasks);
                 }
                 Err(e) => {
                     // wenn expanden nicht klappt unexpandete ausgeben
@@ -181,10 +181,13 @@ pub fn ToDoDashboard() -> Element {
             // String ID in echte UUID umwandeln
             if let Ok(uuid) = Uuid::from_str(&id_for_db) {
                 match complete_todo_event(uuid).await {
-                    Ok(_) => println!(
-                        "Insert update for field 'completed' for Todo: {} done.",
-                        id_for_db
-                    ),
+                    Ok(_) => {
+                        println!(
+                            "Insert update for field 'completed' for Todo: {} done.",
+                            id_for_db
+                        );
+                        full_data_resource.restart();
+                    }
                     Err(e) => {
                         println!("Error on inserting completion update: {}", e);
                     }

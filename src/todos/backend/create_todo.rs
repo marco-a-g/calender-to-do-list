@@ -48,17 +48,24 @@ pub fn frontend_input_to_todo(
     recurrence_until: Option<String>,
     assigned_to_user: Option<String>,
 ) -> Result<TodoEvent, Box<dyn std::error::Error>> {
+    println!("In frontend into todo func gibt vorher {:?}", rrule);
+
+    //List id parsen
     let list_uuid = Uuid::parse_str(&todo_list_id)?;
+    //ID Zugewiesener user parsen
     let assignee_uuid = assigned_to_user
         .filter(|s| !s.is_empty())
         .and_then(|s| Uuid::parse_str(&s).ok());
+    //Due Date parsen
     let due_date = due_datetime
         .as_deref()
         .and_then(|s| html_input_to_db(s).unwrap_or(None));
+    //Priority parsen
     let priority = priority
         .as_deref()
         .and_then(|s| Priority::from_str(s).ok())
         .unwrap_or(Priority::Normal);
+    //RRUle (Rule und until) parsen, Skipped und overrides bei create irrelevant
     let recurrence_settings = if let (Some(rule_str), Some(until_str)) = (rrule, recurrence_until) {
         if !rule_str.is_empty() && !until_str.is_empty() {
             let parsed_rule = Rrule::from_str(&rule_str).ok();
@@ -77,6 +84,7 @@ pub fn frontend_input_to_todo(
     } else {
         None
     };
+
     let new_todo = TodoEvent {
         id: Uuid::new_v4(),
         summary,
@@ -88,11 +96,16 @@ pub fn frontend_input_to_todo(
         assigned_to_user: assignee_uuid,
         attachment: None,
         recurrence: recurrence_settings,
-        recurrence_exception: None,
+        recurrence_exception: None, //Bei Create eh nicht vorhanden
         created_at: Utc::now(),
         created_by: Uuid::nil(),
         last_mod: Utc::now(),
     };
+    println!(
+        "In frontend into todo func gibt nachher {:?}",
+        new_todo.recurrence
+    );
+
     Ok(new_todo)
 }
 
@@ -100,6 +113,9 @@ pub fn frontend_input_to_todo(
 pub fn todo_event_into_to_do_transfer(
     todo: TodoEvent,
 ) -> Result<ToDoTransfer, Box<dyn std::error::Error>> {
+    println!("In transfer func gibt vorher {:?}", todo);
+
+    //rrule und until extrahieren wenn vorhanden
     let (rrule_transfer, until_transfer) = match todo.recurrence {
         Some(rec) => (
             Some(format!("{:?}", rec.rrule).to_lowercase()),
@@ -107,7 +123,7 @@ pub fn todo_event_into_to_do_transfer(
         ),
         None => (None, None),
     };
-
+    //Skipped und overrides DT handeln
     let (rec_id_transfer, overrides_dt_transfer, skipped_transfer) = match todo.recurrence_exception
     {
         Some(ex) => {
@@ -119,9 +135,9 @@ pub fn todo_event_into_to_do_transfer(
         }
         None => (None, None, false),
     };
-
+    println!("In transfer func gibt nachher {:?}", rrule_transfer);
     let priority_string = format!("{:?}", todo.priority).to_lowercase();
-
+    //Neues ToDoTransferObjekt damit erstellen
     Ok(ToDoTransfer {
         summary: todo.summary,
         description: todo.description,
@@ -142,7 +158,7 @@ pub fn todo_event_into_to_do_transfer(
 //Zu erstellendes ToDo-Transferobjekt an Supabase senden
 // #[server]
 pub async fn create_todo_event(todo: ToDoTransfer) -> Result<StatusCode, ServerFnError> {
-    println!("Startin create_todo function with: '{}'", todo.summary);
+    println!("Startin create_todo function with: '{:#?}'", todo);
 
     let (_user_id_str, token) = match get_user_id_and_session_token().await {
         Ok(data) => data,

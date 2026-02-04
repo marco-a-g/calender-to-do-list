@@ -277,6 +277,8 @@ fn ToDoItem(
     on_complete: EventHandler<String>,
     on_click: EventHandler<TodoEventLight>,
 ) -> Element {
+    //Feststellen ob master für Mastersymbol
+    let is_recurring_master = task.rrule.is_some();
     // Auf ToDo klicken -> Task_cklick auf dieses Todo setzen (Für Detailansicht)
     let task_click = task.clone();
     // ToDo Completen > task_complete auf dieses todo setzen
@@ -367,15 +369,26 @@ fn ToDoItem(
                 style: "width: 20px; height: 20px; border-radius: 50%; border: 2px solid #4b5563; cursor: pointer; flex-shrink: 0; transition: border-color 0.2s;",
                 class: "hover:border-blue-500"
             }
-            // Name und Datum (anklickbar für Detailansicht)
+            // Name und Datum (anklickbar für Detailansicht) und rec symbol
             div {
                 onclick: move |_| on_click.call(task_click.clone()),
                 style: "flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; cursor: pointer;",
                 class: "group",
-                div {
+            div {
+                style: "display: flex; align-items: center; gap: 6px; overflow: hidden;",
+                span {
                     style: "color: #f3f4f6; font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;",
                     class: "group-hover:text-blue-400 transition-colors",
                     "{task.summary}"
+                }
+                // Rec symbol nur für master
+                 if is_recurring_master {
+                span {
+                     title: "Master of a recurring todo",
+                     style: "font-size: 12px; flex-shrink: 0;", // flex-shrink verhindert, dass das Icon zerdrückt wird
+                    "🔄"
+                    }
+                    }
                 }
                 div {
                     style: "display: flex; align-items: center; gap: 8px;",

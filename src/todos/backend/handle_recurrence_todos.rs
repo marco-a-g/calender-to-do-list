@@ -120,6 +120,8 @@ pub fn expand_recurring_todos(
                     rec_instance.id = Uuid::new_v4().to_string(); //Richtige neue id setzt Supabase dann wenn man etwas ändert, hierfür erstmal eine temp generieren lassen für Typesafety oder nochmal referenzierbar sein soll
                     rec_instance.due_datetime = Some(current_date_in_loop_as_str); //wiederholung kriegt aktuelles datum der itteration
                     rec_instance.recurrence_id = Some(Uuid::nil().to_string()); //Null setzen, setzt supabase dann
+                    rec_instance.rrule = None; //Recurrance instanzen haben selber keine rrule
+                    rec_instance.recurrence_until = None; //recurrance instanzen haben selber kein until datum
                     result.push(rec_instance);
                 }
             }

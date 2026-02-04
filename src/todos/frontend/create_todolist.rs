@@ -235,7 +235,7 @@ pub fn CreateListModal(
                     }
                 }
 
-                // RRule auswählen
+               /* // RRule auswählen//vorerst doch nicht nötig für Listen, nur Todos
                 div { style: "display: flex; gap: 10px;",
                     div { class: "flex flex-col gap-2 flex-1",
                         label { style: "font-size: 12px; color: #9ca3af; text-transform: uppercase;", "Recurrence" }
@@ -255,7 +255,7 @@ pub fn CreateListModal(
                             option { value: "annual", "Annual" }
                         }
                     }
-                    //Recurrence until auswählen
+                     //Recurrence until auswählen //vorerst doch nicht nötig für Listen, nur Todos
                     div { class: "flex flex-col gap-2 flex-1",
                         label { style: "font-size: 12px; color: #9ca3af; text-transform: uppercase;", "Repeat Until" }
                         input {
@@ -270,7 +270,7 @@ pub fn CreateListModal(
                             oninput: move |evt| new_list_recurrence_until.set(evt.value())
                         }
                     }
-                }
+                }*/
 
                 // Gruppen zur zuweisung auflisten
                 div { class: "flex flex-col gap-2",

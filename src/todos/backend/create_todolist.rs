@@ -54,15 +54,16 @@ pub fn frontend_input_to_todo_list(
     recurrence_until: Option<String>,
     attatched_to_cal_evt: Option<String>,
 ) -> Result<ToDoList, Box<dyn std::error::Error>> {
+    //Due Date parsen
     let due_date = due_datetime
         .as_deref()
         .and_then(|s| html_input_to_db(s).unwrap_or(None));
-
+    //Priority parsen
     let priority = priority
         .as_deref()
         .and_then(|s| Priority::from_str(s).ok())
         .unwrap_or(Priority::Normal);
-
+    //RRUle (Rule und until) parsen, Skipped und overrides bei create irrelevant
     let recurrence_settings = if let (Some(rule_str), Some(until_str)) = (rrule, recurrence_until) {
         if !rule_str.is_empty() && !until_str.is_empty() {
             let parsed_rule = Rrule::from_str(&rule_str).ok();
@@ -81,15 +82,15 @@ pub fn frontend_input_to_todo_list(
     } else {
         None
     };
-
+    //zugehörige Event id parsen wenn vorhanden
     let evt_id = attatched_to_cal_evt
         .as_deref()
         .and_then(|s| Uuid::parse_str(s).ok());
-
+    //Gruppen id parsen
     let group_uuid_opt = Uuid::parse_str(&group_id).ok();
-
+    //User ID Parsen
     let user_id = Uuid::parse_str(&current_user)?;
-
+    //Owner id nach List type parsen
     let owned_by = match group_uuid_opt {
         Some(gid) => OwnedBy {
             owner_type: OwnerType::Group,
@@ -100,6 +101,7 @@ pub fn frontend_input_to_todo_list(
             owner_id: user_id,
         },
     };
+    //neue Liste zusammenstellen
     let new_list = ToDoList {
         id: Uuid::new_v4(),
         name: name,
@@ -122,6 +124,7 @@ pub fn frontend_input_to_todo_list(
 pub fn todo_list_into_todo_list_transfer(
     todo_list: ToDoList,
 ) -> Result<ToDoListTransfer, Box<dyn std::error::Error>> {
+    //Listen type und owner und dementsprechende id extrahieren
     let (list_type_transfer, list_owner_transfer, list_group_transfer) =
         match todo_list.owned_by.owner_type {
             OwnerType::Private => (
@@ -136,6 +139,7 @@ pub fn todo_list_into_todo_list_transfer(
             ),
         };
 
+    //rrule und until extrahieren wenn vorhanden
     let (rrule_transfer, until_transfer) = match todo_list.recurrence {
         Some(rec) => (
             Some(format!("{:?}", rec.rrule).to_lowercase()),
@@ -143,7 +147,7 @@ pub fn todo_list_into_todo_list_transfer(
         ),
         None => (None, None),
     };
-
+    //Neues ToDoListTransfer erstellen
     Ok(ToDoListTransfer {
         name: todo_list.name,
         r#type: list_type_transfer,
