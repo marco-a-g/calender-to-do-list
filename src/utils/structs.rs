@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 /// Is currently limited do the frequency of recurrence. Building recurrent events is described at
 /// struct "Recurrent".
+/// Dates that unavailable (e.g. 30.2.)must be taken care of or made unreachable!
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString)]
 pub enum Rrule {
     #[strum(ascii_case_insensitive)]
@@ -17,10 +18,12 @@ pub enum Rrule {
     Fortnight,
     #[strum(ascii_case_insensitive)]
     OnWeekDays,
+    #[strum(serialize = "monthly_on_date")]
+    MonthlyOnDate, // mind handling 29.-31.
+    #[strum(serialize = "monthly_on_weekday")]
+    MonthlyOnWeekday, // is just useable for the first 4 weeks of a month. dates hereafter must be taken care of
     #[strum(ascii_case_insensitive)]
-    Monthly,
-    #[strum(ascii_case_insensitive)]
-    Annual,
+    Annual, // mind handling irregular years with a 29.2.
 }
 impl fmt::Display for Rrule {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -164,7 +167,7 @@ impl fmt::Display for OwnedBy {
 }
 
 /// Used to describe the members of a group. Membership is defined within a group, not within a user.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct GroupMemberOf {
     pub id: Uuid, //id used in the database table "group_members"
     pub user_id: Uuid,
@@ -173,14 +176,14 @@ pub struct GroupMemberOf {
     pub joined_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Profile {
     pub id: Uuid,
     pub username: String,
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Group {
     pub id: Uuid,
     pub name: String,
@@ -191,7 +194,7 @@ pub struct Group {
 }
 
 /// A calendar must either belong to a user or to a group.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Calendar {
     pub id: Uuid,
     pub name: String,
@@ -203,7 +206,7 @@ pub struct Calendar {
 }
 
 ///
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct CalendarEvent {
     pub id: Uuid,
     pub summary: String,
@@ -222,7 +225,7 @@ pub struct CalendarEvent {
     pub last_mod: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct ToDoList {
     pub id: Uuid,
     pub name: String,
@@ -239,7 +242,7 @@ pub struct ToDoList {
     pub last_mod: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct TodoEvent {
     pub id: Uuid,
     pub summary: String,
