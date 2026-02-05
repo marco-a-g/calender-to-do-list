@@ -1,5 +1,6 @@
 use crate::utils::structs::{GroupLight, TodoListLight};
 use dioxus::prelude::*;
+use uuid::Uuid;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum GroupFilter {
@@ -21,8 +22,18 @@ pub fn FilterSidebar(
     selected_category: Signal<GroupFilter>,
     selected_list: Signal<ListFilter>,
 ) -> Element {
+    //"Schattenlisten" raus filter, also Listen, die dem User/den Gruppen zugerdnet sind für die Todos die eigentlich keiner Liste zugeordnet sein sollen
+    let visible_lists: Vec<TodoListLight> = all_lists
+        .iter()
+        .filter(|l| {
+            //Name dieser Schattenlsten ist die ID des USers/der Grupper -> Schlägt ein Parsing des namen in UUid fehl -> ist diese Liste eine liste die man auch sehen soll
+            Uuid::parse_str(&l.name).is_err()
+        })
+        .cloned()
+        .collect();
+
     // Private Listen rausfiltern aus übergebenen listen
-    let private_lists_all: Vec<TodoListLight> = all_lists
+    let private_lists_all: Vec<TodoListLight> = visible_lists
         .iter()
         .filter(|l| l.list_type == "private")
         .cloned()
@@ -38,7 +49,7 @@ pub fn FilterSidebar(
     let groups_with_lists: Vec<(GroupLight, Vec<TodoListLight>)> = groups
         .into_iter()
         .map(|group| {
-            let lists_for_thsi_group: Vec<TodoListLight> = all_lists
+            let lists_for_thsi_group: Vec<TodoListLight> = visible_lists
                 .iter()
                 .filter(|l| l.group_id.as_deref() == Some(&group.id))
                 .cloned()
