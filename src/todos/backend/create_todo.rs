@@ -15,26 +15,26 @@ use uuid::Uuid;
 //LLM: #[serde(skip_serializing_if = "Option::is_none")] setzt bei .json None auf leer statt auf None, damit defaults in Suabase greifen, verhindert dass NULL als NULL in Supabase gespeichert wird wenn leeres Feld gewollt wird
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ToDoTransfer {
-    summary: String,
-    description: Option<String>,
+    pub summary: String,
+    pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     // Sollte noch angepasst werden, sobald supabase trigger fertig mit ToDo ohne ToDoList
-    todo_list_id: Option<Uuid>,
-    completed: bool,
-    due_datetime: Option<DateTime<Utc>>,
-    priority: String,
+    pub todo_list_id: Option<Uuid>,
+    pub completed: bool,
+    pub due_datetime: Option<DateTime<Utc>>,
+    pub priority: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    assigned_to_user: Option<Uuid>,
-    attachment: Option<String>,
+    pub assigned_to_user: Option<Uuid>,
+    pub attachment: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    rrule: Option<String>,
+    pub rrule: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    recurrence_until: Option<DateTime<Utc>>,
+    pub recurrence_until: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    recurrence_id: Option<Uuid>,
+    pub recurrence_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    overrides_datetime: Option<DateTime<Utc>>,
-    skipped: bool,
+    pub overrides_datetime: Option<DateTime<Utc>>,
+    pub skipped: bool,
 }
 
 //Wandelt den Input aus Frontend in ein valides ToDoEvent struct um für Typesafety

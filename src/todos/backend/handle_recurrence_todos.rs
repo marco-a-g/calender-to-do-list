@@ -119,7 +119,7 @@ pub fn expand_recurring_todos(
                     let mut rec_instance = master.clone();
                     rec_instance.id = Uuid::new_v4().to_string(); //Richtige neue id setzt Supabase dann wenn man etwas ändert, hierfür erstmal eine temp generieren lassen für Typesafety oder nochmal referenzierbar sein soll
                     rec_instance.due_datetime = Some(current_date_in_loop_as_str); //wiederholung kriegt aktuelles datum der itteration
-                    rec_instance.recurrence_id = Some(Uuid::nil().to_string()); //Null setzen, setzt supabase dann
+                    rec_instance.recurrence_id = Some(master.id.clone());
                     rec_instance.rrule = None; //Recurrance instanzen haben selber keine rrule
                     rec_instance.recurrence_until = None; //recurrance instanzen haben selber kein until datum
                     result.push(rec_instance);
@@ -138,7 +138,7 @@ pub fn expand_recurring_todos(
 //Helper um nächste Datumsinstanzen nach rrule zu finden
 
 //generiert das nächste Datum einer wiederholenden INstanz
-fn calculate_next_date(
+pub fn calculate_next_date(
     current: DateTime<Utc>,
     rrule: &str,
     start_date_of_rec: DateTime<Utc>,

@@ -179,26 +179,23 @@ pub fn ToDoDashboard() -> Element {
     };
 
     //Complete ToDo Handler
-    let handle_complete_task = move |task_id: String| {
-        let id_for_db = task_id.clone();
+    let handle_complete_task = move |todo: TodoEventLight| {
+        let todo_to_complete = todo.clone();
         // Supabase Update Senden
         spawn(async move {
-            // String ID in echte UUID umwandeln
-            if let Ok(uuid) = Uuid::from_str(&id_for_db) {
-                match complete_todo_event(uuid).await {
-                    Ok(_) => {
-                        println!(
-                            "Insert update for field 'completed' for Todo: {} done.",
-                            id_for_db
-                        );
-                        full_data_resource.restart();
-                    }
-                    Err(e) => {
-                        println!("Error on inserting completion update: {}", e);
-                    }
+            let summary = todo_to_complete.summary.clone();
+
+            match complete_todo_event(todo_to_complete).await {
+                Ok(_) => {
+                    println!(
+                        "Insert update for field 'completed' for Todo: {} done.",
+                        summary
+                    );
+                    full_data_resource.restart();
                 }
-            } else {
-                println!("Invalid id for todo: {}", id_for_db);
+                Err(e) => {
+                    println!("Error on inserting completion update: {}", e);
+                }
             }
         });
     };
