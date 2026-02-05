@@ -170,6 +170,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
             skipped: false,
         };
 
+        // Anfrage an Supabase mit neuem Exception event
         let url_create = format!("{}/rest/v1/todo_events", SUPABASE_URL);
         let response_create = client
             .post(&url_create)
@@ -180,6 +181,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
             .send()
             .await;
 
+        // Response check
         match response_create {
             Ok(res) => {
                 println!("Exception created.");

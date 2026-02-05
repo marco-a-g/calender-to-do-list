@@ -94,25 +94,32 @@ pub fn ToDoDetailModal(
     };
 
     // Für Handler vorbereiten
-    let todo_id_str = todo.id.clone();
-    let todo_for_edit = todo.clone();
+    let todo_for_delete = todo.clone();
 
     let handle_delete = move |_| {
-        let id_string = todo_id_str.clone();
-
+        let todo_to_delete = todo_for_delete.clone();
         spawn(async move {
-            if let Ok(uuid) = Uuid::from_str(&id_string) {
-                if delete_todo_event(uuid).await.is_ok() {
-                    selected_todo.set(None);
-                    on_refresh.call(());
-                } else {
-                    println!("Error on deleting");
-                }
+            if delete_todo_event(todo_to_delete).await.is_ok() {
+                selected_todo.set(None);
+                on_refresh.call(());
             } else {
-                println!("Invalid UUid: {}", id_string);
+                println!("Error on deleting");
             }
         });
     };
+
+    let todo_for_edit = todo.clone();
+    /*let handle_edit = move |_| {
+        let todo_to_edit = todo_for_edit.clone();
+        spawn(async move {
+            if delete_todo_event(todo_to_edit).await.is_ok() {
+                selected_todo.set(None);
+                on_refresh.call(());
+            } else {
+                println!("Error on editing");
+            }
+        });
+    }; */
 
     let input_style = "background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; color: white; outline: none; width: 100%; display: block; min-height: 42px; display: flex; align-items: center;";
     let label_style = "font-size: 12px; color: #9ca3af; text-transform: uppercase;";
