@@ -49,11 +49,12 @@ pub async fn sync_groups(
         remote_group_ids.insert(g.id.clone());
         sqlx::query(
             r#"
-            INSERT INTO groups (id, name, owner_id, created_by, created_at) 
-            VALUES (?, ?, ?, ?, ?) 
+            INSERT INTO groups (id, name, owner_id, created_by, created_at, color) 
+            VALUES (?, ?, ?, ?, ?, ?) 
             ON CONFLICT(id) DO UPDATE SET 
                 name=excluded.name, owner_id=excluded.owner_id, 
-                created_by=excluded.created_by, created_at=excluded.created_at
+                created_by=excluded.created_by, created_at=excluded.created_at,
+                color=excluded.created_by, color=excluded.color
             "#,
         )
         .bind(g.id)
@@ -61,6 +62,7 @@ pub async fn sync_groups(
         .bind(g.owner_id)
         .bind(g.created_by)
         .bind(g.created_at)
+        .bind(g.color)
         .execute(&mut **tx)
         .await
         .map_err(|e| ServerFnError::new(format!("SQL Error Group: {}", e)))?;

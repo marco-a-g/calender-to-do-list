@@ -53,7 +53,7 @@ pub enum Role {
     #[strum(ascii_case_insensitive)]
     Member,
     #[strum(ascii_case_insensitive)]
-    Guest,
+    Invited,
 }
 impl fmt::Display for Role {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -191,6 +191,7 @@ pub struct Group {
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub members: Vec<GroupMemberOf>,
+    pub color: String,
 }
 
 /// A calendar must either belong to a user or to a group.
@@ -278,6 +279,7 @@ pub struct GroupLight {
     pub owner_id: String,
     pub created_by: String,
     pub created_at: String,
+    pub color: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]

@@ -57,6 +57,7 @@ pub async fn init_database() -> Result<(), ServerFnError> {
             owner_id TEXT NOT NULL,
             created_by TEXT,
             created_at TEXT NOT NULL,
+            color TEXT NULL DEFAULT '#3A6BFF',
             FOREIGN KEY (owner_id) REFERENCES profiles(id) ON DELETE CASCADE,
             FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL
         );
@@ -65,7 +66,7 @@ pub async fn init_database() -> Result<(), ServerFnError> {
             id TEXT PRIMARY KEY NOT NULL,
             user_id TEXT NOT NULL,
             group_id TEXT NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'member', 'guest')) DEFAULT 'member',
+            role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'member', 'invited')) DEFAULT 'member',
             joined_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
             FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
@@ -97,7 +98,7 @@ pub async fn init_database() -> Result<(), ServerFnError> {
             to_date_time TEXT,
             attachment TEXT,
             last_mod TEXT NOT NULL,
-            rrule TEXT CHECK(rrule IN ('daily', 'weekly', 'fortnight', 'onweekdays', 'monthly', 'annual')),
+            rrule TEXT CHECK(rrule IN ('daily', 'weekly', 'fortnight', 'weekdays', 'monthly_on_weekday', 'monthly_on_date', 'annual')),
             recurrence_id TEXT,
             recurrence_until TEXT,
             location TEXT,
@@ -121,7 +122,7 @@ pub async fn init_database() -> Result<(), ServerFnError> {
             due_datetime TEXT,
             priority TEXT CHECK(priority IN ('low', 'normal', 'high', 'top')) DEFAULT 'normal',
             last_mod TEXT NOT NULL,
-            rrule TEXT CHECK(rrule IN ('daily', 'weekly', 'fortnight', 'onweekdays', 'monthly', 'annual')),
+            rrule TEXT CHECK(rrule IN ('daily', 'weekly', 'fortnight', 'weekdays', 'monthly_on_weekday', 'monthly_on_date', 'annual')),
             recurrence_id TEXT,
             recurrence_until TEXT,
             attached_to_calendar_event TEXT, 
@@ -146,7 +147,7 @@ pub async fn init_database() -> Result<(), ServerFnError> {
             priority TEXT NOT NULL CHECK(priority IN ('low', 'normal', 'high', 'top')) DEFAULT 'normal',
             attachment TEXT,
             last_mod TEXT NOT NULL,
-            rrule TEXT CHECK(rrule IN ('daily', 'weekly', 'fortnight', 'onweekdays', 'monthly', 'annual')),
+            rrule TEXT CHECK(rrule IN ('daily', 'weekly', 'fortnight', 'weekdays', 'monthly_on_weekday', 'monthly_on_date', 'annual')),
             recurrence_id TEXT,
             recurrence_until TEXT,
             assigned_to_user TEXT, 
