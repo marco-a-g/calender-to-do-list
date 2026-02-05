@@ -24,9 +24,17 @@ pub fn ToDoDetailModal(
     let title = todo.summary.clone();
     let description = todo.description.clone().unwrap_or_default();
 
+    //Liste nach ShadowList anpassen
     let list_opt = all_lists.iter().find(|l| l.id == todo.todo_list_id);
     let list_name = list_opt
-        .map(|l| l.name.clone())
+        .map(|l| {
+            // ShadowCheck
+            if Uuid::parse_str(&l.name).is_ok() {
+                "No specific List".to_string()
+            } else {
+                l.name.clone()
+            }
+        })
         .unwrap_or("Unknown List".to_string());
 
     let group_name = if let Some(list) = list_opt {

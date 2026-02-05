@@ -102,9 +102,11 @@ fn HistoryItem(
                         }
                     }
                     if let Some(label) = list_label {
-                        span {
-                            style: "font-size: 9px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 1px 5px; border-radius: 3px; font-weight: 500; text-transform: uppercase;",
-                            "{label}"
+                        if uuid::Uuid::parse_str(&label).is_err() {
+                            span {
+                                style: "font-size: 10px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
+                                "{label}"
+                            }
                         }
                     }
                 }

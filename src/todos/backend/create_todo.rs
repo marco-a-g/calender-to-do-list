@@ -1,7 +1,9 @@
 use crate::auth::backend::*;
+use crate::database::local::init_fetch::init_fetch_local_db::fetch_todo_lists_lokal_db;
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::date_formatting::html_input_to_db;
 use crate::utils::functions::get_user_id_and_session_token;
+use crate::utils::structs::TodoListLight;
 use crate::utils::structs::{Priority, Recurrent, Rrule, TodoEvent};
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
@@ -51,7 +53,13 @@ pub fn frontend_input_to_todo(
     println!("In frontend into todo func gibt vorher {:?}", rrule);
 
     //List id parsen
-    let list_uuid = Uuid::parse_str(&todo_list_id)?;
+    //let list_uuid = Uuid::parse_str(&todo_list_id)?;
+    let list_uuid = if todo_list_id.is_empty() {
+        Uuid::nil()
+    } else {
+        Uuid::parse_str(&todo_list_id)?
+    };
+
     //ID Zugewiesener user parsen
     let assignee_uuid = assigned_to_user
         .filter(|s| !s.is_empty())
@@ -152,11 +160,18 @@ pub fn todo_event_into_to_do_transfer(
     };
     println!("In transfer func gibt nachher {:?}", rrule_transfer);
     let priority_string = format!("{:?}", todo.priority).to_lowercase();
+
+    let final_list_id = if todo.to_do_list_id.is_nil() {
+        None
+    } else {
+        Some(todo.to_do_list_id)
+    };
+
     //Neues ToDoTransferObjekt damit erstellen
     Ok(ToDoTransfer {
         summary: todo.summary,
         description: todo.description,
-        todo_list_id: Some(todo.to_do_list_id),
+        todo_list_id: final_list_id,
         completed: todo.completed,
         due_datetime: todo.due_date_time,
         priority: priority_string,
@@ -172,16 +187,26 @@ pub fn todo_event_into_to_do_transfer(
 
 //Zu erstellendes ToDo-Transferobjekt an Supabase senden
 // #[server]
-pub async fn create_todo_event(todo: ToDoTransfer) -> Result<StatusCode, ServerFnError> {
+pub async fn create_todo_event(mut todo: ToDoTransfer) -> Result<StatusCode, ServerFnError> {
     println!("Startin create_todo function with: '{:#?}'", todo);
-
-    let (_user_id_str, token) = match get_user_id_and_session_token().await {
+    let (user_id_str, token) = match get_user_id_and_session_token().await {
         Ok(data) => data,
         Err(e) => {
             println!("Not Authed!");
             return Err(e);
         }
     };
+    //bestehende Listen für ShadowList Abgleich holen
+    let all_lists: Vec<TodoListLight> = fetch_todo_lists_lokal_db().await?;
+    //checkt für ShadowListen ID bzw. Richtige Gruppen ID
+    let final_list_id =
+        map_id_to_shadow_list(todo.todo_list_id, user_id_str, &all_lists).map_err(|e| {
+            ServerFnError::new(format!("List Mapping Error on ShadowList check: {}", e))
+        })?;
+
+    // Setzt überprüfte id
+    todo.todo_list_id = Some(final_list_id);
+
     //Http config
     let url_todos = format!("{}/rest/v1/todo_events", SUPABASE_URL);
     let client = reqwest::Client::new();
@@ -214,4 +239,38 @@ pub async fn create_todo_event(todo: ToDoTransfer) -> Result<StatusCode, ServerF
         }
         Err(e) => Err(ServerFnError::new(format!("Network Error?: {}", e))),
     }
+}
+
+// Checkt ob die übergebene id eine Gruppen ID ist -> ShadowListe und gibt dann die richtige ID aus
+fn map_id_to_shadow_list(
+    id_to_check: Option<Uuid>,
+    user_uuid: Uuid,
+    all_lists: &[TodoListLight],
+) -> Result<Uuid, Box<dyn std::error::Error>> {
+    // ist übergebene id "" -> gehört ShadowList des Users -> suche anhand User ID die Liste mit entsprechenden Namen
+    if id_to_check.is_none() {
+        let user_id_str = user_uuid.to_string();
+        //itteriert über alle Listen Einträge und gibt die ID der Liste aus dessen Namen == UserID
+        return all_lists
+            .iter()
+            .find(|l| l.name == user_id_str)
+            .map(|l| Uuid::parse_str(&l.id).unwrap_or_default())
+            .ok_or_else(|| "No matching List found in mapping Shadow check".into());
+    }
+
+    let id_to_search = id_to_check.unwrap().to_string();
+
+    // Ist eine echte Listen ID -> gib diese aus; itteriert über alle listen und checkt id für gleichheit
+    if let Some(_list) = all_lists.iter().find(|l| l.id == id_to_search) {
+        return Ok(id_to_check.unwrap());
+    }
+
+    // Übergebene ID ist eine Gruppen ID -> suche ShadowListe der Gruppe und gib diese aus
+    if let Some(shadow_list) = all_lists.iter().find(|l| l.name == id_to_search) {
+        let uuid = Uuid::parse_str(&shadow_list.id)?; //
+        return Ok(uuid);
+    }
+
+    // Sollte keine passende Liste existieren
+    Err(format!("Could not find List-ID '{}' .", id_to_search).into())
 }

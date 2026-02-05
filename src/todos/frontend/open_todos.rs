@@ -424,9 +424,11 @@ fn ToDoItem(
                         }
                     }
                     if let Some(label) = list_badge {
-                        span {
-                            style: "font-size: 10px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
-                            "{label}"
+                        if uuid::Uuid::parse_str(&label).is_err() {
+                            span {
+                                style: "font-size: 10px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
+                                "{label}"
+                            }
                         }
                     }
                     if let Some(evt_label) = event_badge {

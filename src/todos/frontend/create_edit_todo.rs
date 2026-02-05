@@ -8,7 +8,7 @@ use crate::utils::structs::{
 };
 use chrono::Local;
 use dioxus::prelude::*;
-
+use uuid::Uuid;
 #[component]
 pub fn CreateToDoButton(onclick: EventHandler<MouseEvent>) -> Element {
     rsx! {
@@ -73,15 +73,27 @@ pub fn CreateEditToDoModal(
             new_task_assignee.set(todo.assigned_to_user.clone().unwrap_or_default());
             // Listen ID
             let current_list_id = todo.todo_list_id.clone();
-            new_task_list_id.set(current_list_id.clone());
-            // Group id über Parent list
-            if let Some(parent_list) = lists_for_effect.iter().find(|l| l.id == current_list_id) {
-                if let Some(gid) = &parent_list.group_id {
+
+            //über Listen itterieren und suchen ob es sich um Shadow List handelt
+            if let Some(list) = lists_for_effect.iter().find(|l| l.id == current_list_id) {
+                if Uuid::parse_str(&list.name).is_ok() {
+                    // Lässt sich name der Liste in uuid parsen ist es shadow list -> new Task_list_id auf leeren String setzen
+                    new_task_list_id.set(String::new());
+                } else {
+                    // Es ist existierende Liste, dann deren id hernehmen
+                    new_task_list_id.set(current_list_id.clone());
+                }
+
+                // Gruppen ID der Liste finden
+                if let Some(gid) = &list.group_id {
                     new_task_group_id.set(gid.clone());
                 } else {
-                    // Private Liste / Personal
-                    new_task_group_id.set(String::new()); //jeder Nutzer, jede Gruppe sollte doch eine private "freie" Liste haben -> JF besprechen
+                    new_task_group_id.set(String::new());
                 }
+            } else {
+                // falls Liste nicht gefunden, sollte aber  nicht passieren
+                new_task_list_id.set(String::new());
+                new_task_group_id.set(String::new());
             }
             //Due Datum
             new_task_due_date.set(db_to_html_input(&todo.due_datetime).unwrap_or_default());
@@ -129,7 +141,7 @@ pub fn CreateEditToDoModal(
         && (new_task_rrule().is_empty() || !new_task_recurrence_until().is_empty());
 
     let handle_create = move |_| {
-        let all_lists_inner = all_lists_for_handler.clone();
+        //let all_lists_inner = all_lists_for_handler.clone();
         //Werte für neues ToDo-Setzen
         async move {
             if !new_task_title().is_empty() {
@@ -158,28 +170,16 @@ pub fn CreateEditToDoModal(
                 } else {
                     Some(new_task_description())
                 };
-                //Listen&Gruppe --> Nochmal überarbeiten sobald Hierarchie in Supabase für nicht-Listen-basierte-Todos steht
+                //Listen&Gruppe
                 let list_id = if !new_task_list_id().is_empty() {
+                    // Eine Liste wurde ausgewählt -> diese nutzen
                     new_task_list_id()
+                } else if !new_task_group_id().is_empty() {
+                    // Keine Liste und eine Gruppe wurde ausgewählt -> Gruppen ID übergeben und in Backend zu ShadowListe für die Gruppe mappen
+                    new_task_group_id()
                 } else {
-                    //Gruppe
-                    let gid = if new_task_group_id().is_empty() {
-                        None
-                    } else {
-                        Some(new_task_group_id())
-                    };
-                    //Liste
-                    if let Some(l) = all_lists_inner.iter().find(|l| {
-                        if gid.is_none() {
-                            l.list_type == "private"
-                        } else {
-                            l.group_id.as_deref() == gid.as_deref()
-                        }
-                    }) {
-                        l.id.clone()
-                    } else {
-                        "".to_string() //eigentlich nicht nötig?
-                    }
+                    // weder Liste noch Gruppe ausgewählt -> ShadowListe des Nutzers -> In Backend mappen
+                    "".to_string()
                 };
 
                 //zugewiesener User
@@ -275,15 +275,23 @@ pub fn CreateEditToDoModal(
         }
     };
 
-    //Listen Filtern für Auswahl in Drop Down
+    // Listen Filtern für Auswahl in Drop Down
     let filtered_lists: Vec<TodoListLight> = all_lists
         .iter()
         .filter(|l| {
-            if new_task_group_id().is_empty() {
+            // Prv oder Gruppe ausgewählt
+            let private_or_matching_group = if new_task_group_id().is_empty() {
+                //Zeigt nur private Listen
                 l.list_type == "private"
             } else {
+                //Zeigt nur GruppenListen der ausgewählten Gruppe
                 l.group_id.as_deref() == Some(new_task_group_id().as_str())
-            }
+            };
+
+            // Check ist es shadowList
+            let is_real_list = Uuid::parse_str(&l.name).is_err();
+            //nur Listen die keine shadows sind, private listen des users oder gruppenlisten des users sind mit rein nehmen
+            private_or_matching_group && is_real_list
         })
         .cloned()
         .collect();

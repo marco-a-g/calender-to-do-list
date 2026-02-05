@@ -168,7 +168,7 @@ pub async fn init_database() -> Result<(), ServerFnError> {
     Ok(())
 }
 
-fn get_pool_lokal_db() -> Result<&'static sqlx::SqlitePool, ServerFnError> {
+pub fn get_pool_lokal_db() -> Result<&'static sqlx::SqlitePool, ServerFnError> {
     POOL_LOCAL_DB
         .get()
         .ok_or_else(|| ServerFnError::new("Datenbank getter fehlgeschlagen"))
