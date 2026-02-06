@@ -224,7 +224,9 @@ pub fn ToDoDashboard() -> Element {
                     all_calendars: calendars_data.clone(),
                     show_modal: show_create_list_modal,
                     on_refresh: handle_refresh,
-                    list_to_edit: list_to_edit
+                    list_to_edit: list_to_edit,
+                    selected_category: selected_category,
+                    selected_list: selected_list_filter
                 }
             }
 

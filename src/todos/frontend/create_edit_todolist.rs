@@ -1,12 +1,15 @@
 use crate::todos::backend::create_todolist::{
     create_todo_list, frontend_input_to_todo_list, todo_list_into_todo_list_transfer,
 };
+use crate::todos::backend::delete_todolist::delete_todo_list;
 use crate::todos::backend::edit_todolist::update_todo_list;
+use crate::todos::frontend::filter_todos::{GroupFilter, ListFilter};
 use crate::utils::date_formatting::db_to_html_input;
 use crate::utils::functions::get_user_id_and_session_token;
 use crate::utils::structs::{CalendarEventLight, CalendarLight, GroupLight, TodoListLight};
 use chrono::Local;
 use dioxus::prelude::*;
+use uuid::Uuid;
 #[component]
 pub fn CreateListButton(onclick: EventHandler<MouseEvent>) -> Element {
     rsx! {
@@ -39,6 +42,8 @@ pub fn CreateEditListModal(
     show_modal: Signal<bool>,
     on_refresh: EventHandler<()>,
     list_to_edit: Signal<Option<TodoListLight>>,
+    selected_category: Signal<GroupFilter>,
+    selected_list: Signal<ListFilter>,
 ) -> Element {
     //Standardwerte für neue ToDoListe setzen
     let mut new_list_title = use_signal(|| String::new());
@@ -86,6 +91,30 @@ pub fn CreateEditListModal(
         "Save Changes"
     } else {
         "Create List"
+    };
+
+    //Liste Löschen handhaben
+    let handle_delete = move |_| {
+        if let Some(list) = list_to_edit() {
+            let list_id_str = list.id.clone();
+            spawn(async move {
+                if let Ok(list_uuid) = Uuid::parse_str(&list_id_str) {
+                    if delete_todo_list(list_uuid).await.is_ok() {
+                        println!("List deleted successfully");
+                        show_modal.set(false);
+                        list_to_edit.set(None);
+                        //Nachdem Liste gelöscht wurde Ansicht wieder auf All-Todos gesetzt werden
+                        selected_category.set(GroupFilter::AllGroups);
+                        selected_list.set(ListFilter::AllLists);
+                        on_refresh.call(());
+                    } else {
+                        println!("Error deleting list");
+                    }
+                } else {
+                    println!("Error parsinf list id for list '{}'", list_id_str);
+                }
+            });
+        }
     };
 
     //Erstellte Liste handhaben
@@ -151,7 +180,6 @@ pub fn CreateEditListModal(
                     due_datetime: due_date,
                     priority: priority_opt,
                     attachment: existing_list.attachment.clone(),
-                    // Felder die wir nicht ändern oder resetten:
                     created_at: existing_list.created_at.clone(),
                     created_by: existing_list.created_by.clone(),
                     owner_id: existing_list.owner_id.clone(),
@@ -244,13 +272,33 @@ pub fn CreateEditListModal(
     rsx! {
         div {
             style: "position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 60; display: flex; align-items: center; justify-content: center;",
+            onclick: close_modal,
             div {
                 style: "background: #171923; width: 450px; padding: 24px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.9); display: flex; flex-direction: column; gap: 16px; max-height: 90vh; overflow-y: auto;",
-
-                h2 { style: "color: white; font-size: 18px; margin: 0 0 8px 0;",
-                    "{modal_title}"
+                onclick: |e| e.stop_propagation(),
+                // Header
+                div { class: "flex justify-between items-start",
+                    // Titel Links
+                    h2 { style: "color: white; font-size: 18px; margin: 0;", "{modal_title}" }
+                    div { class: "flex items-center gap-3",
+                        //Delete todoliste button
+                        if list_to_edit().is_some() {
+                            button {
+                                style: "background: transparent; border: none; color: #ef4444; cursor: pointer; font-size: 16px; transition: color 0.2s;",
+                                title: "Delete List",
+                                class: "hover:text-red-400",
+                                onclick: handle_delete,
+                                span { style: "font-size: 14px;", "🗑️" }
+                            }
+                        }
+                        // x-Button
+                        button {
+                            style: "background: transparent; border: none; color: #9ca3af; cursor: pointer; font-size: 18px;",
+                            onclick: close_modal,
+                            "✕"
+                        }
+                    }
                 }
-
                 // Name setzen
                 div { class: "flex flex-col gap-2",
                     label { style: "font-size: 12px; color: #9ca3af; text-transform: uppercase;", "List Name" }
@@ -367,7 +415,7 @@ pub fn CreateEditListModal(
                         onclick: close_modal,
                         "Cancel"
                     }
-                     button {
+                    button {
                         style: "flex: 1; padding: 10px; border-radius: 8px; background: #3A6BFF; color: white; border: none; font-weight: 600; cursor: pointer;",
                         onclick: handle_create,
                         "{button_text}"
