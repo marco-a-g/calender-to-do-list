@@ -120,7 +120,7 @@ pub fn CreateEditToDoModal(
         new_task_recurrence_until.set(String::new());
     };
 
-    let all_lists_for_handler = all_lists.clone();
+    //let all_lists_for_handler = all_lists.clone();
 
     // Header des Modals
     let modal_title = if todo_to_edit().is_some() {
