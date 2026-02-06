@@ -207,6 +207,20 @@ pub async fn create_todo_event(mut todo: ToDoTransfer) -> Result<StatusCode, Ser
     // Setzt überprüfte id
     todo.todo_list_id = Some(final_list_id);
 
+    //Private ToDos dem User selbst zuweisen
+    if todo.assigned_to_user.is_none() {
+        //Keine manuelle Zuweisung -> Suche nach der Liste mit der nun erarbeiteten id -> wenn der group id none ist -> private von diesem Nuter
+        let is_private_list = all_lists
+            .iter()
+            .find(|l| l.id == final_list_id.to_string())
+            .map(|l| l.group_id.is_none()) // Privat wenn group_id == None
+            .unwrap_or(false); // Falls Liste nicht gefunden (sollte nicht passieren), sicherheitshalber false
+        //wenn also private liste -> den User selbst als assigned user einstellen
+        if is_private_list {
+            todo.assigned_to_user = Some(user_id_str);
+        }
+    }
+
     //Http config
     let url_todos = format!("{}/rest/v1/todo_events", SUPABASE_URL);
     let client = reqwest::Client::new();
