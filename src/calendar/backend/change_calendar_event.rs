@@ -1,4 +1,4 @@
-use chrono::{DateTime, Days, Local, NaiveDateTime, NaiveTime, TimeZone, Utc};
+use chrono::{DateTime, Datelike, Days, Local, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use dioxus::html::{ins, ol, tr};
 use dioxus::prelude::*;
 use reqwest::*;
@@ -119,8 +119,6 @@ pub async fn edit_calendar_event(
                             }
                         }
                     }
-                    let time_dif =
-                        new_version.from_date_time.time() - old_version.from_date_time.time();
 
                     for shifty in to_be_shifted {
                         let overr = shifty.recurrence_exception.unwrap().overrides.unwrap();
@@ -185,22 +183,41 @@ pub async fn edit_calendar_event(
                             }
                         }
                     }
-                    let time_dif =
-                        new_version.from_date_time.time() - old_version.from_date_time.time();
 
                     for shifty in to_be_shifted {
                         let overr = shifty.recurrence_exception.unwrap().overrides.unwrap();
                         let odt = overr.overrides_datetime;
 
-                        // in case, the time was not changed in the exception it should also not be changed according to the recurrent event after the shift
+                        // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
                         let from_dt = shifty.from_date_time;
-                        if odt.time() == from_dt.time() {
-                            from_dt = from_dt
-                                .with_time(new_version.from_date_time.time())
-                                .unwrap();
+                        if odt.time() == from_dt.time() && odt.weekday() == from_dt.weekday() {
+                            from_dt = (from_dt
+                                - chrono::Duration::days(
+                                    from_dt.weekday().num_days_from_monday().into(),
+                                )
+                                + chrono::Duration::days(
+                                    new_version
+                                        .from_date_time
+                                        .weekday()
+                                        .num_days_from_monday()
+                                        .into(),
+                                ))
+                            .with_time(new_version.from_date_time.time())
+                            .unwrap();
                         }
-                        //set odt to the new time
-                        odt.with_time(new_version.from_date_time.time()).unwrap();
+                        //set odt to the new date and time
+                        odt =
+                            (odt - chrono::Duration::days(
+                                from_dt.weekday().num_days_from_monday().into(),
+                            ) + chrono::Duration::days(
+                                new_version
+                                    .from_date_time
+                                    .weekday()
+                                    .num_days_from_monday()
+                                    .into(),
+                            ))
+                            .with_time(new_version.from_date_time.time())
+                            .unwrap();
                         let rec_ex = Some(RecurrenceException {
                             recurrence_id: new_version.id,
                             overrides: Some(Overrides {
