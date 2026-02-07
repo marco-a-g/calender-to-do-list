@@ -125,11 +125,16 @@ pub async fn change_calendar_event(
                     for shifty in to_be_shifted {
                         let overr = shifty.recurrence_exception.unwrap().overrides.unwrap();
                         let odt = overr.overrides_datetime;
-                        if overr.overrides_datetime.time() == new_version.from_date_time.time() {
-                            odt.with_time(new_version.from_date_time.time()).unwrap();
-                        } else {
-                            odt.with_time(time)
+
+                        // in case, the time was not changed in the exception it should also not be changed according to the recurrent event after the shift
+                        let from_dt = shifty.from_date_time;
+                        if odt.time() == from_dt.time() {
+                            from_dt = from_dt
+                                .with_time(new_version.from_date_time.time())
+                                .unwrap();
                         }
+                        //set odt to the new time
+                        odt.with_time(new_version.from_date_time.time()).unwrap();
                         let rec_ex = Some(RecurrenceException {
                             recurrence_id: new_version.id,
                             overrides: Some(Overrides {
@@ -137,11 +142,73 @@ pub async fn change_calendar_event(
                                 skipped: overr.skipped,
                             }),
                         });
+
+                        change_calendar_event_unchecked(CalendarEvent {
+                            id: shifty.id,
+                            summary: shifty.summary,
+                            description: shifty.description,
+                            calendar_id: shifty.calendar_id,
+                            created_at: shifty.created_at,
+                            created_by: shifty.created_by,
+                            from_date_time: from_dt,
+                            to_date_time: shifty.to_date_time,
+                            attachment: shifty.attachment,
+                            recurrence: None,
+                            recurrence_exception: rec_ex,
+                            location: shifty.location,
+                            categories: shifty.categories,
+                            is_all_day: shifty.is_all_day,
+                            last_mod: Utc::now(),
+                        })
+                        .await?;
+                    }
+                }
+                Rrule::Weekly => {
+                    let to_be_shifted: Vec<CalendarEvent> = Vec::new();
+                    for instance in perhaps_need_change_vec {
+                        if let Some(rec_ex) = instance.recurrence_exception
+                            && let Some(over) = rec_ex.overrides
+                        {
+                            if over.overrides_datetime
+                                <= new_version
+                                    .from_date_time
+                                    .with_time(NaiveTime::MIN)
+                                    .unwrap()
+                                || over.overrides_datetime > new_recurrence.recurrence_until
+                            {
+                                match (keep_overridings, over.skipped) {
+                                    (Some(true), false) => to_non_override.push(instance),
+                                    _ => to_be_del.push(instance),
+                                }
+                            } else {
+                                to_be_shifted.push(instance);
+                            }
+                        }
+                    }
+                    let time_dif =
+                        new_version.from_date_time.time() - old_version.from_date_time.time();
+
+                    for shifty in to_be_shifted {
+                        let overr = shifty.recurrence_exception.unwrap().overrides.unwrap();
+                        let odt = overr.overrides_datetime;
+
                         // in case, the time was not changed in the exception it should also not be changed according to the recurrent event after the shift
                         let from_dt = shifty.from_date_time;
-                        if shifty.from_date_time == overr.overrides_datetime {
-                            from_dt = odt;
+                        if odt.time() == from_dt.time() {
+                            from_dt = from_dt
+                                .with_time(new_version.from_date_time.time())
+                                .unwrap();
                         }
+                        //set odt to the new time
+                        odt.with_time(new_version.from_date_time.time()).unwrap();
+                        let rec_ex = Some(RecurrenceException {
+                            recurrence_id: new_version.id,
+                            overrides: Some(Overrides {
+                                overrides_datetime: odt,
+                                skipped: overr.skipped,
+                            }),
+                        });
+
                         change_calendar_event_unchecked(CalendarEvent {
                             id: shifty.id,
                             summary: shifty.summary,
