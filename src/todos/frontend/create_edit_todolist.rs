@@ -111,7 +111,7 @@ pub fn CreateEditListModal(
                         println!("Error deleting list");
                     }
                 } else {
-                    println!("Error parsinf list id for list '{}'", list_id_str);
+                    println!("Error parsing list id for list '{}'", list_id_str);
                 }
             });
         }

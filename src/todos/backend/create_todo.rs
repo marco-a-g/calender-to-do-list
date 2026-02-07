@@ -50,8 +50,6 @@ pub fn frontend_input_to_todo(
     recurrence_until: Option<String>,
     assigned_to_user: Option<String>,
 ) -> Result<TodoEvent, Box<dyn std::error::Error>> {
-    println!("In frontend into todo func gibt vorher {:?}", rrule);
-
     //List id parsen
     //let list_uuid = Uuid::parse_str(&todo_list_id)?;
     let list_uuid = if todo_list_id.is_empty() {
@@ -116,10 +114,6 @@ pub fn frontend_input_to_todo(
         created_by: Uuid::nil(),
         last_mod: Utc::now(),
     };
-    println!(
-        "In frontend into todo func gibt nachher {:?}",
-        new_todo.recurrence
-    );
 
     Ok(new_todo)
 }
@@ -158,7 +152,6 @@ pub fn todo_event_into_to_do_transfer(
         }
         None => (None, None, false),
     };
-    println!("In transfer func gibt nachher {:?}", rrule_transfer);
     let priority_string = format!("{:?}", todo.priority).to_lowercase();
 
     let final_list_id = if todo.to_do_list_id.is_nil() {
