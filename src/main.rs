@@ -9,10 +9,11 @@ mod user;
 mod utils;
 
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
-use crate::auth::ui::{CreateProfileView, LoginView, RegisterView};
+use crate::auth::ui::{LoginView, RegisterView};
 use crate::database::local::heartbeat::start_heartbeat;
 use crate::database::local::init_fetch::init_fetch_local_db::init_database;
 use crate::todos::frontend::todo_view::*;
+use crate::user::frontend::{create_profile::CreateProfileView, profile_view::ProfileView};
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
 
@@ -36,22 +37,26 @@ enum Route {
 
     #[route("/Groups")]
     Groups,
+
+    #[route("/Profile")]
+    ProfileView,
 }
 
 #[component]
 fn App() -> Element {
     let auth_status = use_signal(|| AuthStatus::Unauthenticated);
     let auth_view = use_signal(|| AuthView::Login);
-    let initialized = use_signal(|| false); // use later to enable offline mode/view, maybe enum ClientState {Ready, Offline, Error(AuthError)}
+    let mut initialized = use_signal(|| false); // use later to enable offline mode/view, maybe enum ClientState {Ready, Offline, Error(AuthError)}
     let mut db_is_ready = use_signal(|| false);
 
     // initialize Supabase client
-    // maybe wrap with use_effect
-    spawn(async move {
-        match init_client() {
-            Ok(_) => initialized.clone().set(true),
-            Err(_) => initialized.clone().set(false),
-        }
+    use_effect(move || {
+        spawn(async move {
+            match init_client() {
+                Ok(_) => initialized.set(true),
+                Err(_) => initialized.set(false),
+            }
+        });
     });
 
     use_effect(move || {
