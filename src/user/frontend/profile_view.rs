@@ -44,7 +44,7 @@ pub fn ProfileView() -> Element {
     let mut username = use_signal(|| String::new()); // dynamic signal for input field
     let mut own_username = use_signal(|| String::new()); // holds current username as it is in db
     let mut username_fetch = use_resource(get_own_username);
-    let mut editing = use_signal(|| false); // if edit mode is on
+    let mut editing = use_signal(|| false);
     let mut info = use_signal(|| None::<String>);
     let mut error = use_signal(|| None::<String>);
     let mut error_hovered = use_signal(|| false);
@@ -77,6 +77,8 @@ pub fn ProfileView() -> Element {
             return;
         }
 
+        info.set(None);
+        error.set(None);
         checking.set(true);
         status.set(None); // makes loading icon appear when typing
 
@@ -89,37 +91,39 @@ pub fn ProfileView() -> Element {
             }
 
             let available = is_username_available(&name).await;
+            info.set(None);
+            error.set(None);
             status.set(Some(available));
             checking.set(false);
         });
     });
 
-    // Idee dieses Konstrukts mit KI entwickelt
+    // konzeptionelle Hilfe von KI
     let username_check = match status() {
         None if checking() => rsx!(div {
             class: "animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500",
             style: "
             position: absolute;
             top: 1em;
-            right: 5em;
+            right: 10em;
             height: 1em;
             width: 1em;
             "
         }),
         Some(true) => rsx!(span {style: "
             position: absolute;
-            right: 5em;
+            right: 10em;
             top: 50%;
             transform: translateY(-50%);
             pointer-events: none;
-        ", "👍"}),
+        ", "✅"}),
         Some(false) => rsx!(span {style: "
             position: absolute;
-            right: 5em;
+            right: 10em;
             top: 50%;
             transform: translateY(-50%);
             pointer-events: none;
-        ", "👎"}),
+        ", "❌"}),
         _ => rsx!(),
     };
 
@@ -181,25 +185,102 @@ pub fn ProfileView() -> Element {
                             false => rsx!(
                                 input { value: "{username}", style: input_style_disabled(), disabled: "true"}
 
-                                span {style: "
-                                    position: absolute;
-                                    right: 1em;
-                                    top: 50%;
-                                    transform: translateY(-50%);
+                                button {style: "
+                                    //position: absolute;
+                                    //right: 1em;
+                                    //top: 50%;
+                                    //transform: translateY(-50%);
                                     cursor: pointer;
+
+                                    display: flex;
+                                    gap: 10px;
+                                    flex: 1;
+                                    padding: .5em .5em .5em .5em;
+                                    border-radius: 8px; 
+                                    background: #3A6BFF; 
+                                    color: white;
+                                    border: none; 
+                                    font-weight: 600;
+                                    font-size: 14px;
                                 ", onclick: move |_| {
                                     editing.set(true);
                                 },
-                                "✏️"}
+                                "Edit"}
                             ),
                             true => rsx!(
                                 input { value: "{username}", oninput: move |e| username.set(e.value()), style: input_style_enabled() }
 
-                                // info und error vielleicht außerhalb von edit mode, dass auch im no edit mode sichtbar
-                                if let Some(msg) = info() {
+                                {username_check}
+
+                                div {style:
+                                    "display: flex;
+                                    gap: 10px; 
+                                    //margin-top: 10px;",
+                                    span {style: "
+                                        //position: absolute;
+                                        //right: 3em;
+                                        //top: 50%;
+                                        //transform: translateY(-50%);
+                                        cursor: pointer;
+                                        
+                                        flex: 1;
+                                        padding: .5em .5em .5em .5em;
+                                        border-radius: 8px; 
+                                        background: #3A6BFF; 
+                                        color: white;
+                                        border: none; 
+                                        font-weight: 600;
+                                        font-size: 14px; 
+                                    ", onclick: move |_| {
+                                        spawn(async move {
+                                            match update_username(&username()).await {
+                                                Ok(_) => {
+                                                    editing.set(false);
+                                                    username_fetch.restart();
+                                                    checking.set(false);
+                                                    status.set(None);
+                                                    info.set(Some("Username changed!".to_string()));
+                                                    error.set(None);
+                                                },
+                                                Err(msg) => {
+                                                    checking.set(false);
+                                                    status.set(None);
+                                                    error.set(Some(msg.to_string()))
+                                                },
+                                            }
+                                        });
+                                    },
+                                    "Change"}
+
+                                    span {style: "
+                                        //position: absolute;
+                                        //right: 1em;
+                                        //top: 50%;
+                                        //transform: translateY(-50%);
+                                        cursor: pointer;
+
+                                        flex: 1;
+                                        padding: .5em; 
+                                        border-radius: 8px; 
+                                        border: 1px solid rgba(255,255,255,0.1);
+                                        color: #9ca3af; 
+                                        background: transparent;
+                                        font-size: 14px;
+                                    ", onclick: move |_| {
+                                        editing.set(false);
+                                        username_fetch.restart();
+                                        info.set(None);
+                                        error.set(None);
+                                    },
+                                    "Cancel"}
+                                }
+                            ),
+                        }
+
+                        if let Some(msg) = info() {
                                     div { style: "
                                             position: absolute;
-                                            right: 7em;
+                                            right: 10em;
                                             top: 50%;
                                             transform: translateY(-50%);
                                     "//,  onmouseover: move |_| error_hovered.set(true)
@@ -234,7 +315,7 @@ pub fn ProfileView() -> Element {
                                 if let Some(msg) = error() {
                                     div { style: "
                                             position: absolute;
-                                            right: 7em;
+                                            right: 10em;
                                             top: 50%;
                                             transform: translateY(-50%);
                                     ",  onmouseover: move |_| error_hovered.set(true)
@@ -265,49 +346,6 @@ pub fn ProfileView() -> Element {
                                         }
                                     }
                                 }
-
-                                {username_check}
-
-                                // noch durch passendes blaues design
-                                span {style: "
-                                    position: absolute;
-                                    right: 3em;
-                                    top: 50%;
-                                    transform: translateY(-50%);
-                                    cursor: pointer;
-                                ", onclick: move |_| {
-                                    spawn(async move {
-                                        match update_username(&username()).await {
-                                            Ok(_) => {
-                                                editing.set(false);
-                                                username_fetch.restart();
-                                                info.set(Some("Username changed!".to_string()));
-                                                //info.set(None);  // momentan überflüssig
-                                                error.set(None);
-                                            },
-                                            Err(msg) => {
-                                                error.set(Some(msg.to_string()))
-                                            },
-                                        }
-                                    });
-                                },
-                                "✅"}
-
-                                span {style: "
-                                    position: absolute;
-                                    right: 1em;
-                                    top: 50%;
-                                    transform: translateY(-50%);
-                                    cursor: pointer;
-                                ", onclick: move |_| {
-                                    editing.set(false);
-                                    username_fetch.restart();
-                                    info.set(None);
-                                    error.set(None);
-                                },
-                                "❌"}
-                            ),
-                        }
                     }
                 }
             }

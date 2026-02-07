@@ -183,12 +183,6 @@ pub struct Profile {
     pub created_at: DateTime<Utc>,
 }
 
-// Idee für neues Struct statt id und created_at in Option zu wrappen von AI
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
-pub struct ProfileWrite {
-    pub username: String,
-}
-
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct Group {
     pub id: Uuid,

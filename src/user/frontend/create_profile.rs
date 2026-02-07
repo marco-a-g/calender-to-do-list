@@ -66,8 +66,8 @@ pub fn CreateProfileView(auth_status: Signal<AuthStatus>, auth_view: Signal<Auth
         spawn(async move {
             sleep(Duration::from_millis(500)).await;
 
+            // prevents race condition with checking only most recent input
             if username() != name {
-                // prevents race condition with checking only most recent input
                 return;
             }
 
@@ -77,7 +77,7 @@ pub fn CreateProfileView(auth_status: Signal<AuthStatus>, auth_view: Signal<Auth
         });
     });
 
-    // Idee dieses Konstrukts mit KI entwickelt
+    // konzeptionelle Hilfe von KI
     let username_check = match status() {
         None if checking() => rsx!(div {
             class: "animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500",
