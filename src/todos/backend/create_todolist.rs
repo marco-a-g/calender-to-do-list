@@ -166,7 +166,7 @@ pub fn todo_list_into_todo_list_transfer(
         due_datetime: todo_list.due_date_time,
         priority: Some(format!("{:?}", todo_list.priority).to_lowercase()),
         attachment: todo_list.attachment,
-        /*      rrule: rrule_transfer,
+        /*rrule: rrule_transfer,
         recurrence_until: until_transfer,
         recurrence_id: None,
         overrides_datetime: None, */

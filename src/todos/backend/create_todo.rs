@@ -20,7 +20,6 @@ pub struct ToDoTransfer {
     pub summary: String,
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    // Sollte noch angepasst werden, sobald supabase trigger fertig mit ToDo ohne ToDoList
     pub todo_list_id: Option<Uuid>,
     pub completed: bool,
     pub due_datetime: Option<DateTime<Utc>>,
@@ -51,7 +50,6 @@ pub fn frontend_input_to_todo(
     assigned_to_user: Option<String>,
 ) -> Result<TodoEvent, Box<dyn std::error::Error>> {
     //List id parsen
-    //let list_uuid = Uuid::parse_str(&todo_list_id)?;
     let list_uuid = if todo_list_id.is_empty() {
         Uuid::nil()
     } else {
@@ -74,11 +72,10 @@ pub fn frontend_input_to_todo(
     //RRUle (Rule und until) parsen, Skipped und overrides bei create irrelevant
     let recurrence_settings = if let (Some(rule_str), Some(until_str)) = (rrule, recurrence_until) {
         if !rule_str.is_empty() && !until_str.is_empty() {
-            println!("Versuche rrule zu parsen: '{}'", rule_str);
             let parsed_rule = match Rrule::from_str(&rule_str) {
                 Ok(r) => Some(r),
                 Err(e) => {
-                    println!("CRITICAL: Rrule parsing error für '{}': {}", rule_str, e);
+                    println!("Rrule parsing error für '{}': {}", rule_str, e);
                     None
                 }
             };
@@ -122,8 +119,6 @@ pub fn frontend_input_to_todo(
 pub fn todo_event_into_to_do_transfer(
     todo: TodoEvent,
 ) -> Result<ToDoTransfer, Box<dyn std::error::Error>> {
-    println!("In transfer func gibt vorher {:?}", todo);
-
     // rrule und until extrahieren wenn vorhanden
     let (rrule_transfer, until_transfer) = match todo.recurrence {
         Some(rec) => {

@@ -34,7 +34,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
         }
     };
 
-    //Wenn Master instanz -> Exception Instant erstellen für startdatum und recurrance start zeit (:= due_datetime) auf nächstes setzen
+    //Wenn Master instanz -> Exception Instant erstellen
     if let Some(rrule_str) = &todo.rrule {
         if !rrule_str.is_empty() {
             // nächstes Datum der recurrance holen
