@@ -36,7 +36,7 @@ pub struct CalendarEventUp {
 
 ///
 // #[server]
-pub async fn change_calendar_event(
+pub async fn edit_calendar_event(
     new_version: CalendarEvent,
     keep_overridings: Option<bool>, // set this to true if recurrence exceptions that override dates that leave the range of the events recurrence, defaults to false
     keep_orphans: Option<bool>, // set this to true to keep recurrence exceptions as single elements if the event is turned to non-recurrent, defaults to false
@@ -143,7 +143,7 @@ pub async fn change_calendar_event(
                             }),
                         });
 
-                        change_calendar_event_unchecked(CalendarEvent {
+                        edit_calendar_event_unchecked(CalendarEvent {
                             id: shifty.id,
                             summary: shifty.summary,
                             description: shifty.description,
@@ -209,7 +209,7 @@ pub async fn change_calendar_event(
                             }),
                         });
 
-                        change_calendar_event_unchecked(CalendarEvent {
+                        edit_calendar_event_unchecked(CalendarEvent {
                             id: shifty.id,
                             summary: shifty.summary,
                             description: shifty.description,
@@ -299,7 +299,7 @@ pub async fn change_calendar_event(
         delete_single_calendar_event(delete.id).await?;
     }
     for orphanise in to_be_orphaned {
-        change_calendar_event_unchecked(CalendarEvent {
+        edit_calendar_event_unchecked(CalendarEvent {
             id: orphanise.id,
             summary: orphanise.summary,
             description: orphanise.description,
@@ -319,7 +319,7 @@ pub async fn change_calendar_event(
         .await?;
     }
     for non_over in to_non_override {
-        change_calendar_event_unchecked(CalendarEvent {
+        edit_calendar_event_unchecked(CalendarEvent {
             id: non_over.id,
             summary: non_over.summary,
             description: non_over.description,
@@ -341,13 +341,13 @@ pub async fn change_calendar_event(
         })
         .await?;
     }
-    change_calendar_event_unchecked(new_version).await?;
+    edit_calendar_event_unchecked(new_version).await?;
     Ok(())
 }
 
 ///used for changing a calendar event, that is a non-recurrent event (before) and not an recurrence exception
 // #[server]
-pub async fn change_single_calendar_event(
+pub async fn edit_single_calendar_event(
     new_version: CalendarEvent,
 ) -> core::result::Result<(), ServerFnError> {
     //check wether it really was a single calendar event
@@ -374,7 +374,7 @@ pub async fn change_single_calendar_event(
     )
     .await?;
 
-    let stat = change_calendar_event_unchecked(new_version).await?;
+    let stat = edit_calendar_event_unchecked(new_version).await?;
     let uploaded = get_calendar_event_from_remote(new_version.id).await?;
     if new_version.description != uploaded.description
         || new_version.from_date_time != uploaded.from_date_time
@@ -395,7 +395,7 @@ pub async fn change_single_calendar_event(
 }
 
 // #[server]
-pub async fn change_calendar_event_unchecked(
+pub async fn edit_calendar_event_unchecked(
     changed_event: CalendarEvent,
 ) -> core::result::Result<StatusCode, ServerFnError> {
     // get the session token
