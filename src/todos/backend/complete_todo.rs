@@ -48,11 +48,11 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
                 current_due.ok_or(ServerFnError::new("Master has no valid due date"))?;
 
             // Startdatum der Wiederholung für calculate_next_date setzen, einfach due_date nehmen
-            let start_date_rec = current_due;
+            //let start_date_rec = current_due;
 
             // Nächstes Datum berechnen damit man dieses als neues start datum im master setzen kann
-            let next_due = calculate_next_date(current_due, rrule_str, start_date_rec)
-                .map_err(|e| ServerFnError::new(format!("Error on calc next date: {}", e)))?;
+            /*             let next_due = calculate_next_date(current_due, rrule_str, start_date_rec)
+            .map_err(|e| ServerFnError::new(format!("Error on calc next date: {}", e)))?; */
 
             // Exception instanz mit completed=true erstellen, damit History eintrag existiert
             let history_entry = ToDoTransfer {
@@ -80,7 +80,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
 
             // Anfrage an Supabase mit neuem Exception event
             let url_create = format!("{}/rest/v1/todo_events", SUPABASE_URL);
-            let _result_create = client
+            let response_result = client
                 .post(&url_create)
                 .bearer_auth(token.clone())
                 .header("apikey", ANON_KEY)
@@ -89,7 +89,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
                 .send()
                 .await;
 
-            // Due Date für master auf späteres setzen
+            /*// Due Date für master auf späteres setzen
             let url_update = format!("{}/rest/v1/todo_events?id=eq.{}", SUPABASE_URL, todo.id);
             let payload_update = UpdateMasterDate {
                 due_datetime: next_due,
@@ -103,7 +103,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
                 .header("Content-Type", "application/json")
                 .json(&payload_update)
                 .send()
-                .await;
+                .await; */
 
             // Response check
             match response_result {

@@ -2,7 +2,7 @@ use crate::todos::backend::create_todolist::{
     create_todo_list, frontend_input_to_todo_list, todo_list_into_todo_list_transfer,
 };
 use crate::todos::backend::delete_todolist::delete_todo_list;
-use crate::todos::backend::edit_todolist::update_todo_list;
+use crate::todos::backend::edit_todolist::edit_todo_list;
 use crate::todos::frontend::filter_todos::{GroupFilter, ListFilter};
 use crate::utils::date_formatting::db_to_html_input;
 use crate::utils::functions::get_user_id_and_session_token;
@@ -191,7 +191,7 @@ pub fn CreateEditListModal(
                     skipped: false,
                     last_mod: Local::now().to_rfc3339(),
                 };
-                let _ = update_todo_list(edited_list).await; //Backend aufruf
+                let _ = edit_todo_list(edited_list).await; //Backend aufruf
 
                 // Maskenwerte wieder zurücksetzen
                 new_list_title.set(String::new());

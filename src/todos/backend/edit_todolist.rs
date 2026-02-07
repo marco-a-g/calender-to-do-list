@@ -99,7 +99,7 @@ fn light_list_into_update(
 }
 
 // #[server]
-pub async fn update_todo_list(list: TodoListLight) -> Result<StatusCode, ServerFnError> {
+pub async fn edit_todo_list(list: TodoListLight) -> Result<StatusCode, ServerFnError> {
     println!("Starting update_todo_list for '{}'", list.name);
 
     // ID holen für patch
