@@ -41,16 +41,17 @@ fn input_style_disabled() -> &'static str {
 
 #[component]
 pub fn ProfileView() -> Element {
-    let mut username = use_signal(|| String::new());
-    let mut own_username = use_signal(|| String::new());
+    let mut username = use_signal(|| String::new()); // dynamic signal for input field
+    let mut own_username = use_signal(|| String::new()); // holds current username as it is in db
     let mut username_fetch = use_resource(get_own_username);
-    let mut editing = use_signal(|| false);
+    let mut editing = use_signal(|| false); // if edit mode is on
     let mut info = use_signal(|| None::<String>);
     let mut error = use_signal(|| None::<String>);
     let mut error_hovered = use_signal(|| false);
-    let mut status = use_signal(|| None::<bool>);
-    let mut checking = use_signal(|| false);
+    let mut status = use_signal(|| None::<bool>); // if username is available
+    let mut checking = use_signal(|| false); // if currently checking for username availability
 
+    // fetch username
     use_effect(move || {
         if let Some(Ok(name)) = &*username_fetch.read() {
             username.set(name.into());
@@ -80,10 +81,10 @@ pub fn ProfileView() -> Element {
         status.set(None); // makes loading icon appear when typing
 
         spawn(async move {
-            sleep(Duration::from_millis(500)).await;
+            sleep(Duration::from_millis(500)).await; // check only after typing pause
 
+            // prevents race condition with checking only most recent input
             if username() != name {
-                // prevents race condition with checking only most recent input
                 return;
             }
 
@@ -156,7 +157,7 @@ pub fn ProfileView() -> Element {
                          "Profil" }
                 }
 
-                div { // div für alle rows
+                div { // div for all rows
                     div { class: "", // flex-1 overflow-y-auto pr-2 flex flex-col gap-3 // username
                         style: "
                             position: relative;
@@ -281,7 +282,7 @@ pub fn ProfileView() -> Element {
                                                 editing.set(false);
                                                 username_fetch.restart();
                                                 info.set(Some("Username changed!".to_string()));
-                                                info.set(None);  // momentan überflüssig
+                                                //info.set(None);  // momentan überflüssig
                                                 error.set(None);
                                             },
                                             Err(msg) => {

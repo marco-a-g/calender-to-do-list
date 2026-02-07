@@ -80,6 +80,7 @@ pub async fn get_user_by_id(id: Uuid) -> Result<Profile, ServerFnError> {
     Ok(user)
 }
 
+// #[server]
 pub async fn is_username_available(username: &str) -> bool {
     if get_user_by_username(username).await.is_ok() {
         return false;
