@@ -48,7 +48,7 @@ pub async fn delete_calendar_event_without_changed_instances(
                         is_all_day: child.is_all_day,
                         last_mod: Utc::now(),
                     };
-                    let orphaned = change_calendar_event_unchecked(orphan).await?;
+                    let orphaned = edit_calendar_event_unchecked(orphan).await?;
                     orphanage.push((child.id, orphaned));
                 }
             }
