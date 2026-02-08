@@ -1,215 +1,198 @@
-use crate::auth::backend::{ANON_KEY, SUPABASE_URL as AUTH_SUPABASE_URL};
+/* Backend server functions for group management
+All functions use the user's access token for Supabase RLS authorization
+We intentionally do NOT use the service role key here - RLS enforces permissions */
+
+use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
+use chrono::Utc;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
-use sqlx::{ConnectOptions, SqlitePool};
-use std::str::FromStr;
 
+// Transfer type for group data: (group_id, name, color_hex, member_count)
 pub type GroupTransfer = (String, String, String, i32);
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Group {
-    pub id: String,
-    pub name: String,
-    pub color: String,
+const DEFAULT_GROUP_COLOR: &str = "#3A6BFF";
+
+#[derive(Debug, Deserialize)]
+struct SupabaseGroupRow {
+    id: String,
+    name: String,
+    #[serde(default)]
+    color: Option<String>,
 }
 
-pub fn to_transfer(g: &Group, member_count: i32) -> GroupTransfer {
-    (g.id.clone(), g.name.clone(), g.color.clone(), member_count)
-}
-
+// Payload for creating a new group via PostgREST
 #[derive(Debug, Serialize)]
 struct CreateGroupPayload {
     name: String,
     color: String,
     owner_id: String,
     created_by: String,
+    created_at: String,
+    last_mod: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct CreatedGroupRow {
-    id: String,
+fn bearer(token: &str) -> String {
+    format!("Bearer {token}")
 }
 
-#[derive(Debug, Serialize)]
-struct CreateGroupMemberPayload {
-    user_id: String,
-    group_id: String,
-    role: String,
-}
-
-async fn get_local_db_pool() -> Result<SqlitePool, ServerFnError> {
-    let db_path = "sqlite:src/database/local/local_Database.db";
-    let connect_options = sqlx::sqlite::SqliteConnectOptions::from_str(db_path)
-        .map_err(|e| ServerFnError::new(format!("DB path error: {e}")))?
-        .create_if_missing(false)
-        .foreign_keys(true)
-        .disable_statement_logging();
-
-    let pool = SqlitePool::connect_with(connect_options)
-        .await
-        .map_err(|e| ServerFnError::new(format!("DB connection error: {e}")))?;
-
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS user_group_preferences (
-            user_id TEXT NOT NULL,
-            group_id TEXT NOT NULL,
-            color TEXT,
-            tag TEXT,
-            PRIMARY KEY (user_id, group_id),
-            FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
-            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(&pool)
-    .await
-    .map_err(|e| ServerFnError::new(format!("Failed to create preferences table: {e}")))?;
-
-    Ok(pool)
-}
-
+// Fetches all groups visible to the current user.
+// Only returns groups where the user's role is not 'invited' (i.e., accepted members only)
 #[server]
-pub async fn fetch_groups(user_id: String) -> Result<Vec<GroupTransfer>, ServerFnError> {
-    let pool = get_local_db_pool().await?;
+pub async fn fetch_groups(
+    user_id: String,
+    access_token: String,
+) -> Result<Vec<GroupTransfer>, ServerFnError> {
+    let url = SUPABASE_URL;
+    let key = ANON_KEY;
+    let client = reqwest::Client::new();
+    let auth = bearer(&access_token);
 
-    let rows: Vec<(String, String, Option<String>, i64)> = sqlx::query_as(
-        r#"
-        SELECT
-            g.id,
-            g.name,
-            ugp.color AS user_color,
-            COUNT(gm2.user_id) AS member_count
-        FROM group_members gm
-        INNER JOIN groups g ON g.id = gm.group_id
-        LEFT JOIN user_group_preferences ugp
-            ON ugp.user_id = gm.user_id AND ugp.group_id = g.id
-        LEFT JOIN group_members gm2
-            ON gm2.group_id = g.id
-        WHERE gm.user_id = ?
-        GROUP BY g.id, g.name, ugp.color
-        ORDER BY g.created_at DESC
-        "#,
-    )
-    .bind(&user_id)
-    .fetch_all(&pool)
-    .await
-    .map_err(|e| ServerFnError::new(format!("DB query error (fetch_groups): {e}")))?;
+    // Join group_members with groups, excluding pending invites
+    let endpoint = format!(
+        "{}/rest/v1/group_members?user_id=eq.{}&role=neq.invited&select=group_id,role,groups(id,name,color,created_at)&order=joined_at.desc",
+        url, user_id
+    );
 
-    let result = rows
+    let response = client
+        .get(&endpoint)
+        .header("apikey", key)
+        .header("Authorization", &auth)
+        .header("Content-Type", "application/json")
+        .send()
+        .await
+        .map_err(|e| ServerFnError::new(format!("fetch_groups request: {e}")))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "(no body)".to_string());
+        return Err(ServerFnError::new(format!(
+            "fetch_groups Supabase {}: {}",
+            status, body
+        )));
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct GroupJoin {
+        id: String,
+        name: String,
+        color: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct MemberWithGroup {
+        groups: Option<GroupJoin>,
+    }
+
+    let rows: Vec<MemberWithGroup> = response
+        .json()
+        .await
+        .map_err(|e| ServerFnError::new(format!("fetch_groups json: {e}")))?;
+
+    let result: Vec<GroupTransfer> = rows
         .into_iter()
-        .map(|(id, name, user_color, member_count)| {
-            (
-                id,
-                name,
-                user_color.unwrap_or_else(|| "#3A6BFF".to_string()),
-                member_count as i32,
-            )
+        .filter_map(|r| {
+            r.groups.map(|g| {
+                let color = g
+                    .color
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| DEFAULT_GROUP_COLOR.to_string());
+                (g.id, g.name, color, 0_i32)
+            })
         })
         .collect();
 
     Ok(result)
 }
 
+// Fetches a single group by ID
 #[server]
 pub async fn fetch_group_by_id(
     id: String,
-    user_id: String,
+    _user_id: String,
+    access_token: String,
 ) -> Result<Option<(String, String, String)>, ServerFnError> {
-    let pool = get_local_db_pool().await?;
+    let url = SUPABASE_URL;
+    let key = ANON_KEY;
+    let client = reqwest::Client::new();
+    let auth = bearer(&access_token);
 
-    let row: Option<(String, String, Option<String>)> = sqlx::query_as(
-        r#"
-        SELECT
+    let endpoint = format!("{url}/rest/v1/groups?id=eq.{id}&select=id,name,color&limit=1");
+    let response = client
+        .get(&endpoint)
+        .header("apikey", key)
+        .header("Authorization", &auth)
+        .send()
+        .await
+        .map_err(|e| ServerFnError::new(format!("fetch_group_by_id: {e}")))?
+        .error_for_status()
+        .map_err(|e| ServerFnError::new(format!("fetch_group_by_id Supabase: {e}")))?;
+
+    let rows: Vec<SupabaseGroupRow> = response
+        .json()
+        .await
+        .map_err(|e| ServerFnError::new(format!("fetch_group_by_id json: {e}")))?;
+
+    Ok(rows.into_iter().next().map(|g| {
+        (
             g.id,
             g.name,
-            ugp.color AS user_color
-        FROM group_members gm
-        INNER JOIN groups g ON g.id = gm.group_id
-        LEFT JOIN user_group_preferences ugp
-            ON ugp.user_id = gm.user_id AND ugp.group_id = g.id
-        WHERE gm.user_id = ? AND g.id = ?
-        LIMIT 1
-        "#,
-    )
-    .bind(&user_id)
-    .bind(&id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|e| ServerFnError::new(format!("DB query error (fetch_group_by_id): {e}")))?;
-
-    Ok(row.map(|(gid, name, user_color)| {
-        (
-            gid,
-            name,
-            user_color.unwrap_or_else(|| "#3A6BFF".to_string()),
+            g.color
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| DEFAULT_GROUP_COLOR.to_string()),
         )
     }))
 }
 
+// Creates a new group owned by the specified user
 #[server]
 pub async fn create_group(
     name: String,
     color: String,
     user_id: String,
-) -> Result<String, ServerFnError> {
-    let url = AUTH_SUPABASE_URL;
+    access_token: String,
+) -> Result<(), ServerFnError> {
+    let url = SUPABASE_URL;
     let key = ANON_KEY;
     let client = reqwest::Client::new();
+    let auth = bearer(&access_token);
 
-    let groups_endpoint = format!("{url}/rest/v1/groups?select=id");
+    let groups_endpoint = format!("{url}/rest/v1/groups");
+    let now = Utc::now().to_rfc3339();
 
     let payload = CreateGroupPayload {
         name,
         color,
         owner_id: user_id.clone(),
         created_by: user_id.clone(),
+        created_at: now.clone(),
+        last_mod: now,
     };
 
     let response = client
-        .post(groups_endpoint)
+        .post(&groups_endpoint)
         .header("apikey", key)
-        .header("Authorization", format!("Bearer {key}"))
+        .header("Authorization", &auth)
         .header("Content-Type", "application/json")
-        .header("Prefer", "return=representation")
         .json(&payload)
         .send()
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?
-        .error_for_status()
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        .map_err(|e| ServerFnError::new(format!("create_group request: {e}")))?;
 
-    let mut created: Vec<CreatedGroupRow> = response
-        .json()
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
-
-    let group_id = created
-        .pop()
-        .ok_or_else(|| ServerFnError::new("Supabase returned no created group row".to_string()))?
-        .id;
-
-    let members_endpoint = format!("{url}/rest/v1/group_members");
-
-    let member_payload = CreateGroupMemberPayload {
-        user_id: user_id.clone(),
-        group_id: group_id.clone(),
-        role: "owner".to_string(),
-    };
-
-    client
-        .post(members_endpoint)
-        .header("apikey", key)
-        .header("Authorization", format!("Bearer {key}"))
-        .header("Content-Type", "application/json")
-        .json(&member_payload)
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?
-        .error_for_status()
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
-
-    Ok(group_id)
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "(no body)".to_string());
+        return Err(ServerFnError::new(format!(
+            "create_group Supabase {}: {}",
+            status, body
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -217,10 +200,12 @@ struct OwnerRow {
     owner_id: String,
 }
 
+// Checks if the given user is the owner of the specified group
 async fn is_owner(
     client: &reqwest::Client,
     url: &str,
     key: &str,
+    auth: &str,
     group_id: &str,
     user_id: &str,
 ) -> Result<bool, ServerFnError> {
@@ -229,7 +214,7 @@ async fn is_owner(
     let resp = client
         .get(&endpoint)
         .header("apikey", key)
-        .header("Authorization", format!("Bearer {key}"))
+        .header("Authorization", auth)
         .send()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?
@@ -244,33 +229,40 @@ async fn is_owner(
     Ok(rows.pop().map(|r| r.owner_id == user_id).unwrap_or(false))
 }
 
+// Deletes a group and all its members
 #[server]
-pub async fn delete_group(group_id: String, user_id: String) -> Result<(), ServerFnError> {
-    let url = AUTH_SUPABASE_URL;
+pub async fn delete_group(
+    group_id: String,
+    user_id: String,
+    access_token: String,
+) -> Result<(), ServerFnError> {
+    let url = SUPABASE_URL;
     let key = ANON_KEY;
     let client = reqwest::Client::new();
+    let auth = bearer(&access_token);
 
+    // Verify user is the owner
     let check_owner_endpoint = format!(
         "{}/rest/v1/groups?select=owner_id&id=eq.{}&limit=1",
         url, group_id
     );
 
     #[derive(Deserialize)]
-    struct OwnerRow {
+    struct OwnerRowDelete {
         owner_id: String,
     }
 
     let owner_response = client
         .get(&check_owner_endpoint)
         .header("apikey", key)
-        .header("Authorization", format!("Bearer {}", key))
+        .header("Authorization", &auth)
         .send()
         .await
         .map_err(|e| ServerFnError::new(format!("Owner check request failed: {e}")))?
         .error_for_status()
         .map_err(|e| ServerFnError::new(format!("Owner check failed: {e}")))?;
 
-    let mut owner_rows: Vec<OwnerRow> = owner_response
+    let mut owner_rows: Vec<OwnerRowDelete> = owner_response
         .json()
         .await
         .map_err(|e| ServerFnError::new(format!("Owner check json failed: {e}")))?;
@@ -283,12 +275,24 @@ pub async fn delete_group(group_id: String, user_id: String) -> Result<(), Serve
         return Err(ServerFnError::new("Only the owner can delete this group."));
     }
 
+    // Delete all members first
+    let delete_members_endpoint = format!("{}/rest/v1/group_members?group_id=eq.{}", url, group_id);
+
+    client
+        .delete(&delete_members_endpoint)
+        .header("apikey", key)
+        .header("Authorization", &auth)
+        .send()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Delete members failed: {e}")))?;
+
+    // Delete the group
     let delete_endpoint = format!("{}/rest/v1/groups?id=eq.{}", url, group_id);
 
     client
         .delete(&delete_endpoint)
         .header("apikey", key)
-        .header("Authorization", format!("Bearer {}", key))
+        .header("Authorization", &auth)
         .send()
         .await
         .map_err(|e| ServerFnError::new(format!("Delete request failed: {e}")))?
@@ -303,23 +307,30 @@ struct MemberRow {
     user_id: String,
 }
 
+// Removes the current user from a group
 #[server]
-pub async fn leave_group(group_id: String, user_id: String) -> Result<(), ServerFnError> {
-    let url = AUTH_SUPABASE_URL;
+pub async fn leave_group(
+    group_id: String,
+    user_id: String,
+    access_token: String,
+) -> Result<(), ServerFnError> {
+    let url = SUPABASE_URL;
     let key = ANON_KEY;
     let client = reqwest::Client::new();
+    let auth = bearer(&access_token);
 
-    let user_is_owner = is_owner(&client, url, key, &group_id, &user_id).await?;
+    let user_is_owner = is_owner(&client, url, key, &auth, &group_id, &user_id).await?;
 
     if user_is_owner {
+        // Find next owner candidate (excluding pending invites)
         let members_endpoint = format!(
-            "{url}/rest/v1/group_members?select=user_id,joined_at&group_id=eq.{group_id}&order=joined_at.asc"
+            "{url}/rest/v1/group_members?select=user_id,joined_at&group_id=eq.{group_id}&role=neq.invited&order=joined_at.asc"
         );
 
         let resp = client
             .get(&members_endpoint)
             .header("apikey", key)
-            .header("Authorization", format!("Bearer {key}"))
+            .header("Authorization", &auth)
             .send()
             .await
             .map_err(|e| ServerFnError::new(e.to_string()))?
@@ -337,6 +348,7 @@ pub async fn leave_group(group_id: String, user_id: String) -> Result<(), Server
             .map(|m| m.user_id.clone());
 
         if let Some(new_owner_id) = next_owner {
+            // Transfer ownership to next member
             #[derive(Serialize)]
             struct UpdateOwnerPayload {
                 owner_id: String,
@@ -347,7 +359,7 @@ pub async fn leave_group(group_id: String, user_id: String) -> Result<(), Server
             client
                 .patch(&update_group_endpoint)
                 .header("apikey", key)
-                .header("Authorization", format!("Bearer {key}"))
+                .header("Authorization", &auth)
                 .header("Content-Type", "application/json")
                 .json(&UpdateOwnerPayload {
                     owner_id: new_owner_id.clone(),
@@ -358,7 +370,7 @@ pub async fn leave_group(group_id: String, user_id: String) -> Result<(), Server
                 .error_for_status()
                 .map_err(|e| ServerFnError::new(e.to_string()))?;
 
-            // 2) set new owner role in group_members
+            // Update new owner's role in group_members
             #[derive(Serialize)]
             struct UpdateRolePayload {
                 role: String,
@@ -371,7 +383,7 @@ pub async fn leave_group(group_id: String, user_id: String) -> Result<(), Server
             client
                 .patch(&update_member_endpoint)
                 .header("apikey", key)
-                .header("Authorization", format!("Bearer {key}"))
+                .header("Authorization", &auth)
                 .header("Content-Type", "application/json")
                 .json(&UpdateRolePayload {
                     role: "owner".to_string(),
@@ -382,12 +394,13 @@ pub async fn leave_group(group_id: String, user_id: String) -> Result<(), Server
                 .error_for_status()
                 .map_err(|e| ServerFnError::new(e.to_string()))?;
         } else {
+            // No other members - delete the entire group
             let delete_group_endpoint = format!("{url}/rest/v1/groups?id=eq.{group_id}");
 
             client
                 .delete(&delete_group_endpoint)
                 .header("apikey", key)
-                .header("Authorization", format!("Bearer {key}"))
+                .header("Authorization", &auth)
                 .send()
                 .await
                 .map_err(|e| ServerFnError::new(e.to_string()))?
@@ -398,13 +411,30 @@ pub async fn leave_group(group_id: String, user_id: String) -> Result<(), Server
         }
     }
 
+    // Demote owner before deleting (RLS constraint workaround)
+    if user_is_owner {
+        let demote_self_endpoint =
+            format!("{url}/rest/v1/group_members?group_id=eq.{group_id}&user_id=eq.{user_id}");
+
+        client
+            .patch(&demote_self_endpoint)
+            .header("apikey", key)
+            .header("Authorization", &auth)
+            .header("Content-Type", "application/json")
+            .json(&serde_json::json!({"role": "member"}))
+            .send()
+            .await
+            .ok();
+    }
+
+    // Remove user from group_members
     let delete_member_endpoint =
         format!("{url}/rest/v1/group_members?group_id=eq.{group_id}&user_id=eq.{user_id}");
 
     client
         .delete(&delete_member_endpoint)
         .header("apikey", key)
-        .header("Authorization", format!("Bearer {key}"))
+        .header("Authorization", &auth)
         .send()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?
@@ -414,46 +444,21 @@ pub async fn leave_group(group_id: String, user_id: String) -> Result<(), Server
     Ok(())
 }
 
+// Sets user's preferred color for a group (not yet implemented)
 #[server]
 pub async fn set_group_color(
-    user_id: String,
-    group_id: String,
-    color: String,
+    _user_id: String,
+    _group_id: String,
+    _color: String,
 ) -> Result<(), ServerFnError> {
-    let pool = get_local_db_pool().await?;
-
-    sqlx::query(
-        r#"
-        INSERT INTO user_group_preferences (user_id, group_id, color)
-        VALUES (?, ?, ?)
-        ON CONFLICT(user_id, group_id) DO UPDATE SET color = excluded.color
-        "#,
-    )
-    .bind(&user_id)
-    .bind(&group_id)
-    .bind(&color)
-    .execute(&pool)
-    .await
-    .map_err(|e| ServerFnError::new(format!("Failed to set group color: {e}")))?;
-
     Ok(())
 }
 
+// Gets user's preferred color for a group (not yet implemented)
 #[server]
 pub async fn get_group_color(
-    user_id: String,
-    group_id: String,
+    _user_id: String,
+    _group_id: String,
 ) -> Result<Option<String>, ServerFnError> {
-    let pool = get_local_db_pool().await?;
-
-    let result: Option<(String,)> = sqlx::query_as(
-        "SELECT color FROM user_group_preferences WHERE user_id = ? AND group_id = ? LIMIT 1",
-    )
-    .bind(&user_id)
-    .bind(&group_id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|e| ServerFnError::new(format!("Failed to get group color: {e}")))?;
-
-    Ok(result.map(|(color,)| color))
+    Ok(Some(DEFAULT_GROUP_COLOR.to_string()))
 }

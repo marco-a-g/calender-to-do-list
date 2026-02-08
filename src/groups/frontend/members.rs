@@ -1,6 +1,14 @@
+/*
+Members tab UI for group detail page
+Displays a list of group members with their roles. Data is fetched from
+the local SQLite cache (offline-first). The list updates reactively
+when the resource resolves
+*/
+
 use crate::groups::backend::members::fetch_members;
 use dioxus::prelude::*;
 
+// Maps a role string to a display label and Tailwind badge classes
 fn role_badge_classes(role: &str) -> (&'static str, &'static str) {
     match role {
         "owner" => (
@@ -12,9 +20,10 @@ fn role_badge_classes(role: &str) -> (&'static str, &'static str) {
     }
 }
 
+// Members tab content showing all members of a group
 #[component]
-pub fn MembersTab(group_id: String, mut open_invite_from_right: Signal<bool>) -> Element {
-    let mut members = use_resource(move || {
+pub fn MembersTab(group_id: String, open_invite_from_right: Signal<bool>) -> Element {
+    let members = use_resource(move || {
         let gid = group_id.clone();
         async move { fetch_members(gid).await }
     });
@@ -57,6 +66,7 @@ pub fn MembersTab(group_id: String, mut open_invite_from_right: Signal<bool>) ->
     }
 }
 
+// Single member row with avatar, username, and role badge
 #[component]
 fn MemberRow(username: String, user_id: String, role: String) -> Element {
     let (role_label, role_class) = role_badge_classes(&role);
@@ -65,13 +75,13 @@ fn MemberRow(username: String, user_id: String, role: String) -> Element {
         div {
             class: "
                 flex flex-col sm:flex-row sm:items-center sm:justify-between
-                gap-3
-                px-5 py-4 rounded-3xl
+                gap-3 px-5 py-4 rounded-3xl
                 bg-white/5 border border-white/10
                 hover:bg-white/10 transition
             ",
 
             div { class: "flex items-center gap-4 min-w-0",
+                // Avatar placeholder with first letter of username
                 div {
                     class: "
                         w-10 h-10 rounded-2xl

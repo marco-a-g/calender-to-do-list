@@ -10,11 +10,12 @@ mod utils;
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
 use crate::database::local::heartbeat::start_heartbeat;
+use crate::database::local::init_fetch::init_fetch_local_db::init_database;
 use crate::groups::frontend::GroupsPage;
 use crate::groups::frontend::group_detail::GroupDetailPage;
-use crate::database::local::init_fetch::init_fetch_local_db::init_database;
 use crate::todos::frontend::todo_view::*;
 use crate::user::frontend::{create_profile::CreateProfileView, profile_view::ProfileView};
+use axum::extract::DefaultBodyLimit;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
 static CSS: Asset = asset!("/assets/tailwind.css");
@@ -78,7 +79,6 @@ fn App() -> Element {
             });
         }
     });
-
 
     rsx! {
         document::Stylesheet { href: CSS }
