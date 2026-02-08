@@ -2,11 +2,10 @@ use crate::auth::backend::SUPABASE_URL;
 use crate::auth::backend::*;
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::todos::backend::create_todo::ToDoTransfer;
-use crate::todos::backend::handle_recurrence_todos::calculate_next_date;
-use crate::utils::date_formatting::html_input_to_db;
+//use crate::todos::backend::handle_recurrence_todos::calculate_next_date;
+use crate::utils::date_handling::html_input_to_db;
 use crate::utils::functions::get_user_id_and_session_token;
 use crate::utils::structs::TodoEventLight;
-use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use reqwest::StatusCode;
 use serde::Serialize;
@@ -17,10 +16,10 @@ use uuid::Uuid;
 struct UpdateTodoStatus {
     completed: bool,
 }
-#[derive(Serialize)]
+/* #[derive(Serialize)]
 struct UpdateMasterDate {
     due_datetime: DateTime<Utc>,
-}
+} */
 
 // #[server]
 pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerFnError> {

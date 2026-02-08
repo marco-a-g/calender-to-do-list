@@ -2,7 +2,7 @@ use crate::todos::backend::create_todo::{
     create_todo_event, frontend_input_to_todo, todo_event_into_to_do_transfer,
 };
 use crate::todos::backend::edit_todo::edit_todo_event;
-use crate::utils::date_formatting::db_to_html_input;
+use crate::utils::date_handling::db_to_html_input;
 use crate::utils::structs::{
     GroupLight, GroupMemberLight, ProfileLight, TodoEventLight, TodoListLight,
 };
@@ -388,7 +388,6 @@ pub fn CreateEditToDoModal(
                             option { value: "weekdays", "On Weekdays (Mon-Fri)" }
                             option { value: "monthly_on_weekday", "Monthly (Weekday)" }
                             option { value: "monthly_on_date", "Monthly (Date)" }
-                            option { value: "monthly", "Monthly" }
                             option { value: "annual", "Annual" }
                         }
                     }

@@ -1,5 +1,5 @@
 use crate::todos::frontend::filter_todos::{GroupFilter, ListFilter};
-use crate::utils::date_formatting::db_to_display_only_date;
+use crate::utils::date_handling::db_to_display_only_date;
 use crate::utils::structs::{
     CalendarEventLight, GroupLight, ProfileLight, TodoEventLight, TodoListLight,
 };

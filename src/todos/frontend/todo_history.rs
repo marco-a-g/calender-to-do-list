@@ -1,4 +1,4 @@
-use crate::utils::date_formatting::db_to_display_only_date;
+use crate::utils::date_handling::db_to_display_only_date;
 use crate::utils::structs::{GroupLight, TodoEventLight, TodoListLight};
 use dioxus::prelude::*;
 
