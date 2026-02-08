@@ -4,13 +4,16 @@
 // - (optional) auth event listener with on_auth_state_change
 // - maybe put api key into env var or config file
 #![allow(dead_code, unused_imports)]
-use dioxus::fullstack::{http::response, serde::de::value::Error};
+use dioxus::{
+    fullstack::{http::response, serde::de::value::Error},
+    prelude::ServerFnError,
+};
 use std::fmt;
 use std::sync::OnceLock;
 use supabase::{Auth, Client};
 use uuid::Uuid;
 
-static SUPABASE_CLIENT: OnceLock<Client> = OnceLock::new();
+static SUPABASE_CLIENT: OnceLock<Client> = OnceLock::new(); // durch AI von OnceLock erfahren
 pub const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
 pub const ANON_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5cWF3bm5rcHVzZ3RuaG1lZWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NDM5MjksImV4cCI6MjA4MTQxOTkyOX0.0_m5aLSKNdqiqCNFWI8Hfa5iSOKrjf97qb9ZXxnboGA";
 
@@ -34,13 +37,14 @@ pub fn get_client() -> Result<&'static Client, AuthError> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AuthStatus {
     Unauthenticated,
-    Authenticated { user_id: Uuid },
+    Authenticated { user_id: Uuid }, // brauchts da die id??
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AuthView {
     Login,
     Register,
+    CreateProfile,
 }
 
 pub enum AuthError {
@@ -50,8 +54,16 @@ pub enum AuthError {
     NoUserReturned,
     UserAlreadyExists,
     Supabase(supabase::Error),
+    Server(ServerFnError),
+}
+// convert ServerFnError to AuthError until we have a clean error setup
+impl From<ServerFnError> for AuthError {
+    fn from(error: ServerFnError) -> Self {
+        AuthError::Server(error)
+    }
 }
 
+// Struktur von Implementierung durch AI erfragt
 impl From<supabase::Error> for AuthError {
     fn from(error: supabase::Error) -> Self {
         match &error {
@@ -80,6 +92,7 @@ impl fmt::Display for AuthError {
             AuthError::NoUserReturned => write!(f, "Auth returned no user"),
             AuthError::UserAlreadyExists => write!(f, "User already exists"),
             AuthError::Supabase(error) => write!(f, "{}", error),
+            AuthError::Server(error) => write!(f, "{}", error),
         }
     }
 }
@@ -105,8 +118,8 @@ pub async fn signup(email: &str, password: &str) -> Result<(), AuthError> {
         .auth()
         .sign_up_with_email_and_password(email, password)
         .await?;
-
     println!("Response: {:?}", response);
+
     Ok(())
     // sign_up_with_email_password_and_data:
     // data = {

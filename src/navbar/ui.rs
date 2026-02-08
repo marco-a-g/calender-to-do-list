@@ -72,6 +72,12 @@ pub fn Navbar() -> Element {
                         to: Route::Groups ,
                         icon: "👥",
                     }
+
+                }
+
+                NavButton {
+                    to: Route::ProfileView,
+                    icon: "⚙️",
                 }
             }
 

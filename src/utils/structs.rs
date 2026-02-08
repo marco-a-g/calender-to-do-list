@@ -183,7 +183,7 @@ pub struct Profile {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct Group {
     pub id: Uuid,
     pub name: String,
