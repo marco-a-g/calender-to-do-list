@@ -13,7 +13,6 @@ use std::sync::OnceLock;
 use supabase::{Auth, Client};
 use uuid::Uuid;
 
-use crate::user::{self, backend::create_profile};
 
 static SUPABASE_CLIENT: OnceLock<Client> = OnceLock::new(); // durch AI von OnceLock erfahren
 pub const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
