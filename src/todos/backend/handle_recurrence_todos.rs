@@ -35,7 +35,7 @@ pub fn expand_recurring_todos(
 
     // über Master itterieren
     for master in masters {
-        //ist es master ohne rrule einfach in Ausgabevektor rein
+        //ist es master ohne rrule (:= nicht wiederholendes ToDo) einfach in Ausgabevektor rein
         if master.rrule.is_none() {
             result.push(master);
             continue;
