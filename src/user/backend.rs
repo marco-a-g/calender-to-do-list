@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use dioxus::{fullstack::headers::Server, prelude::*};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -10,7 +10,7 @@ use crate::{
 // todo: username validation
 
 // #[server]
-pub async fn get_user_by_username(username: &str) -> Result<Profile, ServerFnError> {
+pub async fn get_user_by_username(username: &str) -> Result<Option<Profile>, ServerFnError> {
     let username = username.trim();
     let url = format!("{}/rest/v1/profiles?username=eq.{}", SUPABASE_URL, username); // theoretisch url manipulation, aber wegen rls egal
     let token = get_user_id_and_session_token().await?.1;
@@ -37,15 +37,15 @@ pub async fn get_user_by_username(username: &str) -> Result<Profile, ServerFnErr
     })?;
 
     if user.is_empty() {
-        return Err(ServerFnError::new("User not found"));
+        return Ok(None);
     }
 
     let user = user.remove(0); // pull user out of Vec
-    Ok(user)
+    Ok(Some(user))
 }
 
 // #[server]
-pub async fn get_user_by_id(id: Uuid) -> Result<Profile, ServerFnError> {
+pub async fn get_user_by_id(id: Uuid) -> Result<Option<Profile>, ServerFnError> {
     let url = format!("{}/rest/v1/profiles?id=eq.{}", SUPABASE_URL, id); // theoretisch url manipulation, aber wegen rls egal
     let token = get_user_id_and_session_token().await?.1;
 
@@ -71,25 +71,29 @@ pub async fn get_user_by_id(id: Uuid) -> Result<Profile, ServerFnError> {
     })?;
 
     if user.is_empty() {
-        return Err(ServerFnError::new("User not found"));
+        return Ok(None);
     }
 
     let user = user.remove(0); // pull user out of Vec
-    Ok(user)
+    Ok(Some(user))
 }
 
 // #[server]
 pub async fn is_username_available(username: &str) -> bool {
-    if get_user_by_username(username).await.is_ok() {
-        return false;
+    match get_user_by_username(username).await {
+        Ok(Some(_)) => false,
+        Ok(None) => true,
+        Err(_) => false, // treat error as not available, later maybe -> Result<bool, ServerFnError> with error handling in ui
     }
-    true
 }
 
 // #[server]
 pub async fn get_own_username() -> Result<String, ServerFnError> {
     let id = get_user_id_and_session_token().await?.0;
-    Ok(get_user_by_id(id).await?.username)
+    match get_user_by_id(id).await? {
+        Some(user) => Ok(user.username),
+        None => Err(ServerFnError::new("User not found")),
+    }
 }
 
 // #[server]
