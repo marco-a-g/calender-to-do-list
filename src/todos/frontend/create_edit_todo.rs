@@ -142,8 +142,10 @@ pub fn CreateEditToDoModal(
     let is_form_valid = !new_task_title().is_empty()
         && (new_task_rrule().is_empty() || !new_task_recurrence_until().is_empty());
 
+    let all_lists_for_handler = all_lists.clone();
+
     let handle_create = move |_| {
-        //let all_lists_inner = all_lists_for_handler.clone();
+        let lists_inner = all_lists_for_handler.clone();
         //Werte für neues ToDo-Setzen
         async move {
             if !new_task_title().is_empty() {
@@ -176,12 +178,23 @@ pub fn CreateEditToDoModal(
                 let list_id = if !new_task_list_id().is_empty() {
                     // Eine Liste wurde ausgewählt -> diese nutzen
                     new_task_list_id()
-                } else if !new_task_group_id().is_empty() {
-                    // Keine Liste und eine Gruppe wurde ausgewählt -> Gruppen ID übergeben und in Backend zu ShadowListe für die Gruppe mappen
-                    new_task_group_id()
                 } else {
-                    // weder Liste noch Gruppe ausgewählt -> ShadowListe des Nutzers -> In Backend mappen
-                    "".to_string()
+                    //check ob Gruppe gewählt wurde
+                    let target_group_id = if new_task_group_id().is_empty() {
+                        None
+                    } else {
+                        Some(new_task_group_id())
+                    };
+                    //Wenn Gruppe aber keine Liste angegeben, suche ShadowList, der Gruppe
+                    if let Some(shadow_list) = lists_inner
+                        .iter()
+                        .find(|l| l.group_id == target_group_id && Uuid::parse_str(&l.name).is_ok())
+                    {
+                        shadow_list.id.clone() // gib dieses aus, wenn vorhanden
+                    } else {
+                        // Sonst leerer String, brauchen wir für unten (in edit mode)
+                        "".to_string()
+                    }
                 };
 
                 //zugewiesener User
@@ -193,7 +206,6 @@ pub fn CreateEditToDoModal(
 
                 // Unterscheidung für Edit und Create hier
                 if let Some(existing_todo) = todo_to_edit() {
-                    //:________________________________________________________________
                     //Hier Edit
                     //Unterscheidung für Ganze reihe oder nur diese Instanz
                     // Prüfen: Ist es ein Master, der sich wiederholt?
@@ -221,7 +233,6 @@ pub fn CreateEditToDoModal(
                             existing_todo.overrides_datetime.clone(),
                         )
                     };
-                    //:________________________________________________________________
 
                     // Edit-Modus
                     let updated_todo = TodoEventLight {
