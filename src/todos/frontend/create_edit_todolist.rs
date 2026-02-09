@@ -385,6 +385,7 @@ pub fn CreateEditListModal(
                 }*/
 
                 // Gruppen zur zuweisung auflisten
+                if list_to_edit().is_none() {
                 div { class: "flex flex-col gap-2",
                     label { style: "font-size: 12px; color: #9ca3af; text-transform: uppercase;", "Assign to Group" }
                     select {
@@ -394,7 +395,7 @@ pub fn CreateEditListModal(
                         for g in groups.clone() { option { value: "{g.id}", "{g.name}" } }
                     }
                 }
-
+            }
                 // Events auflisten zum zuordnen
                 div { class: "flex flex-col gap-2",
                     label { style: "font-size: 12px; color: #9ca3af; text-transform: uppercase;", "Attach to Calendar Event (Optional)" }
