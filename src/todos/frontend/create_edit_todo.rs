@@ -225,9 +225,14 @@ pub fn CreateEditToDoModal(
 
                     // Edit-Modus
                     let updated_todo = TodoEventLight {
-                        //Hier light creieren und in backend funktion in Transfer Objekt wandeln
                         id: existing_todo.id.clone(),
-                        todo_list_id: list_id,
+
+                        todo_list_id: if list_id.is_empty() {
+                            existing_todo.todo_list_id.clone()
+                        } else {
+                            list_id
+                        },
+                        //Hier light creieren und in backend funktion in Transfer Objekt wandeln
                         summary: new_task_title(),
                         description: description,
                         completed: existing_todo.completed,
