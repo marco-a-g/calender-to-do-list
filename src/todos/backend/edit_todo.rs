@@ -36,12 +36,29 @@ struct UpdateTodoTransfer {
 fn light_todo_into_update(
     light: TodoEventLight,
 ) -> Result<UpdateTodoTransfer, Box<dyn std::error::Error>> {
-    let todo_list_id_transfer = Uuid::parse_str(&light.todo_list_id).ok();
-
-    let due_datetime_transfer = light
-        .due_datetime
-        .as_deref()
-        .and_then(|s| html_input_to_db(s).unwrap_or(None));
+    let todo_list_id_transfer = match Uuid::parse_str(&light.todo_list_id) {
+        Ok(uuid) => Some(uuid),
+        Err(e) => {
+            if !light.todo_list_id.is_empty() {
+                eprintln!(
+                    "Warnung: Invalid Todo List UUID '{}': {}",
+                    light.todo_list_id, e
+                );
+            }
+            None
+        }
+    };
+    let due_datetime_transfer =
+        light
+            .due_datetime
+            .as_deref()
+            .and_then(|s| match html_input_to_db(s) {
+                Ok(dt) => dt,
+                Err(e) => {
+                    eprintln!("Warnung: Invalid Due Date '{}': {}", s, e);
+                    None
+                }
+            });
 
     let priority_transfer = light
         .priority
@@ -49,22 +66,48 @@ fn light_todo_into_update(
         .to_lowercase();
 
     let assigned_to_user_transfer = match light.assigned_to_user {
-        Some(user_id) => Uuid::parse_str(&user_id).ok(),
+        Some(user_id) => match Uuid::parse_str(&user_id) {
+            Ok(uid) => Some(uid),
+            Err(e) => {
+                eprintln!("Warnung: Invalid Assigned User UUID '{}': {}", user_id, e);
+                None
+            }
+        },
         None => None,
     };
 
-    let recurrence_until_transfer = light
-        .recurrence_until
-        .as_deref()
-        .and_then(|s| html_input_to_db(s).unwrap_or(None));
+    let recurrence_until_transfer =
+        light
+            .recurrence_until
+            .as_deref()
+            .and_then(|s| match html_input_to_db(s) {
+                Ok(dt) => dt,
+                Err(e) => {
+                    eprintln!("Warnung: Invalid Recurrence Until Date '{}': {}", s, e);
+                    None
+                }
+            });
 
-    let overrides_transfer = light
-        .overrides_datetime
-        .as_deref()
-        .and_then(|s| html_input_to_db(s).unwrap_or(None));
+    let overrides_transfer =
+        light
+            .overrides_datetime
+            .as_deref()
+            .and_then(|s| match html_input_to_db(s) {
+                Ok(dt) => dt,
+                Err(e) => {
+                    eprintln!("Warnung: Invalid Overrides Date '{}': {}", s, e);
+                    None
+                }
+            });
 
     let recurrence_id_transfer = if let Some(rid) = light.recurrence_id {
-        Uuid::parse_str(&rid).ok()
+        match Uuid::parse_str(&rid) {
+            Ok(uid) => Some(uid),
+            Err(e) => {
+                eprintln!("Warnung: Invalid Recurrence ID '{}': {}", rid, e);
+                None
+            }
+        }
     } else {
         None
     };
@@ -158,6 +201,10 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
                 let status = res.status();
                 if !status.is_success() {
                     let error_text = res.text().await.unwrap_or_default();
+                    eprintln!(
+                        "Supabase Error (Create Exception): {} - {}",
+                        status, error_text
+                    );
                     return Err(ServerFnError::new(format!(
                         "Supabase Error on Exception Create: {}",
                         error_text
@@ -165,11 +212,14 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
                 }
                 println!("Exception created successfully via edit.");
                 if let Err(e) = sync_local_to_remote_db().await {
-                    println!("Sync error: {:?}", e);
+                    eprintln!("Sync error after edit_todo: {:?}", e);
                 }
                 return Ok(status);
             }
-            Err(e) => return Err(ServerFnError::new(format!("Network Error: {}", e))),
+            Err(e) => {
+                eprintln!("Network Error bei Exception Create: {}", e);
+                return Err(ServerFnError::new(format!("Network Error: {}", e)));
+            }
         }
     }
 
@@ -182,7 +232,7 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
     let update_transfer = match light_todo_into_update(todo) {
         Ok(data) => data,
         Err(e) => {
-            println!("Error: mapping LightTodo into UpdateTodo: {}", e);
+            eprintln!("Error: mapping LightTodo into UpdateTodo: {}", e);
             return Err(ServerFnError::new(format!("Mapping Error: {}", e)));
         }
     };
@@ -205,7 +255,7 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
             let status = response.status();
             if !status.is_success() {
                 let error_text = response.text().await.unwrap_or_default();
-                println!("Supabase respons error: {}", error_text);
+                eprintln!("Supabase respons error: {} - {}", status, error_text);
                 return Err(ServerFnError::new(format!(
                     "Supabase Error {}: {}",
                     status, error_text
@@ -213,10 +263,13 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
             }
             println!("Updated ToDo in Supabase.");
             if let Err(e) = sync_local_to_remote_db().await {
-                println!("Error on sync after edit_todo: {:?}", e);
+                eprintln!("Error on sync after edit_todo: {:?}", e);
             }
             Ok(status)
         }
-        Err(e) => Err(ServerFnError::new(format!("Network Error?: {}", e))),
+        Err(e) => {
+            eprintln!("Network Error bei Update: {}", e);
+            Err(ServerFnError::new(format!("Network Error?: {}", e)))
+        }
     }
 }
