@@ -1,6 +1,7 @@
 use crate::auth::backend::SUPABASE_URL;
 use crate::auth::backend::*;
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
+use crate::todos::backend::create_todo::ToDoTransfer;
 use crate::utils::date_handling::html_input_to_db;
 use crate::utils::functions::get_user_id_and_session_token;
 use crate::utils::structs::TodoEventLight;
@@ -9,6 +10,7 @@ use dioxus::prelude::*;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
 //Transferobjekt dür Kommunikation an Supabase
 #[derive(Debug, Deserialize, Serialize)]
 struct UpdateTodoTransfer {
@@ -91,10 +93,6 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
         todo.summary, todo.id
     );
 
-    // ID Checken
-    let todo_id = Uuid::parse_str(&todo.id)
-        .map_err(|e| ServerFnError::new(format!("Invalid uuid in edit_todo: {}", e)))?;
-
     let (_user_id_str, token) = match get_user_id_and_session_token().await {
         Ok(data) => data,
         Err(e) => {
@@ -102,6 +100,83 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
             return Err(e);
         }
     };
+
+    let client = reqwest::Client::new();
+
+    //Für Recurrance instanzen / nicht master -> Exception erstellen
+    if todo.recurrence_id.is_some() {
+        // Overrides_date holen
+        let overrides_date = if let Some(s) = &todo.due_datetime {
+            html_input_to_db(s).unwrap_or(None)
+        } else {
+            None
+        };
+
+        let overrides_date =
+            overrides_date.ok_or(ServerFnError::new("Instance has no valid due date"))?;
+
+        // Exceptioneintrag erstellen
+        let exception = ToDoTransfer {
+            summary: todo.summary.clone(),
+            description: todo.description.clone(),
+            todo_list_id: Uuid::parse_str(&todo.todo_list_id).ok(),
+            completed: todo.completed,
+            due_datetime: Some(overrides_date),
+            priority: todo
+                .priority
+                .clone()
+                .unwrap_or("normal".to_string())
+                .to_lowercase(),
+            assigned_to_user: todo
+                .assigned_to_user
+                .as_deref()
+                .and_then(|u| Uuid::parse_str(u).ok()),
+            attachment: todo.attachment.clone(),
+            rrule: None,
+            recurrence_until: None,
+            recurrence_id: todo
+                .recurrence_id
+                .as_deref()
+                .and_then(|id| Uuid::parse_str(id).ok()),
+            overrides_datetime: Some(overrides_date),
+            skipped: todo.skipped,
+        };
+
+        // Anfrage an Supabase mit neuem Exception event
+        let url_create = format!("{}/rest/v1/todo_events", SUPABASE_URL);
+        let response_create = client
+            .post(&url_create)
+            .bearer_auth(token)
+            .header("apikey", ANON_KEY)
+            .header("Content-Type", "application/json")
+            .json(&exception)
+            .send()
+            .await;
+
+        match response_create {
+            Ok(res) => {
+                let status = res.status();
+                if !status.is_success() {
+                    let error_text = res.text().await.unwrap_or_default();
+                    return Err(ServerFnError::new(format!(
+                        "Supabase Error on Exception Create: {}",
+                        error_text
+                    )));
+                }
+                println!("Exception created successfully via edit.");
+                if let Err(e) = sync_local_to_remote_db().await {
+                    println!("Sync error: {:?}", e);
+                }
+                return Ok(status);
+            }
+            Err(e) => return Err(ServerFnError::new(format!("Network Error: {}", e))),
+        }
+    }
+
+    //Master oder nicht recurring todo -> Eintrag selbst Updaten, keine exception
+    // ID Checken
+    let todo_id = Uuid::parse_str(&todo.id)
+        .map_err(|e| ServerFnError::new(format!("Invalid uuid in edit_todo: {}", e)))?;
 
     // Mappen in UpdateToDoTransfer
     let update_transfer = match light_todo_into_update(todo) {
@@ -114,7 +189,7 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
 
     //Http config
     let url_update = format!("{}/rest/v1/todo_events?id=eq.{}", SUPABASE_URL, todo_id);
-    let client = reqwest::Client::new();
+
     let response_result = client
         .patch(&url_update)
         .bearer_auth(token)

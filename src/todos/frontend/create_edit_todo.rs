@@ -313,6 +313,13 @@ pub fn CreateEditToDoModal(
             .collect()
     };
 
+    //Für Edit mode Unterscheidung in ist master oder ist rec.instanz
+    let is_recurrence_instance = if let Some(todo) = todo_to_edit() {
+        todo.recurrence_id.is_some()
+    } else {
+        false
+    };
+
     //Create ToDo Maske
     rsx! {
         div {
@@ -371,7 +378,16 @@ pub fn CreateEditToDoModal(
                         }
                     }
                 }
-
+            // Recurrance instanzen können RRule nicht ändern -> Andere Anzeige im Modal
+            if is_recurrence_instance {
+                div {
+                    style: "background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; color: #9ca3af; font-size: 13px; text-align: center; margin-bottom: 8px;",
+                    "Recurring settings are managed by the Master To-Do."
+                    br {}
+                    "Please edit the original task to change the schedule."
+                }
+            } else {
+                //Masterinstanzen können RRule schon ändern
                 // Rrule setzen
                 div { style: "display: flex; gap: 10px;",
                     div { class: "flex flex-col gap-2 flex-1",
@@ -407,8 +423,9 @@ pub fn CreateEditToDoModal(
                         }
                     }
                 }
+            }
 
-                // Gruppe zuweisen / Auswhal
+            // Gruppe zuweisen / Auswhal
                 div { class: "flex flex-col gap-2",
                     label { style: "font-size: 12px; color: #9ca3af; text-transform: uppercase;", "Assign to Group" }
                     select {
