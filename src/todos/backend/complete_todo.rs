@@ -80,7 +80,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
 
             // Anfrage an Supabase mit neuem Exception event
             let url_create = format!("{}/rest/v1/todo_events", SUPABASE_URL);
-            let _response_result = client
+            let response_history = client
                 .post(&url_create)
                 .bearer_auth(token.clone())
                 .header("apikey", ANON_KEY)
@@ -88,6 +88,26 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
                 .json(&history_entry)
                 .send()
                 .await;
+
+            match response_history {
+                Ok(res) => {
+                    if !res.status().is_success() {
+                        let error_text = res.text().await.unwrap_or_default();
+                        println!(
+                            "Fehler beim Erstellen der History/Exception: {}",
+                            error_text
+                        );
+                        return Err(ServerFnError::new(format!(
+                            "History Creation Failed: {}",
+                            error_text
+                        )));
+                    }
+                }
+                Err(e) => {
+                    println!("Netzwerkfehler beim History-Eintrag: {}", e);
+                    return Err(ServerFnError::new(format!("Network Error History: {}", e)));
+                }
+            }
 
             // Due Date für master auf späteres setzen
             let url_update = format!("{}/rest/v1/todo_events?id=eq.{}", SUPABASE_URL, todo.id);
@@ -184,6 +204,15 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
         // Response check
         match response_create {
             Ok(res) => {
+                if !res.status().is_success() {
+                    let error_text = res.text().await.unwrap_or_default();
+                    println!("Supabase Error creating exception: {}", error_text);
+                    return Err(ServerFnError::new(format!(
+                        "Supabase Error: {}",
+                        error_text
+                    )));
+                }
+
                 println!("Exception created.");
                 if let Err(e) = sync_local_to_remote_db().await {
                     println!("Sync error: {:?}", e);

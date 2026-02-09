@@ -28,7 +28,6 @@ use uuid::Uuid;
 #[component]
 pub fn ToDoDashboard() -> Element {
     let today_date = use_signal(|| Local::now().format("%A, %d.%m.%Y").to_string());
-
     //Standardwerte für ToDoView setzen
     let mut selected_category = use_signal(|| GroupFilter::AllGroups);
     let mut selected_list_filter = use_signal(|| ListFilter::AllLists);
@@ -39,10 +38,10 @@ pub fn ToDoDashboard() -> Element {
     let mut list_to_edit = use_signal(|| None::<TodoListLight>);
     //leeres Set aus Tasks erstellen um u.a. nachher geladenen tasks trennen zu können in erledigt / nicht erledigt
     let mut tasks_signal = use_signal(|| Vec::<TodoEventLight>::new());
-
+    //modal zur abfrage ob bei recurring todos bei Änderung ganze reige oder nur instanz geändert werden soll
     let mut show_recurrence_choice_modal = use_signal(|| false);
+    //Zwischenspeicher des zu bearbeitenden todos vor abfrage (nur instanz oder reihe)
     let mut pending_todo_for_edit = use_signal(|| None::<TodoEventLight>);
-
     // Signal das an CreateEditToDoModal übergeben wird um Modus zu steuern
     let mut edit_series_mode = use_signal(|| true);
 
