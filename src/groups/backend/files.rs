@@ -1,13 +1,11 @@
-/* Supabase Storage backend for group files.
+/* 
+Supabase Storage backend for group files.
 This module provides server functions to:
  - List files in the `group-files` bucket under a `group_id/` prefix
  - Upload a file to `group-files/{group_id}/{filename}`
  - Delete a file from the same path
  - Create a signed, time-limited download URL
-
-Security note:
- These functions use the Supabase SERVICE ROLE key. This must only run on the server
- Never expose the service role key to the client */
+ */
 
 use dioxus::prelude::*;
 use serde::Deserialize;

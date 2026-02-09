@@ -23,24 +23,24 @@ fn role_badge_classes(role: &str) -> (&'static str, &'static str) {
 // Members tab content showing all members of a group
 #[component]
 pub fn MembersTab(group_id: String, open_invite_from_right: Signal<bool>) -> Element {
+    let group_id_for_fetch = group_id.clone();
+
     let members = use_resource(move || {
-        let gid = group_id.clone();
+        let gid = group_id_for_fetch.clone();
         async move { fetch_members(gid).await }
     });
-
-    let member_count = members
-        .read()
-        .as_ref()
-        .and_then(|r| r.as_ref().ok())
-        .map(|v| v.len())
-        .unwrap_or(0);
 
     rsx! {
         div { class: "w-full min-h-0 flex flex-col gap-4",
             div { class: "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-none",
                 div {
                     div { class: "text-white/60 text-xs tracking-[0.18em]", "MEMBERS" }
-                    div { class: "text-white/40 text-sm mt-1", "{member_count} in this group" }
+                    div { class: "text-white/40 text-sm mt-1",
+                        match members.read().as_ref() {
+                            Some(Ok(list)) => format!("{} in this group", list.len()),
+                            _ => "Loading...".to_string(),
+                        }
+                    }
                 }
             }
 
@@ -81,7 +81,6 @@ fn MemberRow(username: String, user_id: String, role: String) -> Element {
             ",
 
             div { class: "flex items-center gap-4 min-w-0",
-                // Avatar placeholder with first letter of username
                 div {
                     class: "
                         w-10 h-10 rounded-2xl

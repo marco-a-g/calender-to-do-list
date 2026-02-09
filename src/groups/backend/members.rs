@@ -1,10 +1,4 @@
 // Local members backend (SQLite)
-//
-// This module provides server functions for reading group membership data from the
-// local SQLite database (offline-first / cached data path)
-//
-// Note: This is NOT hitting Supabase yet. If you later switch to Supabase,
-// the fetch logic and authentication model will change accordingly
 
 use dioxus::prelude::*;
 use sqlx::{ConnectOptions, SqlitePool};

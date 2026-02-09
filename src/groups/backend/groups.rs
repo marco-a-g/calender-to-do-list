@@ -4,7 +4,7 @@ We intentionally do NOT use the service role key here - RLS enforces permissions
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use chrono::Utc;
-use dioxus::prelude::*;
+use dioxus::{html::u::counter_increment, prelude::*};
 use serde::{Deserialize, Serialize};
 
 // Transfer type for group data: (group_id, name, color_hex, member_count)
@@ -91,6 +91,47 @@ pub async fn fetch_groups(
         .await
         .map_err(|e| ServerFnError::new(format!("fetch_groups json: {e}")))?;
 
+    let group_ids: Vec<String> = rows.iter()
+        .filter_map(|r| r.groups.as_ref().map(|g| g.id.clone()))
+        .collect();
+
+    let mut member_counts: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+    
+    if !group_ids.is_empty() {
+        let ids_param = group_ids.iter()
+            .map(|id| format!("\"{}\"", id))
+            .collect::<Vec<_>>()
+            .join(",");
+        
+        let count_endpoint = format!(
+            "{}/rest/v1/group_members?group_id=in.({})&role=neq.invited&select=group_id",
+            url, ids_param
+        );
+
+        let count_response = client
+            .get(&count_endpoint)
+            .header("apikey", key)
+            .header("Authorization", &auth)
+            .send()
+            .await
+            .ok();
+
+        if let Some(resp) = count_response {
+            if resp.status().is_success() {
+                #[derive(Deserialize)]
+                struct MemberCount {
+                    group_id: String,
+                }
+                
+                if let Ok(members) = resp.json::<Vec<MemberCount>>().await {
+                    for m in members {
+                        *member_counts.entry(m.group_id).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+    }
+
     let result: Vec<GroupTransfer> = rows
         .into_iter()
         .filter_map(|r| {
@@ -99,7 +140,8 @@ pub async fn fetch_groups(
                     .color
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| DEFAULT_GROUP_COLOR.to_string());
-                (g.id, g.name, color, 0_i32)
+                let count = member_counts.get(&g.id).copied().unwrap_or(0);
+                (g.id, g.name, color, count)
             })
         })
         .collect();
