@@ -43,6 +43,7 @@ pub fn CreateEditToDoModal(
     show_modal: Signal<bool>,
     on_refresh: EventHandler<()>,
     todo_to_edit: Signal<Option<TodoEventLight>>,
+    edit_series_mode: Signal<bool>,
 ) -> Element {
     //Standards fürs erstellen setzen
     let mut new_task_title = use_signal(|| String::new());
@@ -118,6 +119,7 @@ pub fn CreateEditToDoModal(
         new_task_priority.set("normal".to_string());
         new_task_rrule.set(String::new());
         new_task_recurrence_until.set(String::new());
+        edit_series_mode.set(true);
     };
 
     //let all_lists_for_handler = all_lists.clone();
@@ -191,6 +193,36 @@ pub fn CreateEditToDoModal(
 
                 // Unterscheidung für Edit und Create hier
                 if let Some(existing_todo) = todo_to_edit() {
+                    //:________________________________________________________________
+                    //Hier Edit
+                    //Unterscheidung für Ganze reihe oder nur diese Instanz
+                    // Prüfen: Ist es ein Master, der sich wiederholt?
+                    let is_master_recurring =
+                        existing_todo.recurrence_id.is_none() && existing_todo.rrule.is_some();
+
+                    //uuid, rrule, und overides datetime extrahieren, anhand von Fallunterscheidung in: ist recurring todo und soll ganze serie bearbeiten
+                    let (target_rec_id, target_rrule, target_overrides) = if is_master_recurring {
+                        // Ganze Reihe editieren -> Auf Mastereintrag arbeiten
+                        if edit_series_mode() {
+                            (None, rrule, None)
+                        } else {
+                            // Nur einzelne Instanz eines recurring todos ändern
+                            (
+                                Some(existing_todo.id.clone()),
+                                None,
+                                existing_todo.due_datetime.clone(),
+                            )
+                        }
+                    } else {
+                        // Nicht Recurring todo ändern oder existierende Exception eines Masters
+                        (
+                            existing_todo.recurrence_id.clone(),
+                            rrule,
+                            existing_todo.overrides_datetime.clone(),
+                        )
+                    };
+                    //:________________________________________________________________
+
                     // Edit-Modus
                     let updated_todo = TodoEventLight {
                         //Hier light creieren und in backend funktion in Transfer Objekt wandeln
@@ -202,18 +234,18 @@ pub fn CreateEditToDoModal(
                         due_datetime: due_date,
                         priority: Some(new_task_priority()),
                         attachment: existing_todo.attachment.clone(),
-                        rrule: rrule,
+                        rrule: target_rrule, //rrule aus Fallunterscheidung oben nutzen
                         recurrence_until: recurrence_until,
-                        recurrence_id: existing_todo.recurrence_id.clone(),
+                        recurrence_id: target_rec_id, //recid  aus Fallunterscheidung oben nutzen
                         created_by: existing_todo.created_by.clone(),
                         created_at: existing_todo.created_at.clone(),
                         last_mod: Local::now().to_rfc3339(),
                         assigned_to_user: assignee,
                         skipped: existing_todo.skipped,
-                        overrides_datetime: existing_todo.overrides_datetime.clone(),
+                        overrides_datetime: target_overrides, //overrides datetime aus Fallunterscheidung oben nutzen
                     };
 
-                    let _ = edit_todo_event(updated_todo).await; // Edit Funkrion an Remote -DB //nochmal anpassen mit recc
+                    let _ = edit_todo_event(updated_todo).await; // Edit Funkrion an Remote -DB, kümmert sich selbst um Fallunterscheidung anhand eingabeparameter nach Fallunterscheidung oben
                 } else {
                     // Create-Modus
                     let new_todo_list_id = list_id;
@@ -271,6 +303,7 @@ pub fn CreateEditToDoModal(
                 todo_to_edit.set(None);
                 show_modal.set(false);
                 on_refresh.call(());
+                edit_series_mode.set(true);
             }
         }
     };

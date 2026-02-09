@@ -80,7 +80,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
 
             // Anfrage an Supabase mit neuem Exception event
             let url_create = format!("{}/rest/v1/todo_events", SUPABASE_URL);
-            let response_result = client
+            let _response_result = client
                 .post(&url_create)
                 .bearer_auth(token.clone())
                 .header("apikey", ANON_KEY)

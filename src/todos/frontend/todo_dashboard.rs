@@ -5,6 +5,7 @@ use super::create_edit_todo::{CreateEditToDoModal, CreateToDoButton};
 use super::create_edit_todolist::{CreateEditListModal, CreateListButton};
 use super::filter_todos::{FilterSidebar, GroupFilter, ListFilter};
 use super::open_todos::OpenToDoView;
+use super::recurrance_edit_modal::{EditRecurrenceChoiceModal, EditRecurrenceMode};
 use super::todo_detail::ToDoDetailModal;
 use super::todo_history::HistoryView;
 use crate::database::local::init_fetch::init_fetch_local_db::{
@@ -18,7 +19,6 @@ use crate::utils::structs::{
     CalendarEventLight, CalendarLight, GroupLight, GroupMemberLight, ProfileLight, TodoEventLight,
     TodoListLight,
 };
-
 use chrono::Local;
 use dioxus::prelude::*;
 use std::str::FromStr;
@@ -32,13 +32,19 @@ pub fn ToDoDashboard() -> Element {
     //Standardwerte für ToDoView setzen
     let mut selected_category = use_signal(|| GroupFilter::AllGroups);
     let mut selected_list_filter = use_signal(|| ListFilter::AllLists);
-    let mut show_create_todo_modal = use_signal(|| false);
-    let mut show_create_list_modal = use_signal(|| false);
+    let mut show_create_edit_todo_modal = use_signal(|| false);
+    let mut show_create_edit_list_modal = use_signal(|| false);
     let mut selected_todo_for_detail = use_signal(|| None::<TodoEventLight>);
     let mut todo_to_edit = use_signal(|| None::<TodoEventLight>);
     let mut list_to_edit = use_signal(|| None::<TodoListLight>);
     //leeres Set aus Tasks erstellen um u.a. nachher geladenen tasks trennen zu können in erledigt / nicht erledigt
     let mut tasks_signal = use_signal(|| Vec::<TodoEventLight>::new());
+
+    let mut show_recurrence_choice_modal = use_signal(|| false);
+    let mut pending_todo_for_edit = use_signal(|| None::<TodoEventLight>);
+
+    // Signal das an CreateEditToDoModal übergeben wird um Modus zu steuern
+    let mut edit_series_mode = use_signal(|| true);
 
     //alle Daten aus lokaler Datenbank ziehen und joinen
     let mut full_data_resource = use_resource(move || async move {
@@ -162,15 +168,42 @@ pub fn ToDoDashboard() -> Element {
     let handle_edit_request = move |todo: TodoEventLight| {
         //Setzt Detailansicht eines ToDos auf aus
         selected_todo_for_detail.set(None);
-        //setzt zum bearbeitendes Todo in dafür vorgesehene var
-        todo_to_edit.set(Some(todo));
-        // Eigabemaske für TODO-Erstellung anzeigen (unterscheidet dann zw. edit und create)
-        show_create_todo_modal.set(true);
+
+        // Prüfen, ob es sich um ein Master-Todo mit Wiederholung handelt
+        let is_master_recurring = todo.recurrence_id.is_none() && todo.rrule.is_some();
+
+        if is_master_recurring {
+            // Falls ja: Zeige das Auswahl-Modal für ganze serie bearbeiten oder
+            pending_todo_for_edit.set(Some(todo)); // Todo zwischenspeichern
+            show_recurrence_choice_modal.set(true);
+        } else {
+            // Normales Todo oder Instanz eines rec.Masters -> nur diesesbearbeiten
+            edit_series_mode.set(false);
+            todo_to_edit.set(Some(todo));
+            show_create_edit_todo_modal.set(true);
+        }
     };
+
+    // handled die Auswahl von ganze Serie bearbeiten oder nur erste instanz
+    let handle_recurrence_choice = move |mode: EditRecurrenceMode| {
+        if let Some(todo) = pending_todo_for_edit() {
+            // Entscheidung ins Signal schreiben
+            match mode {
+                EditRecurrenceMode::WholeSeries => edit_series_mode.set(true),
+                EditRecurrenceMode::OnlyInstance => edit_series_mode.set(false),
+            }
+            // Jetzt  Edit-Modal öffnen mit dem gespeicherten Todo
+            todo_to_edit.set(Some(todo));
+            show_create_edit_todo_modal.set(true);
+            // Zwischenspeicher leeren
+            pending_todo_for_edit.set(None);
+        }
+    };
+
     let handle_edit_list_request = move |list: TodoListLight| {
         selected_todo_for_detail.set(None);
         list_to_edit.set(Some(list));
-        show_create_list_modal.set(true);
+        show_create_edit_list_modal.set(true);
     };
 
     //Selected ToDo setzen
@@ -204,25 +237,35 @@ pub fn ToDoDashboard() -> Element {
         div {
             style: "width: 100%; height: 100%; background: #05060b; display: flex; overflow: hidden; font-family: sans-serif; position: relative;",
 
-            if show_create_todo_modal() {
+            EditRecurrenceChoiceModal {
+                show_modal: show_recurrence_choice_modal,
+                on_close: move |_| {
+                    show_recurrence_choice_modal.set(false);
+                    pending_todo_for_edit.set(None);
+                },
+                on_confirm: handle_recurrence_choice
+            }
+
+            if show_create_edit_todo_modal() {
                 CreateEditToDoModal {
                     //create ToDo-Komponente rendern und Listen übergeben
                     groups: groups_data.clone(),
                     all_lists: lists_data.clone(),
                     all_profiles: profiles_data.clone(),
                     all_group_members: members_data.clone(),
-                    show_modal: show_create_todo_modal,
+                    show_modal: show_create_edit_todo_modal,
                     on_refresh: handle_refresh,
-                    todo_to_edit: todo_to_edit
+                    todo_to_edit: todo_to_edit,
+                    edit_series_mode: edit_series_mode,
                 }
             }
-            if show_create_list_modal() {
+            if show_create_edit_list_modal() {
                 //create Liste-Komponente rendern und Listen übergeben
                 CreateEditListModal {
                     groups: groups_data.clone(),
                     all_events: events_data.clone(),
                     all_calendars: calendars_data.clone(),
-                    show_modal: show_create_list_modal,
+                    show_modal: show_create_edit_list_modal,
                     on_refresh: handle_refresh,
                     list_to_edit: list_to_edit,
                     selected_category: selected_category,
@@ -282,10 +325,10 @@ pub fn ToDoDashboard() -> Element {
                         //Setzt geöffnete Detailansicht auf aus
                         todo_to_edit.set(None);
                         //öffnet create todo eingabemaske
-                        show_create_todo_modal.set(true);
+                        show_create_edit_todo_modal.set(true);
                     }}
                     CreateListButton { onclick: move |_| //öffnet create List eingabemaske
-                        show_create_list_modal.set(true) }
+                        show_create_edit_list_modal.set(true) }
                 }
 
                 div {
