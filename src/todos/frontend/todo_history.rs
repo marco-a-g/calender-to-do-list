@@ -71,6 +71,11 @@ fn HistoryItem(
         (None, None) //Sollte Nicht auch Gruppe ohne liste möglich sein? In JF fragen
     };
 
+    let group_badge_color = parent_group
+        .as_ref()
+        .map(|g| g.color.clone())
+        .unwrap_or_else(|| "#9ca3af".to_string());
+
     //div für die einzelnen Abgeschlossenen Items
     rsx! {
         div {
@@ -95,16 +100,18 @@ fn HistoryItem(
                         }
                     }
                     // Zugehöriges Listen- & Gruppen-Badge, nur anzeigen if label vorhanden
-                    if let Some(label) = group_label {
+                    //Color des Labels nun an Gruppencolor angepasst
+                    if let Some(label_group) = group_label {
                         span {
-                            style: "font-size: 9px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 1px 5px; border-radius: 3px; font-weight: 500; text-transform: uppercase;",
-                            "{label}"
+                            style: format!("font-size: 10px; background: color-mix(in srgb, {}, transparent 85%); color: {}; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
+                                    group_badge_color,
+                                    group_badge_color),
+                                     "{label_group}"}
                         }
-                    }
                     if let Some(label) = list_label {
                         if uuid::Uuid::parse_str(&label).is_err() {
                             span {
-                                style: "font-size: 10px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
+                                style: "font-size: 10px; background: rgba(255, 255, 255, 0.1); color: #9ca3af; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
                                 "{label}"
                             }
                         }

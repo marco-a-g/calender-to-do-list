@@ -339,6 +339,11 @@ fn ToDoItem(
     };
 
     // Label fürs ToDo
+    let group_badge_color = parent_group
+        .as_ref()
+        .map(|g| g.color.clone())
+        .unwrap_or_else(|| "#9ca3af".to_string());
+
     let (group_badge, list_badge) = if let Some(list) = &parent_list {
         let g_text = if list.list_type == "private" {
             "Personal".to_string()
@@ -352,8 +357,9 @@ fn ToDoItem(
         let l_text = format!("{}", list.name);
         (Some(g_text), Some(l_text))
     } else {
-        (None, None) //Sollte auch Liste ohne Gruppe möglich sein oder? In JF besprechen
+        (None, None)
     };
+
     //Wenn ToDo-Liste zu einem Event gehört Event label bei ToDo rendern (Über Parent list gehen -> hat es event id -> Event anhanf von id finden -> Summary/Name mit ausgeben)
     let event_badge = if let Some(list) = &parent_list {
         if let Some(event_id) = &list.attached_to_calendar_event {
@@ -417,20 +423,24 @@ fn ToDoItem(
                             "Due: {display_date}"
                         }
                     }
-                    if let Some(label) = group_badge {
+                    //Color des Labels nun an Gruppencolor angepasst
+                    if let Some(label_group) = group_badge {
                         span {
-                            style: "font-size: 10px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
-                            "{label}"
+                            style: format!("font-size: 10px; background: color-mix(in srgb, {}, transparent 85%); color: {}; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
+                                    group_badge_color,
+                                    group_badge_color),
+                                     "{label_group}"}
                         }
-                    }
-                    if let Some(label) = list_badge {
-                        if uuid::Uuid::parse_str(&label).is_err() {
+
+                    if let Some(label_list) = list_badge {
+                        if uuid::Uuid::parse_str(&label_list).is_err() {
                             span {
-                                style: "font-size: 10px; background: rgba(58, 107, 255, 0.15); color: #3A6BFF; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
-                                "{label}"
+                                style: "font-size: 10px; background: rgba(255, 255, 255, 0.1); color: #9ca3af; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
+                                "{label_list}"
                             }
                         }
                     }
+
                     if let Some(evt_label) = event_badge {
                         span {
                             style: "font-size: 10px; background: rgba(255, 255, 255, 0.1); color: #9ca3af; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;",
