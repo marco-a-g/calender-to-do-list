@@ -1,4 +1,4 @@
-/* 
+/*
 Supabase Storage backend for group files.
 This module provides server functions to:
  - List files in the `group-files` bucket under a `group_id/` prefix

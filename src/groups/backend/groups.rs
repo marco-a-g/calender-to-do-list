@@ -91,18 +91,21 @@ pub async fn fetch_groups(
         .await
         .map_err(|e| ServerFnError::new(format!("fetch_groups json: {e}")))?;
 
-    let group_ids: Vec<String> = rows.iter()
+    let group_ids: Vec<String> = rows
+        .iter()
         .filter_map(|r| r.groups.as_ref().map(|g| g.id.clone()))
         .collect();
 
-    let mut member_counts: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
-    
+    let mut member_counts: std::collections::HashMap<String, i32> =
+        std::collections::HashMap::new();
+
     if !group_ids.is_empty() {
-        let ids_param = group_ids.iter()
+        let ids_param = group_ids
+            .iter()
             .map(|id| format!("\"{}\"", id))
             .collect::<Vec<_>>()
             .join(",");
-        
+
         let count_endpoint = format!(
             "{}/rest/v1/group_members?group_id=in.({})&role=neq.invited&select=group_id",
             url, ids_param
@@ -122,7 +125,7 @@ pub async fn fetch_groups(
                 struct MemberCount {
                     group_id: String,
                 }
-                
+
                 if let Ok(members) = resp.json::<Vec<MemberCount>>().await {
                     for m in members {
                         *member_counts.entry(m.group_id).or_insert(0) += 1;
