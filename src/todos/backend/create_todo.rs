@@ -57,13 +57,26 @@ pub fn frontend_input_to_todo(
     };
 
     //ID Zugewiesener user parsen
-    let assignee_uuid = assigned_to_user
-        .filter(|s| !s.is_empty())
-        .and_then(|s| Uuid::parse_str(&s).ok());
+    let assignee_uuid =
+        assigned_to_user
+            .filter(|s| !s.is_empty())
+            .and_then(|s| match Uuid::parse_str(&s) {
+                Ok(uuid) => Some(uuid),
+                Err(e) => {
+                    eprintln!("Warnung: Invalid Assignee UUID '{}': {}", s, e);
+                    None
+                }
+            });
     //Due Date parsen
     let due_date = due_datetime
         .as_deref()
-        .and_then(|s| html_input_to_db(s).unwrap_or(None));
+        .and_then(|s| match html_input_to_db(s) {
+            Ok(dt) => dt,
+            Err(e) => {
+                eprintln!("Warnung: Due Date Parse Error für '{}': {}", s, e);
+                None
+            }
+        });
     //Priority parsen
     let priority = priority
         .as_deref()
@@ -75,11 +88,21 @@ pub fn frontend_input_to_todo(
             let parsed_rule = match Rrule::from_str(&rule_str) {
                 Ok(r) => Some(r),
                 Err(e) => {
-                    println!("Rrule parsing error für '{}': {}", rule_str, e);
+                    eprintln!("Rrule parsing error für '{}': {}", rule_str, e);
                     None
                 }
             };
-            let parsed_until = html_input_to_db(&until_str).unwrap_or(None);
+            let parsed_until = match html_input_to_db(&until_str) {
+                Ok(dt) => dt,
+                Err(e) => {
+                    eprintln!(
+                        "Warnung: Recurrence Until Parse Error für '{}': {}",
+                        until_str, e
+                    );
+                    None
+                }
+            };
+
             if let (Some(r), Some(u)) = (parsed_rule, parsed_until) {
                 Some(Recurrent {
                     rrule: r,
@@ -185,10 +208,14 @@ pub async fn create_todo_event(mut todo: ToDoTransfer) -> Result<StatusCode, Ser
         }
     };
     //bestehende Listen für ShadowList Abgleich holen
-    let all_lists: Vec<TodoListLight> = fetch_todo_lists_lokal_db().await?;
+    let all_lists: Vec<TodoListLight> = fetch_todo_lists_lokal_db().await.map_err(|e| {
+        eprintln!("Fehler beim Abrufen der lokalen Listen: {}", e);
+        e
+    })?;
     //checkt für ShadowListen ID bzw. Richtige Gruppen ID
     let final_list_id =
         map_id_to_shadow_list(todo.todo_list_id, user_id_str, &all_lists).map_err(|e| {
+            eprintln!("Mapping Error (ShadowList check): {}", e);
             ServerFnError::new(format!("List Mapping Error on ShadowList check: {}", e))
         })?;
 
@@ -227,7 +254,7 @@ pub async fn create_todo_event(mut todo: ToDoTransfer) -> Result<StatusCode, Ser
             let status = response.status();
             if !status.is_success() {
                 let error_text = response.text().await.unwrap_or_default();
-                println!("Supabase respons error: {}", error_text);
+                eprintln!("Supabase respons error: {}", error_text);
                 return Err(ServerFnError::new(format!(
                     "Supabase Error {}: {}",
                     status, error_text
@@ -235,11 +262,14 @@ pub async fn create_todo_event(mut todo: ToDoTransfer) -> Result<StatusCode, Ser
             }
             println!("Created ToDo in Supabase.");
             if let Err(e) = sync_local_to_remote_db().await {
-                println!("Error on sync after create_todo: {:?}", e);
+                eprintln!("Error on sync after create_todo: {:?}", e);
             }
             Ok(status)
         }
-        Err(e) => Err(ServerFnError::new(format!("Network Error?: {}", e))),
+        Err(e) => {
+            eprintln!("Network Error bei create_todo: {}", e);
+            Err(ServerFnError::new(format!("Network Error?: {}", e)))
+        }
     }
 }
 
