@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::auth::backend::*;
+use crate::calendar::backend::create_calendar_event::create_calendar_event;
 use crate::calendar::backend::{delete_calendar_event::*, utils::check_input_sensibility};
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::{functions::*, structs::*};
@@ -27,6 +28,49 @@ pub struct CalendarEventUp {
     pub recurrence_id: Option<String>,
     pub overrides_datetime: Option<String>,
     pub skipped: String,
+}
+
+/// For changing a single instance of an recurrent event. To delete  an instance use delete_instance_of_recurrent_event().
+// #[server]
+pub async fn edit_instance_of_recurrent_event(
+    instance: CalendarEvent,
+) -> core::result::Result<(), ServerFnError> {
+    //check validity of new version itself
+    check_input_sensibility(
+        instance.summary.clone(),
+        instance.calendar_id,
+        instance.from_date_time,
+        instance.to_date_time,
+        instance.recurrence.clone(),
+        instance.recurrence_exception.clone(),
+    )
+    .await?;
+    if let Some(rec_ex) = instance.recurrence_exception
+        && let Some(overr) = rec_ex.overrides
+        && overr.skipped
+    {
+        return delete_instance_of_recurrent_event(
+            rec_ex.recurrence_id,
+            overr.overrides_datetime,
+            None,
+            None,
+        )
+        .await;
+    }
+    create_calendar_event(
+        instance.summary,
+        instance.description,
+        instance.calendar_id,
+        instance.from_date_time,
+        instance.to_date_time,
+        instance.attachment,
+        None,
+        instance.recurrence_exception,
+        instance.location,
+        instance.categories,
+        instance.is_all_day,
+    )
+    .await
 }
 
 /// For making changes to a calendar event. Mind that for a recurrent event you may not change the beginning of the recurrent event and the frequency within one change.
@@ -498,6 +542,7 @@ pub async fn edit_calendar_event(
         .await?;
     }
     edit_calendar_event_unchecked(new_version).await?;
+    sync_local_to_remote_db().await?;
     Ok(())
 }
 
