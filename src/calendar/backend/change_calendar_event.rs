@@ -29,13 +29,7 @@ pub struct CalendarEventUp {
     pub skipped: String,
 }
 
-// fehlt noch:
-//   - from_date_time auch für children ändern, die die selbe from_date_time
-//   - handle out-of-range
-//   - handle depending to_do_lists
-//   - check rrule
-
-///
+/// For making changes to a calendar event. Mind that for a recurrent event you may not change the beginning of the recurrent event and the frequency within one change.
 // #[server]
 pub async fn edit_calendar_event(
     new_version: CalendarEvent,
