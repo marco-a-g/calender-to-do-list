@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Datelike, Days, Local, Months, NaiveDateTime, TimeZone, Utc, Weekday};
 use dioxus::html::u::orphans;
 use dioxus::prelude::*;
 use reqwest::*;
@@ -7,10 +7,262 @@ use supabase::client::*;
 use uuid::Uuid;
 
 use crate::auth::backend::*;
-use crate::calendar::backend::change_calendar_event::*;
+use crate::calendar::backend::change_calendar_event::{self, *};
 use crate::calendar::backend::utils::{check_deleted, check_input_sensibility};
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::{functions::*, structs::*};
+
+/// Deletes an Instance of an recurrent event. In case this is the last regular instance of the recurrent event the whole event will be deleted.
+/// In this case pass_on_to will be used as new parent event (and therefore set to recurrent if it is not) for remaining instances.
+/// If pass_on_to is None, will be turned into single CalendarEvents (if keep_orphans == true) or they will be deleted (otherwise).
+// #[server]
+pub async fn delete_instance_of_recurrent_event(
+    recurrent_event_id: Uuid,
+    instance_date: DateTime<Utc>,
+    pass_on_to: Option<CalendarEvent>,
+    keep_orphans: Option<bool>,
+) -> core::result::Result<(), ServerFnError> {
+    let rec_event = get_calendar_event_from_remote(recurrent_event_id).await?;
+
+    let url_events = format!(
+        "{}/rest/v1/calendar_events?recurrence_id=eq.{}&overrides_datetime=eq.{}",
+        SUPABASE_URL, recurrent_event_id, instance_date
+    );
+    let response_event_text = get_elements_from_remote_by_url_string_unchecked(url_events).await?;
+    let mut exception_event = parse_response_string_to_calendar_events(response_event_text).await?;
+
+    // check if this is the only regular instance and handle orphans
+    if rec_event.from_date_time == rec_event.recurrence.unwrap().recurrence_until {
+        let exceptions = get_calendar_events_by_recurrence_id(recurrent_event_id).await?;
+        if exceptions.len() != 0 {
+            if let Some(p_o_t) = pass_on_to {
+                if let None = p_o_t.recurrence {
+                    edit_calendar_event(
+                        CalendarEvent {
+                            id: p_o_t.id,
+                            summary: p_o_t.summary,
+                            description: p_o_t.description,
+                            calendar_id: p_o_t.calendar_id,
+                            created_at: p_o_t.created_at,
+                            created_by: p_o_t.created_by,
+                            from_date_time: p_o_t.from_date_time,
+                            to_date_time: p_o_t.to_date_time,
+                            attachment: p_o_t.attachment,
+                            recurrence: Some(Recurrent {
+                                rrule: Rrule::Daily,
+                                recurrence_until: p_o_t.from_date_time,
+                            }),
+                            recurrence_exception: None,
+                            location: p_o_t.location,
+                            categories: p_o_t.categories,
+                            is_all_day: p_o_t.is_all_day,
+                            last_mod: Utc::now(),
+                        },
+                        None,
+                        None,
+                    )
+                    .await?;
+                }
+                for adopted in exceptions {
+                    if let Some(overr) = adopted.recurrence_exception.unwrap().overrides {
+                        delete_single_calendar_event(adopted.id).await?;
+                    } else {
+                        edit_single_calendar_event(CalendarEvent {
+                            id: adopted.id,
+                            summary: adopted.summary,
+                            description: adopted.description,
+                            calendar_id: adopted.calendar_id,
+                            created_at: adopted.created_at,
+                            created_by: adopted.created_by,
+                            from_date_time: adopted.from_date_time,
+                            to_date_time: adopted.to_date_time,
+                            attachment: adopted.attachment,
+                            recurrence: None,
+                            recurrence_exception: Some(RecurrenceException {
+                                recurrence_id: p_o_t.id,
+                                overrides: None,
+                            }),
+                            location: adopted.location,
+                            categories: adopted.categories,
+                            is_all_day: adopted.is_all_day,
+                            last_mod: Utc::now(),
+                        })
+                        .await?;
+                    }
+                }
+            } else if let Some(true) = keep_orphans {
+                for adopted in exceptions {
+                    if let Some(overr) = adopted.recurrence_exception.unwrap().overrides {
+                        delete_single_calendar_event(adopted.id).await?;
+                    } else {
+                        edit_single_calendar_event(CalendarEvent {
+                            id: adopted.id,
+                            summary: adopted.summary,
+                            description: adopted.description,
+                            calendar_id: adopted.calendar_id,
+                            created_at: adopted.created_at,
+                            created_by: adopted.created_by,
+                            from_date_time: adopted.from_date_time,
+                            to_date_time: adopted.to_date_time,
+                            attachment: adopted.attachment,
+                            recurrence: None,
+                            recurrence_exception: None,
+                            location: adopted.location,
+                            categories: adopted.categories,
+                            is_all_day: adopted.is_all_day,
+                            last_mod: Utc::now(),
+                        })
+                        .await?;
+                    }
+                }
+            } else {
+                for kill in exceptions {
+                    delete_single_calendar_event(kill.id).await?;
+                }
+            }
+        }
+        let status = delete_single_calendar_event_unchecked(recurrent_event_id).await?;
+        // check wether deletion was successful
+        check_deleted(recurrent_event_id, status).await?;
+        sync_local_to_remote_db().await?;
+        return Ok(());
+    }
+    if instance_date == rec_event.from_date_time {
+        if exception_event.len() > 0 {
+            let excep = exception_event.pop().unwrap();
+            delete_single_calendar_event(excep.id).await?;
+        }
+        let weekday_number_old = (
+            rec_event.from_date_time.weekday().num_days_from_monday(),
+            rec_event.from_date_time.day() / 7,
+        );
+        let first_next_month = rec_event
+            .from_date_time
+            .checked_add_months(Months::new(1))
+            .unwrap()
+            .with_day(1)
+            .unwrap();
+        let next_date = match rec_event.recurrence.unwrap().rrule {
+            Rrule::Daily => rec_event
+                .from_date_time
+                .checked_add_days(Days::new(1))
+                .unwrap(),
+            Rrule::Weekly => rec_event
+                .from_date_time
+                .checked_add_days(Days::new(7))
+                .unwrap(),
+            Rrule::Fortnight => rec_event
+                .from_date_time
+                .checked_add_days(Days::new(14))
+                .unwrap(),
+            Rrule::MonthlyOnDate => rec_event
+                .from_date_time
+                .checked_add_months(Months::new(1))
+                .unwrap(),
+            Rrule::Annual => rec_event
+                .from_date_time
+                .checked_add_months(Months::new(12))
+                .unwrap(),
+            Rrule::OnWeekDays => {
+                if rec_event.from_date_time.weekday().num_days_from_monday() == 4 {
+                    rec_event
+                        .from_date_time
+                        .checked_add_days(Days::new(3))
+                        .unwrap()
+                } else if rec_event.from_date_time.weekday().num_days_from_monday() == 5 {
+                    rec_event
+                        .from_date_time
+                        .checked_add_days(Days::new(2))
+                        .unwrap()
+                } else {
+                    rec_event
+                        .from_date_time
+                        .checked_add_days(Days::new(1))
+                        .unwrap()
+                }
+            }
+            Rrule::MonthlyOnWeekday => {
+                if weekday_number_old.0 >= first_next_month.weekday().num_days_from_monday() {
+                    first_next_month
+                        .checked_add_days(Days::new(
+                            ((7 * weekday_number_old.1)
+                                + (weekday_number_old.0
+                                    - first_next_month.weekday().num_days_from_monday()))
+                                as u64,
+                        ))
+                        .unwrap_or(
+                            first_next_month
+                                .checked_add_days(Days::new(
+                                    ((7 * weekday_number_old.1)
+                                        + (weekday_number_old.0
+                                            - first_next_month.weekday().num_days_from_monday())
+                                        - 7) as u64,
+                                ))
+                                .unwrap(),
+                        )
+                } else {
+                    first_next_month
+                        .checked_add_days(Days::new(
+                            ((7 * weekday_number_old.1)
+                                - (first_next_month.weekday().num_days_from_monday()
+                                    - weekday_number_old.0)) as u64,
+                        ))
+                        .unwrap_or(
+                            first_next_month
+                                .checked_add_days(Days::new(
+                                    ((7 * weekday_number_old.1)
+                                        - (first_next_month.weekday().num_days_from_monday()
+                                            - weekday_number_old.0)
+                                        - 7) as u64,
+                                ))
+                                .unwrap(),
+                        )
+                }
+            }
+        };
+        edit_calendar_event(
+            CalendarEvent {
+                id: recurrent_event_id,
+                summary: rec_event.summary,
+                description: rec_event.description,
+                calendar_id: rec_event.calendar_id,
+                created_at: rec_event.created_at,
+                created_by: rec_event.created_by,
+                from_date_time: next_date,
+                to_date_time: rec_event.to_date_time,
+                attachment: rec_event.attachment,
+                recurrence: rec_event.recurrence,
+                recurrence_exception: None,
+                location: rec_event.location,
+                categories: rec_event.categories,
+                is_all_day: rec_event.is_all_day,
+                last_mod: Utc::now(),
+            },
+            None,
+            None,
+        )
+        .await?;
+
+        // in case the next element was deleted before, meaning it is overridden and skipped, it should be deleted completely
+        let url = format!(
+            "{}/rest/v1/calendar_events?recurrence_id=eq.{}&overrides_datetime=eq.{}&skipped=eq.true",
+            SUPABASE_URL, recurrent_event_id, next_date
+        );
+        let response_event_text = get_elements_from_remote_by_url_string_unchecked(url).await?;
+        let skippy = parse_response_string_to_calendar_events(response_event_text).await?;
+        if skippy.len() > 0 {
+            return delete_instance_of_recurrent_event(
+                recurrent_event_id,
+                next_date,
+                pass_on_to,
+                keep_orphans,
+            )
+            .await;
+        }
+    }
+
+    Ok(())
+}
 
 /// deletes an (recurrent) event and turns all changed instances into single events
 // #[server]
