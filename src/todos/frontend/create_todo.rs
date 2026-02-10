@@ -1,5 +1,4 @@
-use crate::calendar::backend::utils::*;
-use crate::{todos::backend::create_todo, utils::functions::test_get_event};
+use crate::todos::backend::create_todo;
 use dioxus::prelude::*;
 
 #[component]
@@ -57,7 +56,7 @@ pub fn CreateModal(
                 }
             };
 
-            let _ = test_get_event().await;
+            let _ = create_todo(new_task_title(), new_task_group_id(), formatted_date).await;
 
             new_task_title.set(String::new());
             new_task_due_date.set(String::new());
