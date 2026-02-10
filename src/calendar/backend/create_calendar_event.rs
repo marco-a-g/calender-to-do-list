@@ -1,5 +1,3 @@
-use std::num::NonZeroI64;
-
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use dioxus::prelude::*;
 use reqwest::*;
@@ -112,7 +110,7 @@ pub async fn create_calendar_event_unchecked(
     let new_cal_event = NewCalendarEvent {
         summary: summary,
         description: description,
-        calendar_id: calendar_id.into(),
+        calendar_id: calendar_id.to_string(),
         from_date_time: from_date_time.to_string(),
         to_date_time: match to_date_time {
             Some(t) => Some(t.to_string()),

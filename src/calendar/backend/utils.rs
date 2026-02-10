@@ -2,7 +2,6 @@ use chrono::{DateTime, Local, TimeZone, Utc};
 use dioxus::prelude::ServerFnError;
 use uuid::Uuid;
 
-use crate::auth::backend::*;
 use crate::utils::functions::{check_overriding_recurrence, get_calendar_event_from_remote};
 use crate::utils::structs::*;
 
@@ -11,7 +10,7 @@ const summary_max_length: usize = 25;
 pub async fn check_input_sensibility(
     summary: String,
     // description: Option<String>,
-    calendar_id: Uuid,
+    _calendar_id: Uuid,
     from_date_time: DateTime<Utc>,
     to_date_time: Option<DateTime<Utc>>,
     // attachment: Option<String>,
@@ -26,7 +25,7 @@ pub async fn check_input_sensibility(
     }
     if summary.len() > summary_max_length {
         return Err(ServerFnError::new(format!(
-            "Summary is to long. It must not exceed {}",
+            "Summary is too long. It must not exceed {}",
             summary_max_length
         )));
     }
@@ -91,7 +90,7 @@ pub async fn check_deleted(id: Uuid, status: reqwest::StatusCode) -> Result<(), 
     } else {
         return Err(ServerFnError::new(format!(
             "Deletion Error: unexpected Status: {}",
-            sc
+            status
         )));
     }
     Ok(())

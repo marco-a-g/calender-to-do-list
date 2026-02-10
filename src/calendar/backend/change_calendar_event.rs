@@ -182,7 +182,7 @@ pub async fn edit_calendar_event(
                                     .unwrap();
                             }
                             //set odt to the new time
-                            odt.with_time(new_version.from_date_time.time()).unwrap();
+                            odt = odt.with_time(new_version.from_date_time.time()).unwrap();
                             rec_ex = Some(RecurrenceException {
                                 recurrence_id: new_version.id,
                                 overrides: Some(Overrides {
@@ -238,7 +238,7 @@ pub async fn edit_calendar_event(
                                     .unwrap();
                             }
                             //set odt to the new time
-                            odt.with_time(new_version.from_date_time.time()).unwrap();
+                            odt = odt.with_time(new_version.from_date_time.time()).unwrap();
                             rec_ex = Some(RecurrenceException {
                                 recurrence_id: new_version.id,
                                 overrides: Some(Overrides {
@@ -430,7 +430,7 @@ pub async fn edit_calendar_event(
                                 .unwrap();
                         }
                         //set odt to the new time
-                        odt.with_time(new_version.from_date_time.time()).unwrap();
+                        odt = odt.with_time(new_version.from_date_time.time()).unwrap();
                         rec_ex = Some(RecurrenceException {
                             recurrence_id: new_version.id,
                             overrides: Some(Overrides {
@@ -656,7 +656,14 @@ pub async fn edit_calendar_event_unchecked(
         .send()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
-    Ok(insert_event.status())
+    let status = insert_event.status();
+    if !status.is_success() {
+        return Err(ServerFnError::new(format!(
+            "Editing went wrong: insert failed with status code: {}",
+            status
+        )));
+    }
+    Ok(status)
 }
 
 // //Test:
