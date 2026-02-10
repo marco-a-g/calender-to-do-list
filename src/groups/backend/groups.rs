@@ -8,7 +8,7 @@ use dioxus::{html::u::counter_increment, prelude::*};
 use serde::{Deserialize, Serialize};
 
 // Transfer type for group data: (group_id, name, color_hex, member_count)
-pub type GroupTransfer = (String, String, String, i32);
+type GroupTransfer = (String, String, String, i32);
 
 const DEFAULT_GROUP_COLOR: &str = "#3A6BFF";
 
@@ -26,9 +26,6 @@ struct CreateGroupPayload {
     name: String,
     color: String,
     owner_id: String,
-    created_by: String,
-    created_at: String,
-    last_mod: String,
 }
 
 fn bearer(token: &str) -> String {
@@ -37,7 +34,7 @@ fn bearer(token: &str) -> String {
 
 // Fetches all groups visible to the current user.
 // Only returns groups where the user's role is not 'invited' (i.e., accepted members only)
-#[server]
+//#[server]
 pub async fn fetch_groups(
     user_id: String,
     access_token: String,
@@ -153,7 +150,7 @@ pub async fn fetch_groups(
 }
 
 // Fetches a single group by ID
-#[server]
+//#[server]
 pub async fn fetch_group_by_id(
     id: String,
     _user_id: String,
@@ -192,7 +189,7 @@ pub async fn fetch_group_by_id(
 }
 
 // Creates a new group owned by the specified user
-#[server]
+//#[server]
 pub async fn create_group(
     name: String,
     color: String,
@@ -211,9 +208,6 @@ pub async fn create_group(
         name,
         color,
         owner_id: user_id.clone(),
-        created_by: user_id.clone(),
-        created_at: now.clone(),
-        last_mod: now,
     };
 
     let response = client
@@ -275,7 +269,7 @@ async fn is_owner(
 }
 
 // Deletes a group and all its members
-#[server]
+//#[server]
 pub async fn delete_group(
     group_id: String,
     user_id: String,
@@ -287,62 +281,41 @@ pub async fn delete_group(
     let auth = bearer(&access_token);
 
     // Verify user is the owner
-    let check_owner_endpoint = format!(
-        "{}/rest/v1/groups?select=owner_id&id=eq.{}&limit=1",
-        url, group_id
-    );
-
-    #[derive(Deserialize)]
-    struct OwnerRowDelete {
-        owner_id: String,
-    }
-
-    let owner_response = client
-        .get(&check_owner_endpoint)
-        .header("apikey", key)
-        .header("Authorization", &auth)
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Owner check request failed: {e}")))?
-        .error_for_status()
-        .map_err(|e| ServerFnError::new(format!("Owner check failed: {e}")))?;
-
-    let mut owner_rows: Vec<OwnerRowDelete> = owner_response
-        .json()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Owner check json failed: {e}")))?;
-
-    let Some(owner) = owner_rows.pop() else {
-        return Err(ServerFnError::new("Group not found."));
-    };
-
-    if owner.owner_id != user_id {
+    if !is_owner(&client, url, key, &auth, &group_id, &user_id).await? {
         return Err(ServerFnError::new("Only the owner can delete this group."));
     }
 
-    // Delete all members first
+    // Delete all members first (foreign key constraint)
     let delete_members_endpoint = format!("{}/rest/v1/group_members?group_id=eq.{}", url, group_id);
 
-    client
+    let members_response = client
         .delete(&delete_members_endpoint)
         .header("apikey", key)
         .header("Authorization", &auth)
         .send()
         .await
-        .map_err(|e| ServerFnError::new(format!("Delete members failed: {e}")))?;
+        .map_err(|e| ServerFnError::new(format!("Delete members request failed: {e}")))?;
+
+    if !members_response.status().is_success() {
+        let err = members_response.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!("Delete members failed: {err}")));
+    }
 
     // Delete the group
     let delete_endpoint = format!("{}/rest/v1/groups?id=eq.{}", url, group_id);
 
-    client
+    let group_response = client
         .delete(&delete_endpoint)
         .header("apikey", key)
         .header("Authorization", &auth)
         .send()
         .await
-        .map_err(|e| ServerFnError::new(format!("Delete request failed: {e}")))?
-        .error_for_status()
-        .map_err(|e| ServerFnError::new(format!("Delete failed: {e}")))?;
+        .map_err(|e| ServerFnError::new(format!("Delete group request failed: {e}")))?;
+
+    if !group_response.status().is_success() {
+        let err = group_response.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!("Delete group failed: {err}")));
+    }
 
     Ok(())
 }
@@ -353,7 +326,7 @@ struct MemberRow {
 }
 
 // Removes the current user from a group
-#[server]
+//#[server]
 pub async fn leave_group(
     group_id: String,
     user_id: String,
@@ -490,7 +463,7 @@ pub async fn leave_group(
 }
 
 // Sets user's preferred color for a group (not yet implemented)
-#[server]
+//#[server]
 pub async fn set_group_color(
     _user_id: String,
     _group_id: String,
@@ -500,7 +473,7 @@ pub async fn set_group_color(
 }
 
 // Gets user's preferred color for a group (not yet implemented)
-#[server]
+//#[server]
 pub async fn get_group_color(
     _user_id: String,
     _group_id: String,

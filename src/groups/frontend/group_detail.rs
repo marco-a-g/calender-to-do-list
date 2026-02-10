@@ -1,3 +1,5 @@
+use std::result;
+
 /*
 Groups UI module: list view and detail page
 Contains two main pages:
@@ -15,6 +17,8 @@ use crate::groups::frontend::overview::{GroupsOverview, GroupsRes};
 use crate::groups::frontend::roles_tab::RolesTab;
 use crate::groups::{create_group, delete_group, fetch_group_by_id, fetch_groups};
 use crate::utils::functions::get_user_id_and_session_token;
+use crate::database::local::init_fetch::init_fetch_local_db::{fetch_groups_lokal_db, fetch_group_members_lokal_db,};
+use crate::database::local::sync_local_db::sync_local_to_remote_db;
 
 // Color palette for group creation (hex values matching DB format)
 const GROUP_COLORS: [&str; 8] = [
@@ -45,21 +49,20 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
         _ => None,
     };
 
-    // Fetch groups with Supabase RLS using user's access token
-    let mut groups_res: GroupsRes = use_resource({
-        let auth_status = auth_status.clone();
-        move || {
-            let auth_status = auth_status.clone();
-            async move {
-                if !matches!(auth_status.read().clone(), AuthStatus::Authenticated { .. }) {
-                    return Ok(vec![]);
-                }
-                let (user_id, token) = match get_user_id_and_session_token().await {
-                    Ok(t) => t,
-                    Err(_) => return Ok(vec![]),
-                };
-                fetch_groups(user_id.to_string(), token).await
-            }
+    let mut groups_res: GroupsRes = use_resource(move || {
+        async move {
+            let groups = fetch_groups_lokal_db().await?;
+            let all_members = fetch_group_members_lokal_db().await?;
+            let result: Vec<(String, String, String, i32)> = groups.into_iter().map(|g| {
+                let member_count = all_members                   .iter()
+                    .filter(|m| m.group_id == g.id && m.role != "invited")
+                    .count() as i32;
+                let color = if g.color.is_empty() { "#3A6BFF".to_string() } else { g.color };
+                (g.id, g.name, color, member_count)
+                })
+                .collect();
+
+            Ok(result)
         }
     });
 
@@ -152,6 +155,7 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
                                                 Ok((user_id, token)) => {
                                                     match create_group(n.clone(), c, user_id.to_string(), token).await {
                                                         Ok(_) => {
+                                                            sync_local_to_remote_db().await;
                                                             name.set(String::new());
                                                             create_error.set(None);
                                                             groups_res.restart();
@@ -396,6 +400,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                                                                     .await
                                                                                                     {
                                                                                                         Ok(_) => {
+                                                                                                            sync_local_to_remote_db().await;
                                                                                                             upload_status.set(Some("Uploaded!".to_string()));
                                                                                                             files_res.restart();
                                                                                                         }
@@ -602,6 +607,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                     Ok((user_id, token)) => {
                                                         match delete_group(group_id, user_id.to_string(), token).await {
                                                             Ok(_) => {
+                                                                sync_local_to_remote_db().await;
                                                                 let _ = nav.push("/Groups");
                                                             }
                                                             Err(e) => {
@@ -634,6 +640,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                     Ok((user_id, token)) => {
                                                         match crate::groups::leave_group(group_id, user_id.to_string(), token).await {
                                                             Ok(_) => {
+                                                                sync_local_to_remote_db().await;
                                                                 let _ = nav.push("/Groups");
                                                             }
                                                             Err(e) => {

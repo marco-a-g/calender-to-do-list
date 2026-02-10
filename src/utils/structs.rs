@@ -53,8 +53,6 @@ pub enum Role {
     #[strum(ascii_case_insensitive)]
     Member,
     #[strum(ascii_case_insensitive)]
-    Guest,
-    #[strum(ascii_case_insensitive)]
     Invited,
 }
 impl fmt::Display for Role {

@@ -23,7 +23,7 @@ struct StorageObject {
 
 // Lists files in the `group-files` bucket for a given group
 // The bucket layout is: `{group_id}/{filename}`
-#[server]
+//#[server]
 pub async fn fetch_files(group_id: String) -> Result<Vec<FileTransfer>, ServerFnError> {
     let url = std::env::var("SUPABASE_URL").map_err(|e| ServerFnError::new(e.to_string()))?;
     let key = std::env::var("SUPABASE_SERVICE_ROLE_KEY")
@@ -80,7 +80,7 @@ pub async fn fetch_files(group_id: String) -> Result<Vec<FileTransfer>, ServerFn
 }
 
 // Uploads a file to `group-files/{group_id}/{filename}`
-#[server]
+//#[server]
 pub async fn upload_file(
     group_id: String,
     filename: String,
@@ -117,7 +117,7 @@ pub async fn upload_file(
 }
 
 // Deletes a file at `group-files/{group_id}/{filename}`
-#[server]
+//#[server]
 pub async fn delete_file(group_id: String, filename: String) -> Result<(), ServerFnError> {
     let url = std::env::var("SUPABASE_URL").map_err(|e| ServerFnError::new(e.to_string()))?;
     let key = std::env::var("SUPABASE_SERVICE_ROLE_KEY")
@@ -145,7 +145,7 @@ pub async fn delete_file(group_id: String, filename: String) -> Result<(), Serve
 }
 
 // Creates a signed, time-limited download URL for a private object
-#[server]
+//#[server]
 pub async fn get_file_url(group_id: String, filename: String) -> Result<String, ServerFnError> {
     let url = std::env::var("SUPABASE_URL").map_err(|e| ServerFnError::new(e.to_string()))?;
     let key = std::env::var("SUPABASE_SERVICE_ROLE_KEY")

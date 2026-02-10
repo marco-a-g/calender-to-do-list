@@ -23,7 +23,7 @@ struct ProfileRow {
 }
 
 // Searches for users by username using case-insensitive partial matching
-#[server]
+//#[server]
 pub async fn search_users_by_username(
     query: String,
     exclude_user_id: String,
@@ -80,7 +80,7 @@ struct ExistsCheck {
 }
 
 // Sends a group invitation to a user
-#[server]
+//#[server]
 pub async fn invite_user(
     group_id: String,
     invited_user_id: String,
@@ -182,7 +182,7 @@ struct InviteRow {
 }
 
 // Retrieves all pending group invitations for the current user
-#[server]
+//#[server]
 pub async fn fetch_my_invites(
     user_id: String,
     access_token: String,
@@ -231,7 +231,7 @@ pub async fn fetch_my_invites(
 }
 
 // Accepts a group invitation by changing the user's role from 'invited' to 'member'
-#[server]
+//[server]
 pub async fn accept_invite(
     group_id: String,
     user_id: String,
@@ -267,7 +267,7 @@ pub async fn accept_invite(
 }
 
 // Declines a group invitation by removing the group_members entry
-#[server]
+//#[server]
 pub async fn decline_invite(
     group_id: String,
     user_id: String,
