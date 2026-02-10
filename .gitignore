@@ -3,4 +3,4 @@
 assets/tailwind.css
 src/database/local/local_Database.db
 .env
-.env.*
+.env.*.env
