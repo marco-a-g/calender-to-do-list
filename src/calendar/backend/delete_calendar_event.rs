@@ -72,7 +72,7 @@ pub async fn delete_instance_of_recurrent_event(
                         if let Some(overr) = adopted.recurrence_exception.unwrap().overrides {
                             delete_single_calendar_event(adopted.id).await?;
                         } else {
-                            edit_single_calendar_event(CalendarEvent {
+                            edit_calendar_event_unchecked(CalendarEvent {
                                 id: adopted.id,
                                 summary: adopted.summary,
                                 description: adopted.description,
@@ -98,9 +98,9 @@ pub async fn delete_instance_of_recurrent_event(
                 } else if let Some(true) = keep_orphans {
                     for adopted in exceptions {
                         if let Some(overr) = adopted.recurrence_exception.unwrap().overrides {
-                            delete_single_calendar_event(adopted.id).await?;
+                            delete_single_calendar_event_unchecked(adopted.id).await?;
                         } else {
-                            edit_single_calendar_event(CalendarEvent {
+                            edit_calendar_event_unchecked(CalendarEvent {
                                 id: adopted.id,
                                 summary: adopted.summary,
                                 description: adopted.description,
@@ -435,7 +435,7 @@ pub async fn delete_instance_of_recurrent_event(
         } else {
             if exception_event.len() > 0 {
                 let excep = exception_event.pop().unwrap();
-                return edit_instance_of_recurrent_event(CalendarEvent {
+                edit_calendar_event_unchecked(CalendarEvent {
                     id: excep.id,
                     summary: excep.summary,
                     description: excep.description,
@@ -468,7 +468,8 @@ pub async fn delete_instance_of_recurrent_event(
                     is_all_day: excep.is_all_day,
                     last_mod: Utc::now(),
                 })
-                .await;
+                .await?;
+                return Ok(());
             } else {
                 return create_calendar_event(
                     "nothing".to_string(),
