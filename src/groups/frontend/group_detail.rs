@@ -10,6 +10,10 @@ use dioxus::prelude::*;
 use dioxus_router::use_navigator;
 
 use crate::auth::backend::AuthStatus;
+use crate::database::local::init_fetch::init_fetch_local_db::{
+    fetch_group_members_lokal_db, fetch_groups_lokal_db,
+};
+use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::groups::backend::files::{delete_file, fetch_files, get_file_url, upload_file};
 use crate::groups::frontend::invite_widget::{InvitesWidget, UserSearchDropdown};
 use crate::groups::frontend::members::MembersTab;
@@ -17,8 +21,6 @@ use crate::groups::frontend::overview::{GroupsOverview, GroupsRes};
 use crate::groups::frontend::roles_tab::RolesTab;
 use crate::groups::{create_group, delete_group, fetch_group_by_id, fetch_groups};
 use crate::utils::functions::get_user_id_and_session_token;
-use crate::database::local::init_fetch::init_fetch_local_db::{fetch_groups_lokal_db, fetch_group_members_lokal_db,};
-use crate::database::local::sync_local_db::sync_local_to_remote_db;
 
 // Color palette for group creation (hex values matching DB format)
 const GROUP_COLORS: [&str; 8] = [
@@ -49,21 +51,26 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
         _ => None,
     };
 
-    let mut groups_res: GroupsRes = use_resource(move || {
-        async move {
-            let groups = fetch_groups_lokal_db().await?;
-            let all_members = fetch_group_members_lokal_db().await?;
-            let result: Vec<(String, String, String, i32)> = groups.into_iter().map(|g| {
-                let member_count = all_members                   .iter()
+    let mut groups_res: GroupsRes = use_resource(move || async move {
+        let groups = fetch_groups_lokal_db().await?;
+        let all_members = fetch_group_members_lokal_db().await?;
+        let result: Vec<(String, String, String, i32)> = groups
+            .into_iter()
+            .map(|g| {
+                let member_count = all_members
+                    .iter()
                     .filter(|m| m.group_id == g.id && m.role != "invited")
                     .count() as i32;
-                let color = if g.color.is_empty() { "#3A6BFF".to_string() } else { g.color };
+                let color = if g.color.is_empty() {
+                    "#3A6BFF".to_string()
+                } else {
+                    g.color
+                };
                 (g.id, g.name, color, member_count)
-                })
-                .collect();
+            })
+            .collect();
 
-            Ok(result)
-        }
+        Ok(result)
     });
 
     // Create group form state

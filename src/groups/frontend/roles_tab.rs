@@ -8,8 +8,8 @@ Allows owners to manage member permissions:
 Admins can only kick regular members, not other admins or the owner
 */
 
-use dioxus::prelude::*;
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
+use dioxus::prelude::*;
 
 // Roles tab showing all members with role management actions
 #[component]

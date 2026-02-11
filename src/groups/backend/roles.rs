@@ -7,8 +7,8 @@ All operations enforce permission checks (owner/admin privileges)
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use dioxus::prelude::*;
-use serde::Deserialize;
 use dioxus_logger::tracing::{debug, warn};
+use serde::Deserialize;
 
 // Member data for the roles UI: (user_id, username, role)
 pub type MemberWithRole = (String, String, String);
@@ -260,7 +260,10 @@ pub async fn transfer_ownership(
         .await
         .map_err(|e| ServerFnError::new(format!("Update groups error: {e}")))?;
 
-    debug!("transfer_ownership: update groups response status={}", resp.status());
+    debug!(
+        "transfer_ownership: update groups response status={}",
+        resp.status()
+    );
 
     if !resp.status().is_success() {
         let err = resp.text().await.unwrap_or_default();
@@ -283,11 +286,16 @@ pub async fn transfer_ownership(
         .await
         .map_err(|e| ServerFnError::new(format!("Set new owner role error: {e}")))?;
 
-    debug!("transfer_ownership: set new owner role response status={}", new_owner_role_resp.status());
+    debug!(
+        "transfer_ownership: set new owner role response status={}",
+        new_owner_role_resp.status()
+    );
 
     if !new_owner_role_resp.status().is_success() {
         let err = new_owner_role_resp.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!("Set new owner role failed: {err}")));
+        return Err(ServerFnError::new(format!(
+            "Set new owner role failed: {err}"
+        )));
     }
 
     // Demote previous owner to 'admin'
@@ -306,11 +314,16 @@ pub async fn transfer_ownership(
         .await
         .map_err(|e| ServerFnError::new(format!("Set old owner role error: {e}")))?;
 
-    debug!("transfer_ownership: set old owner role response status={}", old_owner_role_resp.status());
+    debug!(
+        "transfer_ownership: set old owner role response status={}",
+        old_owner_role_resp.status()
+    );
 
     if !old_owner_role_resp.status().is_success() {
         let err = old_owner_role_resp.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!("Set old owner role failed: {err}")));
+        return Err(ServerFnError::new(format!(
+            "Set old owner role failed: {err}"
+        )));
     }
 
     Ok(())

@@ -21,7 +21,10 @@ struct StorageObject {
     created_at: String,
 }
 
-pub async fn fetch_files(group_id: String, access_token: String) -> Result<Vec<FileTransfer>, String> {
+pub async fn fetch_files(
+    group_id: String,
+    access_token: String,
+) -> Result<Vec<FileTransfer>, String> {
     let url = SUPABASE_URL;
 
     let endpoint = format!("{}/storage/v1/object/list/group-files", url);
@@ -47,10 +50,7 @@ pub async fn fetch_files(group_id: String, access_token: String) -> Result<Vec<F
         return Err(format!("Storage List Error: {}", err));
     }
 
-    let objects: Vec<StorageObject> = response
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
+    let objects: Vec<StorageObject> = response.json().await.map_err(|e| e.to_string())?;
 
     let files: Vec<FileTransfer> = objects
         .into_iter()
@@ -103,7 +103,11 @@ pub async fn upload_file(
     Ok(())
 }
 
-pub async fn delete_file(group_id: String, filename: String, access_token: String) -> Result<(), String> {
+pub async fn delete_file(
+    group_id: String,
+    filename: String,
+    access_token: String,
+) -> Result<(), String> {
     let url = SUPABASE_URL;
 
     let file_path = format!("{}/{}", group_id, filename);
@@ -127,7 +131,11 @@ pub async fn delete_file(group_id: String, filename: String, access_token: Strin
     Ok(())
 }
 
-pub async fn get_file_url(group_id: String, filename: String, access_token: String) -> Result<String, String> {
+pub async fn get_file_url(
+    group_id: String,
+    filename: String,
+    access_token: String,
+) -> Result<String, String> {
     let url = SUPABASE_URL;
 
     let encoded_filename = urlencoding::encode(&filename);

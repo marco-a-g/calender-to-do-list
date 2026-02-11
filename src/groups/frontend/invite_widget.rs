@@ -6,8 +6,8 @@ Contains two widgets:
 - UserSearchDropdown: User search and invite UI for the group detail page
 */
 
-use dioxus::prelude::*;
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
+use dioxus::prelude::*;
 
 // Displays pending group invitations for the current user
 #[component]
