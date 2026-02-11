@@ -13,7 +13,7 @@ use crate::database::local::heartbeat::start_heartbeat;
 use crate::database::local::init_fetch::init_fetch_local_db::init_database;
 use crate::groups::frontend::GroupsPage;
 use crate::groups::frontend::group_detail::GroupDetailPage;
-use crate::todos::frontend::todo_view::*;
+use crate::todos::frontend::todo_dashboard::ToDoDashboard;
 use crate::user::frontend::{create_profile::CreateProfileView, profile_view::ProfileView};
 use axum::extract::DefaultBodyLimit;
 use dioxus::prelude::*;
@@ -32,7 +32,6 @@ enum Route {
     DashboardView,
     #[route("/todos")]
     ToDoDashboard,
-
     #[route("/Calendar")]
     Calendar,
     #[route("/Groups")]
