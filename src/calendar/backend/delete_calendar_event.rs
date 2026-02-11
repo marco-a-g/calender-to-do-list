@@ -10,6 +10,7 @@ use crate::calendar::backend::change_calendar_event::{self, *};
 use crate::calendar::backend::create_calendar_event::*;
 use crate::calendar::backend::utils::{check_deleted, check_input_sensibility};
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
+use crate::utils::date_handling::calculate_next_date;
 use crate::utils::{functions::*, structs::*};
 
 /// Deletes an Instance of an recurrent event. In case this is the last regular instance of the recurrent event the whole event will be deleted.
@@ -137,97 +138,13 @@ pub async fn delete_instance_of_recurrent_event(
                 let excep = exception_event.pop().unwrap();
                 delete_single_calendar_event(excep.id).await?;
             }
-            let weekday_number_old = (
-                rec_event.from_date_time.weekday().num_days_from_monday(),
-                rec_event.from_date_time.day() / 7,
-            );
-            let first_next_month = rec_event
-                .from_date_time
-                .checked_add_months(Months::new(1))
-                .unwrap()
-                .with_day(1)
-                .unwrap();
-            let next_date = match rec_event.recurrence.unwrap().rrule {
-                Rrule::Daily => rec_event
-                    .from_date_time
-                    .checked_add_days(Days::new(1))
-                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch"))),
-                Rrule::Weekly => rec_event
-                    .from_date_time
-                    .checked_add_days(Days::new(7))
-                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch"))),
-                Rrule::Fortnight => rec_event
-                    .from_date_time
-                    .checked_add_days(Days::new(14))
-                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch"))),
-                Rrule::MonthlyOnDate => rec_event
-                    .from_date_time
-                    .checked_add_months(Months::new(1))
-                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch"))),
-                Rrule::Annual => rec_event
-                    .from_date_time
-                    .checked_add_months(Months::new(12))
-                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch"))),
-                Rrule::OnWeekDays => {
-                    if rec_event.from_date_time.weekday().num_days_from_monday() == 4 {
-                        rec_event
-                            .from_date_time
-                            .checked_add_days(Days::new(3))
-                            .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch")))
-                    } else if rec_event.from_date_time.weekday().num_days_from_monday() == 5 {
-                        rec_event
-                            .from_date_time
-                            .checked_add_days(Days::new(2))
-                            .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch")))
-                    } else {
-                        rec_event
-                            .from_date_time
-                            .checked_add_days(Days::new(1))
-                            .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch")))
-                    }
-                }
-                Rrule::MonthlyOnWeekday => {
-                    if weekday_number_old.0 >= first_next_month.weekday().num_days_from_monday() {
-                        first_next_month
-                            .checked_add_days(Days::new(
-                                ((7 * weekday_number_old.1)
-                                    + (weekday_number_old.0
-                                        - first_next_month.weekday().num_days_from_monday()))
-                                    as u64,
-                            ))
-                            .unwrap_or(
-                                first_next_month
-                                    .checked_add_days(Days::new(
-                                        ((7 * weekday_number_old.1)
-                                            + (weekday_number_old.0
-                                                - first_next_month
-                                                    .weekday()
-                                                    .num_days_from_monday())
-                                            - 7) as u64,
-                                    ))
-                                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch"))),
-                            )
-                    } else {
-                        first_next_month
-                            .checked_add_days(Days::new(
-                                ((7 * weekday_number_old.1)
-                                    - (first_next_month.weekday().num_days_from_monday()
-                                        - weekday_number_old.0))
-                                    as u64,
-                            ))
-                            .unwrap_or(
-                                first_next_month
-                                    .checked_add_days(Days::new(
-                                        ((7 * weekday_number_old.1)
-                                            - (first_next_month.weekday().num_days_from_monday()
-                                                - weekday_number_old.0)
-                                            - 7) as u64,
-                                    ))
-                                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the next instance was not possible due to chrono missmatch"))),
-                            )
-                    }
-                }
-            };
+            let next_date = calculate_next_date(
+                rec_event.from_date_time,
+                &rec_event.recurrence.unwrap().rrule.to_string(),
+                rec_event.from_date_time,
+            )
+            .map_err(|e| ServerFnError::new(e.to_string()))?;
+
             edit_calendar_event(
                 CalendarEvent {
                     id: recurrent_event_id,
