@@ -1,6 +1,4 @@
 use chrono::{DateTime, Datelike, Days, Local, NaiveDateTime, NaiveTime, TimeZone, Utc, Weekday};
-use dioxus::html::u::right;
-use dioxus::html::{ins, ol, tr};
 use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};

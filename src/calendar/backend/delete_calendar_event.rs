@@ -1,5 +1,4 @@
 use chrono::{DateTime, Datelike, Days, Local, Months, NaiveDateTime, TimeZone, Utc, Weekday};
-use dioxus::html::u::orphans;
 use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
@@ -324,35 +323,35 @@ pub async fn delete_instance_of_recurrent_event(
                         .recurrence_until
                         .weekday()
                         .num_days_from_monday()
-                        == 1
+                        == 0
                     {
                         rec_event
                             .recurrence
                             .unwrap()
                             .recurrence_until
                             .checked_sub_days(Days::new(3))
-                            .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch")));
+                            .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch")))
                     } else if rec_event
                         .recurrence
                         .unwrap()
                         .recurrence_until
                         .weekday()
                         .num_days_from_monday()
-                        == 7
+                        == 6
                     {
                         rec_event
                             .recurrence
                             .unwrap()
                             .recurrence_until
                             .checked_sub_days(Days::new(2))
-                            .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch")));
+                            .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch")))
                     } else {
                         rec_event
                             .recurrence
                             .unwrap()
                             .recurrence_until
                             .checked_sub_days(Days::new(1))
-                            .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch")));
+                            .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch")))
                     }
                 }
                 Rrule::MonthlyOnWeekday => {
@@ -436,7 +435,7 @@ pub async fn delete_instance_of_recurrent_event(
         } else {
             if exception_event.len() > 0 {
                 let excep = exception_event.pop().unwrap();
-                return edit_single_calendar_event(CalendarEvent {
+                return edit_instance_of_recurrent_event(CalendarEvent {
                     id: excep.id,
                     summary: excep.summary,
                     description: excep.description,
@@ -512,30 +511,29 @@ pub async fn delete_calendar_event_without_changed_instances(
         for child in children {
             if let Some(excep) = child.recurrence_exception
                 && let Some(overr) = excep.overrides
+                && overr.skipped
             {
-                if overr.skipped {
-                    to_be_deleted.push(child.id);
-                } else {
-                    let orphan = CalendarEvent {
-                        id: child.id,
-                        summary: child.summary,
-                        description: child.description,
-                        calendar_id: child.calendar_id,
-                        created_at: child.created_at,
-                        created_by: child.created_by,
-                        from_date_time: child.from_date_time,
-                        to_date_time: child.to_date_time,
-                        attachment: child.attachment,
-                        recurrence: child.recurrence,
-                        recurrence_exception: None,
-                        location: child.location,
-                        categories: child.categories,
-                        is_all_day: child.is_all_day,
-                        last_mod: Utc::now(),
-                    };
-                    let orphaned = edit_calendar_event_unchecked(orphan).await?;
-                    orphanage.push((child.id, orphaned));
-                }
+                to_be_deleted.push(child.id);
+            } else {
+                let orphan = CalendarEvent {
+                    id: child.id,
+                    summary: child.summary,
+                    description: child.description,
+                    calendar_id: child.calendar_id,
+                    created_at: child.created_at,
+                    created_by: child.created_by,
+                    from_date_time: child.from_date_time,
+                    to_date_time: child.to_date_time,
+                    attachment: child.attachment,
+                    recurrence: child.recurrence,
+                    recurrence_exception: None,
+                    location: child.location,
+                    categories: child.categories,
+                    is_all_day: child.is_all_day,
+                    last_mod: Utc::now(),
+                };
+                let orphaned = edit_calendar_event_unchecked(orphan).await?;
+                orphanage.push((child.id, orphaned));
             }
         }
         let mut not_orphaned: Vec<(Uuid, StatusCode, ServerFnError)> = Vec::new();

@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::utils::functions::{check_overriding_recurrence, get_calendar_event_from_remote};
 use crate::utils::structs::*;
 
-const summary_max_length: usize = 25;
+const SUMMARY_MAX_LENGTH: usize = 25;
 
 pub async fn check_input_sensibility(
     summary: String,
@@ -23,10 +23,10 @@ pub async fn check_input_sensibility(
     if summary.len() < 1 {
         return Err(ServerFnError::new("Summary must not be empty".to_string()));
     }
-    if summary.len() > summary_max_length {
+    if summary.len() > SUMMARY_MAX_LENGTH {
         return Err(ServerFnError::new(format!(
             "Summary is too long. It must not exceed {}",
-            summary_max_length
+            SUMMARY_MAX_LENGTH
         )));
     }
     if let Some(end) = to_date_time {
