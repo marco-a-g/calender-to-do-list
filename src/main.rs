@@ -7,19 +7,21 @@ mod navbar;
 mod todos;
 mod user;
 mod utils;
-
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
 use crate::database::local::heartbeat::start_heartbeat;
 use crate::database::local::init_fetch::init_fetch_local_db::init_database;
+use crate::groups::frontend::GroupsPage;
+use crate::groups::frontend::group_detail::GroupDetailPage;
 use crate::todos::frontend::todo_view::*;
 use crate::user::frontend::{create_profile::CreateProfileView, profile_view::ProfileView};
+use axum::extract::DefaultBodyLimit;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
-
 static CSS: Asset = asset!("/assets/tailwind.css");
 
 fn main() {
+    dotenvy::dotenv().ok();
     dioxus::launch(App);
 }
 
@@ -28,23 +30,22 @@ enum Route {
     #[layout(navbar::ui::Navbar)]
     #[route("/")]
     DashboardView,
-
     #[route("/todos")]
     ToDoView,
-
     #[route("/Calendar")]
     Calendar,
-
     #[route("/Groups")]
     Groups,
-
     #[route("/Profile")]
     ProfileView,
+    #[route("/groups/:id")]
+    GroupDetail { id: String },
 }
 
 #[component]
 fn App() -> Element {
     let auth_status = use_signal(|| AuthStatus::Unauthenticated);
+    use_context_provider(|| auth_status);
     let auth_view = use_signal(|| AuthView::Login);
     let mut initialized = use_signal(|| false); // use later to enable offline mode/view, maybe enum ClientState {Ready, Offline, Error(AuthError)}
     let mut db_is_ready = use_signal(|| false);
@@ -140,9 +141,14 @@ fn Calendar() -> Element {
 
 #[component]
 fn Groups() -> Element {
-    rsx! {
-        div {
-            "Groups"
-        }
-    }
+    let auth_status = use_context::<Signal<AuthStatus>>();
+
+    rsx! { GroupsPage { auth_status } }
+}
+
+#[component]
+fn GroupDetail(id: String) -> Element {
+    let auth_status = use_context::<Signal<AuthStatus>>();
+
+    rsx!(GroupDetailPage { id, auth_status })
 }
