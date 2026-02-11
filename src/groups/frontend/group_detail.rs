@@ -234,7 +234,12 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
         let group_id = id.clone();
         move || {
             let group_id = group_id.clone();
-            async move { fetch_files(group_id).await }
+            async move {
+                match get_user_id_and_session_token().await {
+                    Ok((_, token)) => fetch_files(group_id, token).await,
+                    Err(e) => Err(e.to_string()),
+                }
+            }
         }
     });
 
@@ -388,32 +393,40 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
 
                                                                                         upload_status.set(Some(format!("Uploading {}...", filename)));
 
-                                                                                        spawn(async move {
-                                                                                            match tokio::fs::read(&path).await {
-                                                                                                Ok(bytes) => {
-                                                                                                    match upload_file(
-                                                                                                        gid_upload,
-                                                                                                        filename,
-                                                                                                        bytes,
-                                                                                                        "application/octet-stream".to_string(),
-                                                                                                    )
-                                                                                                    .await
-                                                                                                    {
-                                                                                                        Ok(_) => {
-                                                                                                            sync_local_to_remote_db().await;
-                                                                                                            upload_status.set(Some("Uploaded!".to_string()));
-                                                                                                            files_res.restart();
-                                                                                                        }
-                                                                                                        Err(e) => {
-                                                                                                            upload_status.set(Some(format!("Upload failed: {e}")));
-                                                                                                        }
+                                                                            spawn(async move {
+                                                                                match tokio::fs::read(&path).await {
+                                                                                    Ok(bytes) => {
+                                                                                        match get_user_id_and_session_token().await {
+                                                                                            Ok((_, token)) => {
+                                                                                                match upload_file(
+                                                                                                    gid_upload,
+                                                                                                    filename,
+                                                                                                    bytes,
+                                                                                                    "application/octet-stream".to_string(),
+                                                                                                    token,
+                                                                                                )
+                                                                                                .await
+                                                                                                {
+                                                                                                    Ok(_) => {
+                                                                                                        sync_local_to_remote_db().await;
+                                                                                                        upload_status.set(Some("Uploaded!".to_string()));
+                                                                                                        files_res.restart();
+                                                                                                    }
+                                                                                                    Err(e) => {
+                                                                                                        upload_status.set(Some(format!("Upload failed: {e}")));
                                                                                                     }
                                                                                                 }
-                                                                                                Err(e) => {
-                                                                                                    upload_status.set(Some(format!("Failed to read file: {e}")));
-                                                                                                }
                                                                                             }
-                                                                                        });
+                                                                                            Err(e) => {
+                                                                                                upload_status.set(Some(format!("Not authenticated: {e}")));
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                    Err(e) => {
+                                                                                        upload_status.set(Some(format!("Failed to read file: {e}")));
+                                                                                    }
+                                                                                }
+                                                                            });
                                                                                     }
                                                                                 },
                                                                                 "Choose file…"
@@ -464,11 +477,14 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                                                                         let gid_download = gid_download.clone();
 
                                                                                                         spawn(async move {
-                                                                                                            match get_file_url(gid_download, filename).await {
-                                                                                                                Ok(url) => {
-                                                                                                                    let _ = open::that(&url);
-                                                                                                                }
-                                                                                                                Err(e) => println!("Download error: {}", e),
+                                                                                                            match get_user_id_and_session_token().await {
+                                                                                                                Ok((_, token)) => match get_file_url(gid_download, filename, token).await {
+                                                                                                                    Ok(url) => {
+                                                                                                                        let _ = open::that(&url);
+                                                                                                                    }
+                                                                                                                    Err(e) => println!("Download error: {}", e),
+                                                                                                                },
+                                                                                                                Err(e) => println!("Not authenticated: {}", e),
                                                                                                             }
                                                                                                         });
                                                                                                     }
@@ -494,7 +510,9 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                                                                         let mut files_res = files_res.clone();
 
                                                                                                         spawn(async move {
-                                                                                                            let _ = delete_file(gid_delete, filename).await;
+                                                                                                            if let Ok((_, token)) = get_user_id_and_session_token().await {
+                                                                                                                let _ = delete_file(gid_delete, filename, token).await;
+                                                                                                            }
                                                                                                             files_res.restart();
                                                                                                         });
                                                                                                     }

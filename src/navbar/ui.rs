@@ -81,31 +81,6 @@ pub fn Navbar() -> Element {
                     to: Route::ProfileView,
                     icon: "⚙️",
                 }
-
-                button {
-                    style: "
-                    width: 44px;
-                    height: 44px;
-                    border-radius: 14px;
-                    background: rgba(239, 68, 68, 0.15);
-                    border: 1px solid rgba(239,68,68,0.3);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 18px;
-                    cursor: pointer;
-                    transition: background 0.2s;
-                ",
-                onclick: move |_| {
-                    spawn(async move{
-                        if let Ok(()) = logout().await {
-                            let mut auth_status = use_context::<Signal<AuthStatus>>();
-                            auth_status.set(AuthStatus::Unauthenticated);
-                        }
-                    });
-                },
-                "🚪"
-                }
             }
 
             main {

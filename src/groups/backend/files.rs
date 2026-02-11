@@ -7,7 +7,7 @@ This module provides server functions to:
  - Create a signed, time-limited download URL
  */
 
-use dioxus::prelude::*;
+use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use serde::Deserialize;
 
 // (group_id, object_id, filename, uploaded_at_date)
@@ -21,17 +21,10 @@ struct StorageObject {
     created_at: String,
 }
 
-// Lists files in the `group-files` bucket for a given group
-// The bucket layout is: `{group_id}/{filename}`
-//#[server]
-pub async fn fetch_files(group_id: String) -> Result<Vec<FileTransfer>, ServerFnError> {
-    let url = std::env::var("SUPABASE_URL").map_err(|e| ServerFnError::new(e.to_string()))?;
-    let key = std::env::var("SUPABASE_SERVICE_ROLE_KEY")
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+pub async fn fetch_files(group_id: String, access_token: String) -> Result<Vec<FileTransfer>, String> {
+    let url = SUPABASE_URL;
 
-    // Storage list endpoint for a bucket. We use POST with a JSON body containing the prefix
     let endpoint = format!("{}/storage/v1/object/list/group-files", url);
-
     let client = reqwest::Client::new();
 
     let body = serde_json::json!({
@@ -41,26 +34,24 @@ pub async fn fetch_files(group_id: String) -> Result<Vec<FileTransfer>, ServerFn
 
     let response = client
         .post(&endpoint)
-        .header("apikey", &key)
-        .header("Authorization", format!("Bearer {}", key))
+        .header("apikey", ANON_KEY)
+        .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
         .json(&body)
         .send()
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        .map_err(|e| e.to_string())?;
 
-    // Bubble up Supabase error bodies (permissions/validation) to simplify debugging
     if !response.status().is_success() {
         let err = response.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!("Storage List Error: {}", err)));
+        return Err(format!("Storage List Error: {}", err));
     }
 
     let objects: Vec<StorageObject> = response
         .json()
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        .map_err(|e| e.to_string())?;
 
-    // Convert Storage objects into the compact frontend transfer type
     let files: Vec<FileTransfer> = objects
         .into_iter()
         .filter(|o| !o.name.ends_with("/"))
@@ -79,19 +70,15 @@ pub async fn fetch_files(group_id: String) -> Result<Vec<FileTransfer>, ServerFn
     Ok(files)
 }
 
-// Uploads a file to `group-files/{group_id}/{filename}`
-//#[server]
 pub async fn upload_file(
     group_id: String,
     filename: String,
     file_data: Vec<u8>,
     content_type: String,
-) -> Result<(), ServerFnError> {
-    let url = std::env::var("SUPABASE_URL").map_err(|e| ServerFnError::new(e.to_string()))?;
-    let key = std::env::var("SUPABASE_SERVICE_ROLE_KEY")
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    access_token: String,
+) -> Result<(), String> {
+    let url = SUPABASE_URL;
 
-    // Object path inside the bucket. Slashes create a virtual folder structure in Storage
     let file_path = format!("{}/{}", group_id, filename);
     let endpoint = format!("{}/storage/v1/object/group-files/{}", url, file_path);
 
@@ -99,29 +86,25 @@ pub async fn upload_file(
 
     let response = client
         .post(&endpoint)
-        .header("apikey", &key)
-        .header("Authorization", format!("Bearer {}", key))
+        .header("apikey", ANON_KEY)
+        .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", &content_type)
         .header("x-upsert", "true")
         .body(file_data)
         .send()
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        .map_err(|e| e.to_string())?;
 
     if !response.status().is_success() {
         let err = response.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!("Upload Error: {}", err)));
+        return Err(format!("Upload Error: {}", err));
     }
 
     Ok(())
 }
 
-// Deletes a file at `group-files/{group_id}/{filename}`
-//#[server]
-pub async fn delete_file(group_id: String, filename: String) -> Result<(), ServerFnError> {
-    let url = std::env::var("SUPABASE_URL").map_err(|e| ServerFnError::new(e.to_string()))?;
-    let key = std::env::var("SUPABASE_SERVICE_ROLE_KEY")
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+pub async fn delete_file(group_id: String, filename: String, access_token: String) -> Result<(), String> {
+    let url = SUPABASE_URL;
 
     let file_path = format!("{}/{}", group_id, filename);
     let endpoint = format!("{}/storage/v1/object/group-files/{}", url, file_path);
@@ -130,72 +113,59 @@ pub async fn delete_file(group_id: String, filename: String) -> Result<(), Serve
 
     let response = client
         .delete(&endpoint)
-        .header("apikey", &key)
-        .header("Authorization", format!("Bearer {}", key))
+        .header("apikey", ANON_KEY)
+        .header("Authorization", format!("Bearer {}", access_token))
         .send()
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        .map_err(|e| e.to_string())?;
 
     if !response.status().is_success() {
         let err = response.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!("Delete Error: {}", err)));
+        return Err(format!("Delete Error: {}", err));
     }
 
     Ok(())
 }
 
-// Creates a signed, time-limited download URL for a private object
-//#[server]
-pub async fn get_file_url(group_id: String, filename: String) -> Result<String, ServerFnError> {
-    let url = std::env::var("SUPABASE_URL").map_err(|e| ServerFnError::new(e.to_string()))?;
-    let key = std::env::var("SUPABASE_SERVICE_ROLE_KEY")
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+pub async fn get_file_url(group_id: String, filename: String, access_token: String) -> Result<String, String> {
+    let url = SUPABASE_URL;
 
-    // Encode the filename so spaces and special characters don't break the URL path
     let encoded_filename = urlencoding::encode(&filename);
     let endpoint = format!(
         "{}/storage/v1/object/sign/group-files/{}/{}",
         url, group_id, encoded_filename
     );
 
-    println!("DEBUG get_file_url:");
-    println!("  endpoint: {}", endpoint);
-
     let client = reqwest::Client::new();
 
-    // Signed URLs expire after the given number of seconds
     let body = serde_json::json!({
         "expiresIn": 3600
     });
 
     let response = client
         .post(&endpoint)
-        .header("apikey", &key)
-        .header("Authorization", format!("Bearer {}", key))
+        .header("apikey", ANON_KEY)
+        .header("Authorization", format!("Bearer {}", access_token))
         .header("Content-Type", "application/json")
         .json(&body)
         .send()
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        .map_err(|e| e.to_string())?;
 
     let status = response.status();
     let body_text = response.text().await.unwrap_or_default();
 
-    println!("DEBUG response: status={}, body={}", status, body_text);
-
     if !status.is_success() {
-        return Err(ServerFnError::new(format!("Sign URL Error: {}", body_text)));
+        return Err(format!("Sign URL Error: {}", body_text));
     }
 
-    // Response shape from Supabase Storage sign endpoint
     #[derive(Deserialize)]
     struct SignedUrl {
         #[serde(rename = "signedURL")]
         signed_url: String,
     }
 
-    let result: SignedUrl =
-        serde_json::from_str(&body_text).map_err(|e| ServerFnError::new(e.to_string()))?;
+    let result: SignedUrl = serde_json::from_str(&body_text).map_err(|e| e.to_string())?;
 
     let signed = if result.signed_url.starts_with('/') {
         format!(
@@ -210,8 +180,6 @@ pub async fn get_file_url(group_id: String, filename: String) -> Result<String, 
             result.signed_url.replace(' ', "%20")
         )
     };
-
-    println!("DEBUG signed URL: {}", signed);
 
     Ok(signed)
 }

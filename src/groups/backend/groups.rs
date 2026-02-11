@@ -3,8 +3,8 @@ All functions use the user's access token for Supabase RLS authorization
 We intentionally do NOT use the service role key here - RLS enforces permissions */
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
-use chrono::Utc;
-use dioxus::{html::u::counter_increment, prelude::*};
+use crate::utils::functions::get_user_id_and_session_token;
+use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 // Transfer type for group data: (group_id, name, color_hex, member_count)
@@ -27,22 +27,17 @@ struct CreateGroupPayload {
     color: String,
     owner_id: String,
 }
-
-fn bearer(token: &str) -> String {
-    format!("Bearer {token}")
-}
-
 // Fetches all groups visible to the current user.
 // Only returns groups where the user's role is not 'invited' (i.e., accepted members only)
 //#[server]
 pub async fn fetch_groups(
     user_id: String,
-    access_token: String,
+    _access_token: String,
 ) -> Result<Vec<GroupTransfer>, ServerFnError> {
     let url = SUPABASE_URL;
     let key = ANON_KEY;
+    let token = get_user_id_and_session_token().await?.1;
     let client = reqwest::Client::new();
-    let auth = bearer(&access_token);
 
     // Join group_members with groups, excluding pending invites
     let endpoint = format!(
@@ -53,7 +48,7 @@ pub async fn fetch_groups(
     let response = client
         .get(&endpoint)
         .header("apikey", key)
-        .header("Authorization", &auth)
+        .header("Authorization", format!("Bearer {}", token))
         .header("Content-Type", "application/json")
         .send()
         .await
@@ -111,7 +106,7 @@ pub async fn fetch_groups(
         let count_response = client
             .get(&count_endpoint)
             .header("apikey", key)
-            .header("Authorization", &auth)
+            .header("Authorization", format!("Bearer {}", token))
             .send()
             .await
             .ok();
@@ -154,18 +149,18 @@ pub async fn fetch_groups(
 pub async fn fetch_group_by_id(
     id: String,
     _user_id: String,
-    access_token: String,
+    _access_token: String,
 ) -> Result<Option<(String, String, String)>, ServerFnError> {
     let url = SUPABASE_URL;
     let key = ANON_KEY;
+    let token = get_user_id_and_session_token().await?.1;
     let client = reqwest::Client::new();
-    let auth = bearer(&access_token);
 
     let endpoint = format!("{url}/rest/v1/groups?id=eq.{id}&select=id,name,color&limit=1");
     let response = client
         .get(&endpoint)
         .header("apikey", key)
-        .header("Authorization", &auth)
+        .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
         .map_err(|e| ServerFnError::new(format!("fetch_group_by_id: {e}")))?
@@ -194,15 +189,14 @@ pub async fn create_group(
     name: String,
     color: String,
     user_id: String,
-    access_token: String,
+    _access_token: String,
 ) -> Result<(), ServerFnError> {
     let url = SUPABASE_URL;
     let key = ANON_KEY;
+    let token = get_user_id_and_session_token().await?.1;
     let client = reqwest::Client::new();
-    let auth = bearer(&access_token);
 
     let groups_endpoint = format!("{url}/rest/v1/groups");
-    let now = Utc::now().to_rfc3339();
 
     let payload = CreateGroupPayload {
         name,
@@ -213,7 +207,7 @@ pub async fn create_group(
     let response = client
         .post(&groups_endpoint)
         .header("apikey", key)
-        .header("Authorization", &auth)
+        .header("Authorization", format!("Bearer {}", token))
         .header("Content-Type", "application/json")
         .json(&payload)
         .send()
@@ -273,32 +267,17 @@ async fn is_owner(
 pub async fn delete_group(
     group_id: String,
     user_id: String,
-    access_token: String,
+    _access_token: String,
 ) -> Result<(), ServerFnError> {
     let url = SUPABASE_URL;
     let key = ANON_KEY;
+    let token = get_user_id_and_session_token().await?.1;
+    let auth = format!("Bearer {}", token);
     let client = reqwest::Client::new();
-    let auth = bearer(&access_token);
 
     // Verify user is the owner
     if !is_owner(&client, url, key, &auth, &group_id, &user_id).await? {
         return Err(ServerFnError::new("Only the owner can delete this group."));
-    }
-
-    // Delete all members first (foreign key constraint)
-    let delete_members_endpoint = format!("{}/rest/v1/group_members?group_id=eq.{}", url, group_id);
-
-    let members_response = client
-        .delete(&delete_members_endpoint)
-        .header("apikey", key)
-        .header("Authorization", &auth)
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Delete members request failed: {e}")))?;
-
-    if !members_response.status().is_success() {
-        let err = members_response.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!("Delete members failed: {err}")));
     }
 
     // Delete the group
@@ -330,12 +309,13 @@ struct MemberRow {
 pub async fn leave_group(
     group_id: String,
     user_id: String,
-    access_token: String,
+    _access_token: String,
 ) -> Result<(), ServerFnError> {
     let url = SUPABASE_URL;
     let key = ANON_KEY;
+    let token = get_user_id_and_session_token().await?.1;
+    let auth = format!("Bearer {}", token);
     let client = reqwest::Client::new();
-    let auth = bearer(&access_token);
 
     let user_is_owner = is_owner(&client, url, key, &auth, &group_id, &user_id).await?;
 

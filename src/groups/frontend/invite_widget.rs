@@ -7,6 +7,7 @@ Contains two widgets:
 */
 
 use dioxus::prelude::*;
+use crate::database::local::sync_local_db::sync_local_to_remote_db;
 
 // Displays pending group invitations for the current user
 #[component]
@@ -241,6 +242,7 @@ pub fn UserSearchDropdown(
                                         if let Ok((_, token)) = crate::utils::functions::get_user_id_and_session_token().await {
                                             match crate::groups::backend::invites::invite_user(gid, uid, inviter_id, token).await {
                                                 Ok(_) => {
+                                                    sync_local_to_remote_db().await;
                                                     invite_status.set(Some(format!("✓ Invited {}", uname)));
                                                     search_query.set(String::new());
                                                     search_results.set(vec![]);

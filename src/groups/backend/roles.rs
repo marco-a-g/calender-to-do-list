@@ -8,6 +8,7 @@ All operations enforce permission checks (owner/admin privileges)
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use dioxus::prelude::*;
 use serde::Deserialize;
+use dioxus_logger::tracing::{debug, warn};
 
 // Member data for the roles UI: (user_id, username, role)
 pub type MemberWithRole = (String, String, String);
@@ -41,6 +42,14 @@ async fn get_user_role(
         .await
         .map_err(|e| ServerFnError::new(format!("Role check error: {e}")))?;
 
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!(
+            "Role check failed ({status}): {body}"
+        )));
+    }
+
     let roles: Vec<RoleCheck> = response
         .json()
         .await
@@ -62,13 +71,14 @@ struct ProfileRow {
 }
 
 // Retrieves all group members with their usernames and roles
-//#[server]
+#[server]
 pub async fn fetch_members_with_roles(
     group_id: String,
     access_token: String,
 ) -> Result<Vec<MemberWithRole>, ServerFnError> {
     let client = reqwest::Client::new();
     let auth = bearer(&access_token);
+    debug!("fetch_members_with_roles: group_id={}", group_id);
 
     // Fetch all members of the group
     let members_url = format!(
@@ -83,6 +93,8 @@ pub async fn fetch_members_with_roles(
         .send()
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch members error: {e}")))?;
+
+    debug!("members_response status={}", members_response.status());
 
     if !members_response.status().is_success() {
         let err = members_response.text().await.unwrap_or_default();
@@ -107,7 +119,7 @@ pub async fn fetch_members_with_roles(
         .join(",");
 
     let profiles_url = format!(
-        "{}/rest/v1/profiles?id=in.({}))&select=id,username",
+        "{}/rest/v1/profiles?id=in.({})&select=id,username",
         SUPABASE_URL, ids_filter
     );
 
@@ -118,6 +130,8 @@ pub async fn fetch_members_with_roles(
         .send()
         .await
         .map_err(|e| ServerFnError::new(format!("Fetch profiles error: {e}")))?;
+
+    debug!("profiles_response status={}", profiles_response.status());
 
     let profiles: Vec<ProfileRow> = if profiles_response.status().is_success() {
         profiles_response.json().await.unwrap_or_default()
@@ -142,7 +156,7 @@ pub async fn fetch_members_with_roles(
 }
 
 // Changes a member's role (promote to admin or demote to member)
-//#[server]
+#[server]
 pub async fn change_member_role(
     group_id: String,
     target_user_id: String,
@@ -152,6 +166,10 @@ pub async fn change_member_role(
 ) -> Result<(), ServerFnError> {
     let client = reqwest::Client::new();
     let auth = bearer(&access_token);
+    debug!(
+        "change_member_role: group_id={} target_user_id={} new_role={} actor_user_id={}",
+        group_id, target_user_id, new_role, actor_user_id
+    );
 
     if !["member", "admin"].contains(&new_role.as_str()) {
         return Err(ServerFnError::new("Invalid role. Use 'member' or 'admin'."));
@@ -189,6 +207,8 @@ pub async fn change_member_role(
         .await
         .map_err(|e| ServerFnError::new(format!("Change role error: {e}")))?;
 
+    debug!("change_member_role response status={}", response.status());
+
     if !response.status().is_success() {
         let err = response.text().await.unwrap_or_default();
         return Err(ServerFnError::new(format!("Change role failed: {err}")));
@@ -198,7 +218,7 @@ pub async fn change_member_role(
 }
 
 // Transfers group ownership to another member
-//#[server]
+#[server]
 pub async fn transfer_ownership(
     group_id: String,
     new_owner_id: String,
@@ -207,6 +227,10 @@ pub async fn transfer_ownership(
 ) -> Result<(), ServerFnError> {
     let client = reqwest::Client::new();
     let auth = bearer(&access_token);
+    debug!(
+        "transfer_ownership: group_id={} new_owner_id={} current_owner_id={}",
+        group_id, new_owner_id, current_owner_id
+    );
 
     // Verify current user is the owner
     let actor_role = get_user_role(&client, &auth, &group_id, &current_owner_id).await?;
@@ -236,6 +260,8 @@ pub async fn transfer_ownership(
         .await
         .map_err(|e| ServerFnError::new(format!("Update groups error: {e}")))?;
 
+    debug!("transfer_ownership: update groups response status={}", resp.status());
+
     if !resp.status().is_success() {
         let err = resp.text().await.unwrap_or_default();
         return Err(ServerFnError::new(format!("Update groups failed: {err}")));
@@ -247,7 +273,7 @@ pub async fn transfer_ownership(
         SUPABASE_URL, group_id, new_owner_id
     );
 
-    client
+    let new_owner_role_resp = client
         .patch(&new_owner_url)
         .header("apikey", ANON_KEY)
         .header("Authorization", &auth)
@@ -257,13 +283,20 @@ pub async fn transfer_ownership(
         .await
         .map_err(|e| ServerFnError::new(format!("Set new owner role error: {e}")))?;
 
+    debug!("transfer_ownership: set new owner role response status={}", new_owner_role_resp.status());
+
+    if !new_owner_role_resp.status().is_success() {
+        let err = new_owner_role_resp.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!("Set new owner role failed: {err}")));
+    }
+
     // Demote previous owner to 'admin'
     let old_owner_url = format!(
         "{}/rest/v1/group_members?group_id=eq.{}&user_id=eq.{}",
         SUPABASE_URL, group_id, current_owner_id
     );
 
-    client
+    let old_owner_role_resp = client
         .patch(&old_owner_url)
         .header("apikey", ANON_KEY)
         .header("Authorization", &auth)
@@ -273,11 +306,18 @@ pub async fn transfer_ownership(
         .await
         .map_err(|e| ServerFnError::new(format!("Set old owner role error: {e}")))?;
 
+    debug!("transfer_ownership: set old owner role response status={}", old_owner_role_resp.status());
+
+    if !old_owner_role_resp.status().is_success() {
+        let err = old_owner_role_resp.text().await.unwrap_or_default();
+        return Err(ServerFnError::new(format!("Set old owner role failed: {err}")));
+    }
+
     Ok(())
 }
 
 // Removes a member from the group
-//#[server]
+#[server]
 pub async fn kick_member(
     group_id: String,
     target_user_id: String,
@@ -286,6 +326,10 @@ pub async fn kick_member(
 ) -> Result<(), ServerFnError> {
     let client = reqwest::Client::new();
     let auth = bearer(&access_token);
+    debug!(
+        "kick_member: group_id={} target_user_id={} actor_user_id={}",
+        group_id, target_user_id, actor_user_id
+    );
 
     // Check actor's permissions
     let actor_role = get_user_role(&client, &auth, &group_id, &actor_user_id).await?;
@@ -326,7 +370,10 @@ pub async fn kick_member(
         .await
         .map_err(|e| ServerFnError::new(format!("Kick member error: {e}")))?;
 
+    debug!("kick_member response status={}", response.status());
+
     if !response.status().is_success() {
+        warn!("kick_member failed with status={}", response.status());
         let err = response.text().await.unwrap_or_default();
         return Err(ServerFnError::new(format!("Kick failed: {err}")));
     }
