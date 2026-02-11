@@ -1,8 +1,8 @@
+use crate::utils::date_handling::calculate_next_date;
 use crate::utils::structs::TodoEventLight;
-use chrono::{DateTime, Datelike, Duration, NaiveDate, Timelike, Utc, Weekday};
+use chrono::{DateTime, Timelike, Utc};
 use std::collections::HashMap;
 use uuid::Uuid;
-
 //nimmt eingabe vector von todos und erstellt anhand der Rrules einen Vector mit den Wiederholenden Todos, beachtet auch übersprungene und verschobene Todo wiederholungen
 pub fn expand_recurring_todos(
     todos: Vec<TodoEventLight>,
@@ -133,113 +133,4 @@ pub fn expand_recurring_todos(
     }
     //Ergebnisvektor aus Mastern und "Fake"-Todos ausgeben
     Ok(result)
-}
-
-//Helper um nächste Datumsinstanzen nach rrule zu finden
-
-//generiert das nächste Datum einer wiederholenden INstanz
-pub fn calculate_next_date(
-    current: DateTime<Utc>,
-    rrule: &str,
-    start_date_of_rec: DateTime<Utc>,
-) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
-    match rrule {
-        "daily" => Ok(current + Duration::days(1)),
-        "weekly" => Ok(current + Duration::weeks(1)),
-        "fortnight" => Ok(current + Duration::weeks(2)),
-        "weekdays" => {
-            //wenn Freitag oder Samstag auf Monatag,
-            let next_date = match current.weekday() {
-                Weekday::Fri => current + Duration::days(3),
-                Weekday::Sat => current + Duration::days(2),
-                _ => current + Duration::days(1),
-            };
-            Ok(next_date)
-        }
-        "monthly_on_date" => add_months_same_date(current, 1, start_date_of_rec.day()), //Start date mitgeben um Probleme um 31. des Monats zu handeln
-        "monthly_on_weekday" => add_month_on_same_weekday(current),
-        "annual" => add_months_same_date(current, 12, start_date_of_rec.day()), //Start date mitgeben um Probleme um 31. des Monats zu handeln
-        _ => Err(format!("No matching rrule").into()),
-    }
-}
-
-//für monatlich wiederholende Todos auf den selben Tag
-fn add_months_same_date(
-    date: DateTime<Utc>,
-    months_to_add: u32,
-    preferered_day_on_exception: u32,
-) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
-    let year = date.year() + (date.month() as i32 + months_to_add as i32 - 1) / 12;
-    let month = (date.month() as i32 + months_to_add as i32 - 1) % 12 + 1;
-
-    //falls wiederholendes todo in nächsten monat fallen würde letzten Tag des monats suchen (bsp. Wdh. Event am 31. März soll dann 30.April nicht 1. Mai) ...
-    let day_raw = handle_last_day_of_month(year, month as u32)
-        .ok_or_else(|| format!("Date conversion invalid in fn add_months_same_date"))?;
-
-    //...und das kleinere der beiden nehmen
-    let day = std::cmp::min(preferered_day_on_exception, day_raw);
-    //println!("Fehler bei {} {} {}", year, month, day);
-    date.with_day(1) //erst Tag auf eins setzen sonst wirft es manchmal fehler
-        .ok_or("Error resetting day to 1")?
-        .with_year(year)
-        .ok_or("Invalid year in fn add_months_same_date")?
-        .with_month(month as u32)
-        .ok_or("Invalid month in fn add_months_same_date")?
-        .with_day(day)
-        .ok_or("Invalid day in fn add_months_same_date")
-        .map_err(|e| e.into())
-}
-
-//gibt den letzten Tag des Monats aus, bzw. Anzahl an Tage in dem Monat
-fn handle_last_day_of_month(year: i32, month: u32) -> Option<u32> {
-    if month == 12 {
-        // im Dezember -> ersten Tag des neuen Jahres nehmen und davon dann vorgänger
-        NaiveDate::from_ymd_opt(year + 1, 1, 1)?
-            .pred_opt() // Gibt Vorgängerdatum
-            .map(|d| d.day())
-    } else {
-        // alle anderen Monate
-        NaiveDate::from_ymd_opt(year, month + 1, 1)? //erster Tag des Nächsten Monats
-            .pred_opt() //Davon Vorgängerdatum
-            .map(|d| d.day())
-    }
-}
-
-fn add_month_on_same_weekday(
-    date: DateTime<Utc>,
-) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
-    let weekday = date.weekday();
-    let day_date = date.day();
-    //der wie vielte dieses Wochentages ist es im Monat (3ter Freitag im Monat)
-    let nth_weekday_of_month = (day_date - 1) / 7 + 1;
-
-    let (next_year, next_month) = if date.month() == 12 {
-        // im Dezember
-        (date.year() + 1 /*Jahr+1*/, 1 /*Januar*/)
-    } else {
-        //sonst nur monat+1
-        (date.year(), date.month() + 1)
-    };
-
-    let mut date_result = date
-        .with_year(next_year)
-        .ok_or("Invalid year in fn add_month_on_same_weekday")?
-        .with_month(next_month)
-        .ok_or("Invalid month in fn add_month_on_same_weekday")?
-        .with_day(1)
-        .ok_or("Invalid day in fn add_month_on_same_weekday")?;
-
-    //Sucht den ersten Wochentag des Monats, der gleich des Todo DueDate-Tages ist
-    while date_result.weekday() != weekday {
-        date_result = date_result + Duration::days(1);
-    }
-    //springt auf n-ten Wochentag des Monats vor
-    date_result = date_result + Duration::weeks((nth_weekday_of_month - 1) as i64);
-
-    //Wenn nächster passender Wochentag erst im übernächsten monat eine woche zurück gehen, letzten passenden Wochentag nehmen
-    if date_result.month() != next_month {
-        date_result = date_result - Duration::weeks(1);
-    }
-
-    Ok(date_result) // Gibt das berechnete Datum zurück
 }
