@@ -95,7 +95,7 @@ pub async fn edit_calendar_event(
     let mut to_non_override: Vec<CalendarEvent> = Vec::new();
     let mut to_be_orphaned: Vec<CalendarEvent> = Vec::new();
 
-    // check, wether the recurrence is changed in a way that needs to check the exceptions
+    // check, whether the recurrence is changed in a way that needs to check the exceptions
     if let Some(new_recurrence) = new_version.recurrence.clone()
         && let Some(old_recurrence) = old_version.recurrence.clone()
         && (new_recurrence.recurrence_until < old_recurrence.recurrence_until
@@ -553,12 +553,12 @@ pub async fn edit_single_calendar_event(
     let old_version = get_calendar_event_from_remote(new_version.id).await?;
     if let Some(_) = old_version.recurrence {
         return Err(ServerFnError::new(
-            "Missmatching Event: The CalendarEvent to be altered is not a single event.",
+            "Mismatching Event: The CalendarEvent to be altered is not a single event.",
         ));
     };
     if let Some(_) = old_version.recurrence_exception {
         return Err(ServerFnError::new(
-            "Missmatching Event: The CalendarEvent to be altered is instance of a recurrent event.",
+            "Mismatching Event: The CalendarEvent to be altered is instance of a recurrent event.",
         ));
     };
 
