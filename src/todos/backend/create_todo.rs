@@ -283,11 +283,14 @@ fn map_id_to_shadow_list(
     if id_to_check.is_none() {
         let user_id_str = user_uuid.to_string();
         //itteriert über alle Listen Einträge und gibt die ID der Liste aus dessen Namen == UserID
-        return all_lists
+        let list = all_lists
             .iter()
             .find(|l| l.name == user_id_str)
-            .map(|l| Uuid::parse_str(&l.id).unwrap_or_default())
-            .ok_or_else(|| "No matching List found in mapping Shadow check".into());
+            .ok_or_else(|| -> Box<dyn std::error::Error> {
+                "No matching List found in mapping Shadow check".into()
+            })?;
+        let uuid = Uuid::parse_str(&list.id)?;
+        return Ok(uuid);
     }
 
     let id_to_search = id_to_check.unwrap().to_string();
