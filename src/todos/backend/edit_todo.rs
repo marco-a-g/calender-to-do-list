@@ -148,81 +148,120 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
 
     //Für Recurrance instanzen / nicht master -> Exception erstellen
     if todo.recurrence_id.is_some() {
-        // Overrides_date holen
-        let overrides_date = if let Some(s) = &todo.due_datetime {
-            html_input_to_db(s).unwrap_or(None)
-        } else {
-            None
-        };
+        //Ist eine bestehende Exception einer Recurrance reihe -> dann update
+        let todo_id_exception_to_edit: &_ = &todo.id.clone();
+        if todo.overrides_datetime.is_some() {
+            let update_transfer = match light_todo_into_update(todo) {
+                Ok(data) => data,
+                Err(e) => return Err(ServerFnError::new(format!("Mapping Error: {}", e))),
+            };
+            let url_update = format!(
+                "{}/rest/v1/todo_events?id=eq.{}",
+                SUPABASE_URL, todo_id_exception_to_edit
+            );
+            let response = client
+                .patch(&url_update)
+                .bearer_auth(token)
+                .header("apikey", ANON_KEY)
+                .header("Content-Type", "application/json")
+                .json(&update_transfer)
+                .send()
+                .await;
 
-        let overrides_date =
-            overrides_date.ok_or(ServerFnError::new("Instance has no valid due date"))?;
-
-        // Exceptioneintrag erstellen
-        let exception = ToDoTransfer {
-            summary: todo.summary.clone(),
-            description: todo.description.clone(),
-            todo_list_id: Uuid::parse_str(&todo.todo_list_id).ok(),
-            completed: todo.completed,
-            due_datetime: Some(overrides_date),
-            priority: todo
-                .priority
-                .clone()
-                .unwrap_or("normal".to_string())
-                .to_lowercase(),
-            assigned_to_user: todo
-                .assigned_to_user
-                .as_deref()
-                .and_then(|u| Uuid::parse_str(u).ok()),
-            attachment: todo.attachment.clone(),
-            rrule: None,
-            recurrence_until: None,
-            recurrence_id: todo
-                .recurrence_id
-                .as_deref()
-                .and_then(|id| Uuid::parse_str(id).ok()),
-            overrides_datetime: Some(overrides_date),
-            skipped: todo.skipped,
-        };
-
-        // Anfrage an Supabase mit neuem Exception event
-        let url_create = format!("{}/rest/v1/todo_events", SUPABASE_URL);
-        let response_create = client
-            .post(&url_create)
-            .bearer_auth(token)
-            .header("apikey", ANON_KEY)
-            .header("Content-Type", "application/json")
-            .json(&exception)
-            .send()
-            .await;
-
-        match response_create {
-            Ok(res) => {
-                let status = res.status();
-                if !status.is_success() {
-                    let error_text = res.text().await.unwrap_or_default();
-                    eprintln!(
-                        "Supabase Error (Create Exception): {} - {}",
-                        status, error_text
-                    );
-                    return Err(ServerFnError::new(format!(
-                        "Supabase Error on Exception Create: {}",
-                        error_text
-                    )));
+            match response {
+                Ok(res) => {
+                    if !res.status().is_success() {
+                        let error_text = res.text().await.unwrap_or_default();
+                        return Err(ServerFnError::new(format!(
+                            "Supabase Error: {}",
+                            error_text
+                        )));
+                    }
+                    println!("Existing exception patched via edit.");
+                    if let Err(e) = sync_local_to_remote_db().await {
+                        eprintln!("Sync error: {:?}", e);
+                    }
+                    return Ok(res.status());
                 }
-                println!("Exception created successfully via edit.");
-                if let Err(e) = sync_local_to_remote_db().await {
-                    eprintln!("Sync error after edit_todo: {:?}", e);
-                }
-                return Ok(status);
+                Err(e) => return Err(ServerFnError::new(format!("Network Error: {}", e))),
             }
-            Err(e) => {
-                eprintln!("Network Error bei Exception Create: {}", e);
-                return Err(ServerFnError::new(format!("Network Error: {}", e)));
+        } else {
+            //Keine bestehende Exception -> neue Exception erstellen bei edit
+            // Overrides_date holen
+            let overrides_date = if let Some(s) = &todo.due_datetime {
+                html_input_to_db(s).unwrap_or(None)
+            } else {
+                None
+            };
+
+            let overrides_date =
+                overrides_date.ok_or(ServerFnError::new("Instance has no valid due date"))?;
+
+            // Exceptioneintrag erstellen
+            let exception = ToDoTransfer {
+                summary: todo.summary.clone(),
+                description: todo.description.clone(),
+                todo_list_id: Uuid::parse_str(&todo.todo_list_id).ok(),
+                completed: todo.completed,
+                due_datetime: Some(overrides_date),
+                priority: todo
+                    .priority
+                    .clone()
+                    .unwrap_or("normal".to_string())
+                    .to_lowercase(),
+                assigned_to_user: todo
+                    .assigned_to_user
+                    .as_deref()
+                    .and_then(|u| Uuid::parse_str(u).ok()),
+                attachment: todo.attachment.clone(),
+                rrule: None,
+                recurrence_until: None,
+                recurrence_id: todo
+                    .recurrence_id
+                    .as_deref()
+                    .and_then(|id| Uuid::parse_str(id).ok()),
+                overrides_datetime: Some(overrides_date),
+                skipped: todo.skipped,
+            };
+
+            // Anfrage an Supabase mit neuem Exception event
+            let url_create = format!("{}/rest/v1/todo_events", SUPABASE_URL);
+            let response_create = client
+                .post(&url_create)
+                .bearer_auth(token)
+                .header("apikey", ANON_KEY)
+                .header("Content-Type", "application/json")
+                .json(&exception)
+                .send()
+                .await;
+
+            match response_create {
+                Ok(res) => {
+                    let status = res.status();
+                    if !status.is_success() {
+                        let error_text = res.text().await.unwrap_or_default();
+                        eprintln!(
+                            "Supabase Error (Create Exception): {} - {}",
+                            status, error_text
+                        );
+                        return Err(ServerFnError::new(format!(
+                            "Supabase Error on Exception Create: {}",
+                            error_text
+                        )));
+                    }
+                    println!("Exception created successfully via edit.");
+                    if let Err(e) = sync_local_to_remote_db().await {
+                        eprintln!("Sync error after edit_todo: {:?}", e);
+                    }
+                    return Ok(status);
+                }
+                Err(e) => {
+                    eprintln!("Network Error bei Exception Create: {}", e);
+                    return Err(ServerFnError::new(format!("Network Error: {}", e)));
+                }
             }
         }
     }
-
     //Master oder nicht recurring todo -> Eintrag selbst Updaten, keine exception
     // ID Checken
     let todo_id = Uuid::parse_str(&todo.id)
