@@ -23,8 +23,12 @@ pub fn expand_recurring_todos(
             // Es ist eine Exception, dann mit master-id und überschreibendem DAtum speichern in Hashmap
             if let Some(ref parent_id) = todo.recurrence_id {
                 if let Some(ref date_key) = todo.overrides_datetime {
+                    //Github PR Review Fix, für evtl. Vergleichsprobleme bei unterschiedlichen Datumsformaten, umparsen damit Vergleich klappt
+                    let normalized_date_key = DateTime::parse_from_rfc3339(date_key)
+                        .map(|d| d.with_timezone(&Utc).to_rfc3339())
+                        .unwrap_or_else(|_| date_key.clone());
                     //inesertet das exception event mit parentId und overrides datetime
-                    exceptions.insert((parent_id.clone(), date_key.clone()), todo);
+                    exceptions.insert((parent_id.clone(), normalized_date_key), todo);
                 }
             }
         } else {
