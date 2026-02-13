@@ -1,6 +1,7 @@
 use crate::utils::date_handling::db_to_display_only_date;
 use crate::utils::structs::{GroupLight, TodoEventLight, TodoListLight};
 use dioxus::prelude::*;
+use std::collections::HashMap;
 
 #[component]
 pub fn HistoryView(
@@ -8,6 +9,12 @@ pub fn HistoryView(
     all_lists: Vec<TodoListLight>,
     all_groups: Vec<GroupLight>,
 ) -> Element {
+    //GitubReview Fix für Searchcomplexity mit Hashmap:
+    let list_map: HashMap<&str, &TodoListLight> =
+        all_lists.iter().map(|l| (l.id.as_str(), l)).collect();
+
+    let group_map: HashMap<&str, &GroupLight> =
+        all_groups.iter().map(|g| (g.id.as_str(), g)).collect();
     rsx! {
         div {
             style: "flex: 1; background: linear-gradient(145deg, #1f222c 0%, #14161f 100%); border-radius: 18px; padding: 18px; box-shadow: 0 22px 45px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; overflow: hidden;",
@@ -20,21 +27,19 @@ pub fn HistoryView(
                 //über alle completed Tasks itterieren und dazugehörige liste und gruppe holen für Label und rendern
                 for task in history_tasks {
                     {
-                        let parent_list = all_lists.iter().find(|l| l.id == task.todo_list_id).cloned();
-                        //hier über listen itterieren um über liste Gruppe finden -> Todo hat keine eigene Gruppe bis jetzt?
-                        let parent_group = all_lists.iter()
-                            .find(|l| l.id == task.todo_list_id)
-                            .and_then(|l| l.group_id.as_ref())
-                            .and_then(|gid| all_groups.iter().find(|g| &g.id == gid))
-                            .cloned();
+                        //GithubReview searchcomplexity fix
+                        let parent_list = list_map.get(task.todo_list_id.as_str()).cloned();
+                        let parent_group = parent_list
+                            .and_then(|l| l.group_id.as_deref())  // je nachdem wie dein Struct aussieht
+                            .and_then(|gid| group_map.get(gid).cloned());
 
                         rsx! {
                             //Erledigte Tasks rendern mit Tags
                             HistoryItem {
                                 key: "{task.id}",
                                 task: task.clone(),
-                                parent_list: parent_list,
-                                parent_group: parent_group
+                                parent_list: parent_list.cloned(),
+                                parent_group: parent_group.cloned(),
                             }
                         }
                     }
