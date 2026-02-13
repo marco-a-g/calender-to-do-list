@@ -17,6 +17,10 @@ use uuid::Uuid;
 struct UpdateMasterDate {
     due_datetime: DateTime<Utc>,
 }
+#[derive(Serialize)]
+struct UpdateSkippedOfExistingExceptions {
+    skipped: bool,
+}
 
 // #[server]
 pub async fn delete_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerFnError> {
@@ -90,72 +94,107 @@ pub async fn delete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Serve
     if todo.recurrence_id.is_some()
         && (todo.rrule.is_none() || todo.rrule.as_ref().unwrap().is_empty())
     {
-        // Overrides_date holen anhand der ausgewählten wiederholenden Instanz
-        let overrides_date = if let Some(s) = &todo.due_datetime {
-            html_input_to_db(s).unwrap_or(None)
-        } else {
-            None
-        };
-        // wenn nächstes Datum nicht berechnet werden konnte Fehler werfen
-        let overrides_date =
-            overrides_date.ok_or(ServerFnError::new("Exception has no valid due date"))?;
+        //Copilot PR-Review Anpassung -> weiterer Check ob zu deletende Instanz bereits eine Exception ist -> dann nur Patch, keine neue exception
+        let is_existing_exception = todo.overrides_datetime.is_some();
 
-        // Exception erstellen mit overrides datetime skipped=true
-        let exception_entry = ToDoTransfer {
-            summary: todo.summary.clone(),
-            description: todo.description.clone(),
-            todo_list_id: Uuid::parse_str(&todo.todo_list_id).ok(),
-            completed: false,
-            due_datetime: Some(overrides_date),
-            priority: todo
-                .priority
-                .clone()
-                .unwrap_or("normal".to_string())
-                .to_lowercase(),
-            assigned_to_user: todo
-                .assigned_to_user
-                .as_deref()
-                .and_then(|u| Uuid::parse_str(u).ok()),
-            attachment: todo.attachment.clone(),
-            rrule: None,
-            recurrence_until: None,
-            recurrence_id: todo
-                .recurrence_id
-                .as_deref()
-                .and_then(|id| Uuid::parse_str(id).ok()),
-            overrides_datetime: Some(overrides_date),
-            skipped: true,
-        };
+        if is_existing_exception {
+            let url_update = format!("{}/rest/v1/todo_events?id=eq.{}", SUPABASE_URL, todo.id);
+            let payload = UpdateSkippedOfExistingExceptions { skipped: true };
+            //patch auf existierendere Exception
+            let response_result = client
+                .patch(&url_update)
+                .bearer_auth(token)
+                .header("apikey", ANON_KEY)
+                .header("Content-Type", "application/json")
+                .json(&payload)
+                .send()
+                .await;
 
-        // Anfrage an Supabase mit neuem Exception event
-        let url_create = format!("{}/rest/v1/todo_events", SUPABASE_URL);
-        let response_create = client
-            .post(&url_create)
-            .bearer_auth(token)
-            .header("apikey", ANON_KEY)
-            .header("Content-Type", "application/json")
-            .json(&exception_entry)
-            .send()
-            .await;
-
-        // Response check
-        match response_create {
-            Ok(res) => {
-                let status = res.status();
-                if !status.is_success() {
-                    let error = res.text().await.unwrap_or_default();
-                    return Err(ServerFnError::new(format!("Supabase Error: {}", error)));
+            match response_result {
+                Ok(res) => {
+                    if !res.status().is_success() {
+                        let error_text = res.text().await.unwrap_or_default();
+                        println!("Supabase Error patching exception: {}", error_text);
+                        return Err(ServerFnError::new(format!(
+                            "Supabase Error: {}",
+                            error_text
+                        )));
+                    }
+                    println!("Existing exception patched to skipped.");
+                    if let Err(e) = sync_local_to_remote_db().await {
+                        println!("Sync error: {:?}", e);
+                    }
+                    return Ok(res.status());
                 }
-                println!("Skipped-Exception created.");
-                if let Err(e) = sync_local_to_remote_db().await {
-                    println!("Sync error: {:?}", e);
-                }
-                return Ok(status);
+                Err(e) => return Err(ServerFnError::new(format!("Network Error: {}", e))),
             }
-            Err(e) => return Err(ServerFnError::new(format!("Network Error: {}", e))),
+        } else {
+            // Overrides_date holen anhand der ausgewählten wiederholenden Instanz
+            let overrides_date = if let Some(s) = &todo.due_datetime {
+                html_input_to_db(s).unwrap_or(None)
+            } else {
+                None
+            };
+            // wenn nächstes Datum nicht berechnet werden konnte Fehler werfen
+            let overrides_date =
+                overrides_date.ok_or(ServerFnError::new("Exception has no valid due date"))?;
+
+            // Exception erstellen mit overrides datetime skipped=true
+            let exception_entry = ToDoTransfer {
+                summary: todo.summary.clone(),
+                description: todo.description.clone(),
+                todo_list_id: Uuid::parse_str(&todo.todo_list_id).ok(),
+                completed: false,
+                due_datetime: Some(overrides_date),
+                priority: todo
+                    .priority
+                    .clone()
+                    .unwrap_or("normal".to_string())
+                    .to_lowercase(),
+                assigned_to_user: todo
+                    .assigned_to_user
+                    .as_deref()
+                    .and_then(|u| Uuid::parse_str(u).ok()),
+                attachment: todo.attachment.clone(),
+                rrule: None,
+                recurrence_until: None,
+                recurrence_id: todo
+                    .recurrence_id
+                    .as_deref()
+                    .and_then(|id| Uuid::parse_str(id).ok()),
+                overrides_datetime: Some(overrides_date),
+                skipped: true,
+            };
+
+            // Anfrage an Supabase mit neuem Exception event
+            let url_create = format!("{}/rest/v1/todo_events", SUPABASE_URL);
+            let response_create = client
+                .post(&url_create)
+                .bearer_auth(token)
+                .header("apikey", ANON_KEY)
+                .header("Content-Type", "application/json")
+                .json(&exception_entry)
+                .send()
+                .await;
+
+            // Response check
+            match response_create {
+                Ok(res) => {
+                    let status = res.status();
+                    if !status.is_success() {
+                        let error = res.text().await.unwrap_or_default();
+                        return Err(ServerFnError::new(format!("Supabase Error: {}", error)));
+                    }
+                    println!("Skipped-Exception created.");
+                    if let Err(e) = sync_local_to_remote_db().await {
+                        println!("Sync error: {:?}", e);
+                    }
+                    return Ok(status);
+                }
+                Err(e) => return Err(ServerFnError::new(format!("Network Error: {}", e))),
+            }
         }
     }
-
     //--Nicht Recurrend todos completen -> nur eintrag löschen
     let url_delete = format!("{}/rest/v1/todo_events?id=eq.{}", SUPABASE_URL, todo.id);
     let response_result = client
