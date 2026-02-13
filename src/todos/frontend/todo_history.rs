@@ -30,7 +30,7 @@ pub fn HistoryView(
                         //GithubReview searchcomplexity fix
                         let parent_list = list_map.get(task.todo_list_id.as_str()).cloned();
                         let parent_group = parent_list
-                            .and_then(|l| l.group_id.as_deref())  // je nachdem wie dein Struct aussieht
+                            .and_then(|l| l.group_id.as_deref())
                             .and_then(|gid| group_map.get(gid).cloned());
 
                         rsx! {
