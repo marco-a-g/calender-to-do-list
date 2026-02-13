@@ -29,7 +29,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
     let (_user_id_str, token) = match get_user_id_and_session_token().await {
         Ok(data) => data,
         Err(e) => {
-            println!("Not Authed!");
+            println!("Error: User not authenticated");
             return Err(e);
         }
     };
@@ -161,7 +161,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
 
         // wenn nächstes Datum nicht berechnet werden konnte Fehler werfen
         let overrides_date =
-            overrides_date.ok_or(ServerFnError::new("Exceptoin has no valid due date"))?;
+            overrides_date.ok_or(ServerFnError::new("Exception has no valid due date"))?;
 
         //Exception erstellen mit overrides datetime und true
         let exception_entry = ToDoTransfer {

@@ -109,7 +109,7 @@ pub async fn edit_todo_list(list: TodoListLight) -> Result<StatusCode, ServerFnE
     let (_user_id_str, token) = match get_user_id_and_session_token().await {
         Ok(data) => data,
         Err(e) => {
-            println!("Error: Not auhed");
+            println!("Error: User not authenticated");
             return Err(e);
         }
     };
