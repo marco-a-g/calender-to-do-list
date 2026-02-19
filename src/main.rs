@@ -15,6 +15,7 @@ use crate::groups::frontend::GroupsPage;
 use crate::groups::frontend::group_detail::GroupDetailPage;
 use crate::todos::frontend::todo_dashboard::ToDoDashboard;
 use crate::user::frontend::{create_profile::CreateProfileView, profile_view::ProfileView};
+use crate::calendar::frontend::calendar_page::CalendarPage;
 use axum::extract::DefaultBodyLimit;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
@@ -133,9 +134,7 @@ fn DashboardView() -> Element {
 #[component]
 fn Calendar() -> Element {
     rsx! {
-        div {
-            "Calendar"
-        }
+        CalendarPage {}
     }
 }
 
