@@ -146,19 +146,23 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
 
     let client = reqwest::Client::new();
 
-    //Für Recurrance instanzen / nicht master -> Exception erstellen
+    //Für Recurrance instanzen / nicht master -> Exception erstellen oder patchen
     if todo.recurrence_id.is_some() {
-        //Ist eine bestehende Exception einer Recurrance reihe -> dann update
-        let todo_id_exception_to_edit: &_ = &todo.id.clone();
-        if todo.overrides_datetime.is_some() {
-            let update_transfer = match light_todo_into_update(todo) {
+        let exception_id = todo.id.clone();
+
+        //Ist es bereits eine Exception -> nur patchen, dafür Prüfung: hat ein overrides_datetime && ist die id dieser instanz ungleich der rec_id (also vom Master), da im "edit only this instanze modus" im Master hier als rec_id vorrübergehend zur Zuordnung die id selber genommen wird
+        let is_different_from_mastr = todo.recurrence_id.as_deref() != Some(&exception_id);
+
+        let is_existing_exception = todo.overrides_datetime.is_some() && is_different_from_mastr;
+
+        if is_existing_exception {
+            // Es ist eine echte DB-Exception -> PATCH Update
+            let update_transfer = match light_todo_into_update(todo.clone()) {
                 Ok(data) => data,
                 Err(e) => return Err(ServerFnError::new(format!("Mapping Error: {}", e))),
             };
-            let url_update = format!(
-                "{}/rest/v1/todo_events?id=eq.{}",
-                SUPABASE_URL, todo_id_exception_to_edit
-            );
+            let url_update = format!("{}/rest/v1/todo_events?id=eq.{}", SUPABASE_URL, todo.id);
+
             let response = client
                 .patch(&url_update)
                 .bearer_auth(token)
