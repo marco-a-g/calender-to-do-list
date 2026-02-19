@@ -8,7 +8,7 @@ use uuid::Uuid;
 /// Is currently limited do the frequency of recurrence. Building recurrent events is described at
 /// struct "Recurrent".
 /// Dates that unavailable (e.g. 30.2.)must be taken care of or made unreachable!
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString, Copy)]
 pub enum Rrule {
     #[strum(ascii_case_insensitive)]
     Daily,
@@ -31,7 +31,7 @@ impl fmt::Display for Rrule {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString, Copy)]
 pub enum OwnerType {
     #[strum(ascii_case_insensitive)]
     Private,
@@ -44,7 +44,7 @@ impl fmt::Display for OwnerType {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString, Copy)]
 pub enum Role {
     #[strum(ascii_case_insensitive)]
     Owner,
@@ -61,7 +61,7 @@ impl fmt::Display for Role {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString, Copy)]
 pub enum Priority {
     #[strum(ascii_case_insensitive)]
     Low,
@@ -85,7 +85,7 @@ impl fmt::Display for Priority {
 /// Overrides shows wether this exception replaces an regular element (see Overrides) or is an
 /// additional element to the recurrent element (None).
 /// An element that is used as an recurrence exception must not be recurrent itself.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Copy)]
 pub struct RecurrenceException {
     pub recurrence_id: Uuid,
     pub overrides: Option<Overrides>,
@@ -108,7 +108,7 @@ impl fmt::Display for RecurrenceException {
 /// skipped is used when the overridden instance is not replaced but simply skipped.
 /// If skipped is set to true, the RecurrenceException will not be displayed and the only value
 /// of it that is used is overrides_datetime.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Copy)]
 pub struct Overrides {
     pub overrides_datetime: DateTime<Utc>,
     pub skipped: bool,
@@ -135,7 +135,7 @@ impl fmt::Display for Overrides {
 /// Build a recurrent event at wednesday at 5, rrule = Weekly.
 /// Build a second recurrent event at friday at 7, rrule = Weekly, recurrence_id = id of the first
 /// event.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Copy)]
 pub struct Recurrent {
     pub rrule: Rrule,
     pub recurrence_until: DateTime<Utc>,
@@ -151,7 +151,7 @@ impl fmt::Display for Recurrent {
 }
 
 /// Used to describe whether the element belongs to a user or a group and to wich user or group.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Copy)]
 pub struct OwnedBy {
     pub owner_type: OwnerType,
     pub owner_id: Uuid,

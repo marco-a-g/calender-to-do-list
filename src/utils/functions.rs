@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use chrono::{DateTime, Utc, *};
+use chrono::{DateTime, Datelike, Utc, Weekday};
 use dioxus::prelude::*;
 use reqwest::*;
 use std::*;
