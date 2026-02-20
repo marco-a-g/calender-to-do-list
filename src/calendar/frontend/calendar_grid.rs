@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use dioxus::prelude::*;
 
 use crate::utils::structs::{Calendar, CalendarEvent};
@@ -138,8 +138,9 @@ fn MonthGrid(
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEvent>,
 ) -> Element {
-    // TODO: Compute actual days of the month including leading/trailing overflow cells
-    // Each cell should receive only the events whose date matches that day
+    let days = days_in_month(displayed_date.year(), displayed_date.month());
+    let today = Utc::now().date_naive();
+
     rsx! {
         div {
             class: "grid grid-cols-7 gap-px bg-white/5 flex-1",
@@ -151,15 +152,27 @@ fn MonthGrid(
                 }
             }
 
-            for _ in 0..35 {
-                DayCell {
-                    date: displayed_date,
-                    events: vec![],
-                    calendars: calendars.clone(),
-                    is_today: false,
-                    is_current_month: true,
-                    on_day_click: on_day_click.clone(),
-                    on_event_click: on_event_click.clone(),
+            for day in 1..=days {
+                {
+                    let cell_date = displayed_date.with_day(day).unwrap();
+                    let is_today = cell_date.date_naive() == today;
+                    let day_events = events
+                        .iter()
+                        .filter(|e| e.from_date_time.date_naive() == cell_date.date_naive())
+                        .cloned()
+                        .collect::<Vec<_>>();
+
+                    rsx! {
+                        DayCell {
+                            date: cell_date,
+                            events: day_events,
+                            calendars: calendars.clone(),
+                            is_today,
+                            is_current_month: true,
+                            on_day_click: on_day_click.clone(),
+                            on_event_click: on_event_click.clone(),
+                        }
+                    }
                 }
             }
         }
@@ -266,6 +279,16 @@ fn DayGrid(
             "Day view – not yet implemented"
         }
     }
+}
+
+/// Returns the number of days in the given month by finding the last day before the 1st of next month
+fn days_in_month(year: i32, month: u32) -> u32 {
+    let (next_year, next_month) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+    NaiveDate::from_ymd_opt(next_year, next_month, 1)
+        .unwrap()
+        .pred_opt()
+        .unwrap()
+        .day()
 }
 
 fn month_name(month: u32) -> &'static str {
