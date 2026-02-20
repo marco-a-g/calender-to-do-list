@@ -85,7 +85,7 @@ pub fn EventForm(
                 class: "flex items-center justify-between px-6 py-5 border-b border-white/10",
                 h2 {
                     class: "text-white font-semibold text-base",
-                    if is_edit { "Event bearbeiten" } else { "Neues Event" }
+                    if is_edit { "edit event" } else { "New Event" }
                 }
                 button {
                     class: "text-white/40 hover:text-white transition text-xl",
@@ -98,11 +98,11 @@ pub fn EventForm(
                 class: "flex flex-col gap-5 px-6 py-6 flex-1",
 
                 FormField {
-                    label: "Titel",
+                    label: "Title",
                     required: true,
                     input {
                         class: field_input_class(),
-                        placeholder: "Event-Titel (max. 25 Zeichen)",
+                        placeholder: "Event-Title (max. 25 characters)",
                         maxlength: 25,
                         value: "{summary}",
                         oninput: move |e| summary.set(e.value()),
@@ -110,7 +110,7 @@ pub fn EventForm(
                 }
 
                 FormField {
-                    label: "Kalender",
+                    label: "Calender",
                     required: true,
                     select {
                         class: field_input_class(),
@@ -137,11 +137,11 @@ pub fn EventForm(
                         checked: is_all_day(),
                         onchange: move |_| is_all_day.set(!is_all_day()),
                     }
-                    label { class: "text-sm text-white/70", "Ganztägig" }
+                    label { class: "text-sm text-white/70", "all-day" }
                 }
 
                 FormField {
-                    label: "Von",
+                    label: "from",
                     required: true,
                     input {
                         class: field_input_class(),
@@ -152,7 +152,7 @@ pub fn EventForm(
 
                 if !is_all_day() {
                     FormField {
-                        label: "Bis (optional)",
+                        label: "till (optional)",
                         input {
                             class: field_input_class(),
                             r#type: "datetime-local",
@@ -162,17 +162,17 @@ pub fn EventForm(
                 }
 
                 FormField {
-                    label: "Ort (optional)",
+                    label: "Location (optional)",
                     input {
                         class: field_input_class(),
-                        placeholder: "Ort oder Link",
+                        placeholder: "Location or Link",
                         value: "{location}",
                         oninput: move |e| location.set(e.value()),
                     }
                 }
 
                 FormField {
-                    label: "Beschreibung (optional)",
+                    label: "Description (optional)",
                     textarea {
                         class: "
                             w-full px-3 py-2.5 rounded-xl
@@ -180,7 +180,7 @@ pub fn EventForm(
                             text-white text-sm placeholder:text-white/30
                             outline-none resize-none h-20
                         ",
-                        placeholder: "Beschreibung…",
+                        placeholder: "Description…",
                         value: "{description}",
                         oninput: move |e| description.set(e.value()),
                     }
@@ -216,7 +216,7 @@ pub fn EventForm(
                             // TODO: Call create_calendar_event or edit_single_calendar_event
                         }
                     },
-                    if is_loading() { "Wird gespeichert…" } else { "Speichern" }
+                    if is_loading() { "Saving…" } else { "Save" }
                 }
 
                 if is_edit {
@@ -282,7 +282,7 @@ pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
                         }
                     },
                 }
-                label { class: "text-sm text-white/70", "Wiederholung" }
+                label { class: "text-sm text-white/70", "Recurrance" }
             }
 
             if is_active() {
@@ -290,24 +290,24 @@ pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
                     class: "flex flex-col gap-3 pl-7",
 
                     FormField {
-                        label: "Frequenz",
+                        label: "Frequency",
                         select {
                             class: field_input_class(),
                             onchange: move |e| {
                                 // TODO: Parse Rrule variant from string and update recurrence signal
                             },
-                            option { value: "Daily", "Täglich" }
-                            option { value: "Weekly", "Wöchentlich" }
-                            option { value: "Fortnight", "Alle 2 Wochen" }
-                            option { value: "OnWeekDays", "Mo–Fr" }
-                            option { value: "MonthlyOnDate", "Monatlich (gleicher Tag)" }
-                            option { value: "MonthlyOnWeekday", "Monatlich (gleicher Wochentag)" }
-                            option { value: "Annual", "Jährlich" }
+                            option { value: "Daily" }
+                            option { value: "Weekly" }
+                            option { value: "Fortnight" }
+                            option { value: "OnWeekDays" }
+                            option { value: "MonthlyOnDate" }
+                            option { value: "MonthlyOnWeekday" }
+                            option { value: "Annual" }
                         }
                     }
 
                     FormField {
-                        label: "Wiederholen bis",
+                        label: "Repeat until",
                         input {
                             class: field_input_class(),
                             r#type: "date",

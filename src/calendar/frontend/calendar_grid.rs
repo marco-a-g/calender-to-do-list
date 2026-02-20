@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use dioxus::prelude::*;
 
 use crate::utils::structs::{Calendar, CalendarEvent};
@@ -87,7 +87,13 @@ fn GridToolbar(
                 button {
                     class: "px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-sm transition",
                     onclick: move |_| {
-                        // TODO: Subtract 1 month/week/day from displayed_date based on view_mode
+                        let d = displayed_date();
+                        let(prev_year, prev_month) = if d.month() == 1 {
+                            (d.year() - 1, 12)
+                        } else {
+                            (d.year(), d.month() - 1)
+                        };
+                        displayed_date.set(d.with_year(prev_year).unwrap().with_month(prev_month).unwrap());
                     },
                     "<"
                 }
@@ -100,7 +106,13 @@ fn GridToolbar(
                 button {
                     class: "px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-sm transition",
                     onclick: move |_| {
-                        // TODO: Add 1 month/week/day to displayed_date based on view_mode
+                        let d = displayed_date();
+                        let(next_year, next_month) = if d.month() == 12 {
+                            (d.year() + 1, 1)
+                        } else {
+                            (d.year(), d.month() + 1)
+                        };
+                        displayed_date.set(d.with_day(1).unwrap().with_year(next_year).unwrap().with_month(next_month).unwrap());
                     },
                     ">"
                 }
@@ -108,13 +120,13 @@ fn GridToolbar(
                 button {
                     class: "px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-white/60 transition",
                     onclick: move |_| displayed_date.set(Utc::now()),
-                    "Heute"
+                    "Today"
                 }
             }
 
             div {
                 class: "flex gap-1 bg-white/5 rounded-xl p-1",
-                for (label, mode) in [("Monat", ViewMode::Month), ("Woche", ViewMode::Week), ("Tag", ViewMode::Day)] {
+                for (label, mode) in [("Month", ViewMode::Month), ("Week", ViewMode::Week), ("Day", ViewMode::Day)] {
                     button {
                         class: if view_mode() == mode {
                             "px-3 py-1 rounded-lg bg-white/15 text-white text-sm font-medium transition"
@@ -138,34 +150,25 @@ fn MonthGrid(
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEvent>,
 ) -> Element {
-    let days = days_in_month(displayed_date.year(), displayed_date.month());
-    let today = Utc::now().date_naive();
-
     rsx! {
         div {
             class: "grid grid-cols-7 gap-px bg-white/5 flex-1",
 
-            for day in ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] {
+            for day in ["Mo", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] {
                 div {
                     class: "py-2 text-center text-xs text-white/40 bg-[#070B18]",
                     "{day}"
                 }
             }
 
-            for day in 1..=days {
+            for day in 1..=days_in_month(displayed_date.year(), displayed_date.month()) {
                 {
                     let cell_date = displayed_date.with_day(day).unwrap();
-                    let is_today = cell_date.date_naive() == today;
-                    let day_events = events
-                        .iter()
-                        .filter(|e| e.from_date_time.date_naive() == cell_date.date_naive())
-                        .cloned()
-                        .collect::<Vec<_>>();
-
+                    let is_today = cell_date.date_naive() == Utc::now().date_naive();
                     rsx! {
                         DayCell {
                             date: cell_date,
-                            events: day_events,
+                            events: vec![],
                             calendars: calendars.clone(),
                             is_today,
                             is_current_month: true,
@@ -281,21 +284,20 @@ fn DayGrid(
     }
 }
 
-/// Returns the number of days in the given month by finding the last day before the 1st of next month
+fn month_name(month: u32) -> &'static str {
+    match month {
+        1 => "January", 2 => "February", 3 => "March", 4 => "April",
+        5 => "May", 6 => "June", 7 => "July", 8 => "August",
+        9 => "September", 10 => "October", 11 => "November", 12 => "December",
+        _ => "",
+    }
+}
+
 fn days_in_month(year: i32, month: u32) -> u32 {
     let (next_year, next_month) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
-    NaiveDate::from_ymd_opt(next_year, next_month, 1)
+    chrono::NaiveDate::from_ymd_opt(next_year, next_month, 1)
         .unwrap()
         .pred_opt()
         .unwrap()
         .day()
-}
-
-fn month_name(month: u32) -> &'static str {
-    match month {
-        1 => "Januar", 2 => "Februar", 3 => "März", 4 => "April",
-        5 => "Mai", 6 => "Juni", 7 => "Juli", 8 => "August",
-        9 => "September", 10 => "Oktober", 11 => "November", 12 => "Dezember",
-        _ => "",
-    }
 }
