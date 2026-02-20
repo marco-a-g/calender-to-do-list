@@ -1,26 +1,33 @@
-use crate::dashboard::backend::fetch_dashboard_data::fetch_todos_dashboard_tuples;
+use crate::dashboard::backend::fetch_dashboard_calendar_data::fetch_calendar_dashboard_tuples;
+use crate::dashboard::backend::fetch_dashboard_todo_data::fetch_todos_dashboard_tuples;
 use crate::dashboard::frontend::dashboard_calendar::DashboardCalendar;
 use crate::dashboard::frontend::dashboard_chat::DashboardChat;
+use crate::dashboard::frontend::dashboard_news::DashboardNewsWidget;
 use crate::dashboard::frontend::dashboard_todos::DashboardTodos;
-use crate::utils::structs::CalendarEventLight;
 use chrono::Local;
 use dioxus::prelude::*;
+use tokio::time::{Duration, sleep};
 
 #[component]
 pub fn DashboardView() -> Element {
-    //Todos der Woche holen in resource
+    //Daten holen
     let todos_resource = use_resource(move || async move { fetch_todos_dashboard_tuples().await });
-    //noch leerer Vec für Calender, Arno/Max dann
-    let cal_evts: Vec<CalendarEventLight> = Vec::new();
-    // Resource lesen
+    let cal_resource = use_resource(move || async move { fetch_calendar_dashboard_tuples().await });
+
+    //TodoDaten lesen, falls leer oder fehler leeren Vec geben
     let dashboard_todos = match &*todos_resource.read() {
         Some(Ok(data)) => data.clone(),
-        _ => vec![], // Bei Fehler vom lesen der resource leeren Vec geben
+        _ => vec![],
+    };
+    //Calenderevents lesen, falls leer oder fehler leeren Vec geben
+    let dashboard_evts = match &*cal_resource.read() {
+        Some(Ok(data)) => data.clone(),
+        _ => vec![],
     };
 
-    //Für Loading Screen
     let is_loading = todos_resource.read().is_none();
 
+    //loading Anzeige
     if is_loading {
         return rsx! {
             div {
@@ -37,33 +44,35 @@ pub fn DashboardView() -> Element {
 
     rsx! {
         div {
-            style: "width: 100%; height: 100%; background: #05060b; padding: 24px; display: flex; flex-direction: column; gap: 24px; font-family: sans-serif; box-sizing: border_box;",
-
-            //Obere Reihe, Time/Date und Kalender
+            style: "width: 100%; height: 100%; background: #05060b; padding: 24px; display: flex; flex-direction: column; gap: 24px; font-family: sans-serif; box-sizing: border-box;", // Tippfehler-Fix: border-box statt border_box
+            // Obere Reihe: Datumsanzeige, Newsfeed, Kalender
             div {
-                style: "display: flex; gap: 24px; height: 35%;",
-
-                DashboardDateTimeWidget {}
-
-                // Kalender
-            div {
+                style: "display: flex; gap: 24px; height: 50%;",
+                // Datumswidget und Newsfeed
+                div {
+                    style: "display: flex; flex-direction: column; gap: 24px; width: 300px; flex-shrink: 0;",
+                    // datum und Uhrzeit
+                    DashboardDateTimeWidget {}
+                    // dev.to Rust News Feed
+                    DashboardNewsWidget {}
+                }
+                // Kalendergrid
+                div {
                     style: "flex: 1; background: #171923; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden;",
-                    DashboardCalendar { evts: cal_evts }
+                    DashboardCalendar { evts: dashboard_evts }
                 }
             }
-
-            //Untere Reihe, Todos und Chat Platzhalter
+            // Untere Reihe, Todos und Chat
             div {
                 style: "display: flex; gap: 24px; flex: 1; overflow: hidden;",
-                //Todos
+                // Todos einbinden
                 div {
                     style: "flex: 1; background: #171923; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; overflow: hidden;",
                     DashboardTodos {
                         todos: dashboard_todos
                     }
                 }
-
-                // Chat
+                // Chat eininden
                 div {
                     style: "flex: 1; background: #171923; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;",
                     DashboardChat {}
@@ -73,22 +82,30 @@ pub fn DashboardView() -> Element {
     }
 }
 
-//Datum und Uhrzeit Widget
+//Widget für Datum und Uhrzeit
 #[component]
-fn DashboardDateTimeWidget() -> Element {
-    let now = Local::now();
-    let time_str = now.format("%H:%M").to_string();
-    let date_str = now.format("%A, %d. %B").to_string();
+pub fn DashboardDateTimeWidget() -> Element {
+    let mut current_time = use_signal(|| Local::now());
+    //Uhrzeit aktualisieren im Hintergrund
+    use_future(move || async move {
+        loop {
+            sleep(Duration::from_secs(10)).await;
+            current_time.set(Local::now());
+        }
+    });
+
+    let time_str = current_time().format("%H:%M").to_string();
+    let date_str = current_time().format("%a, %d. %b").to_string();
 
     rsx! {
         div {
-            style: "width: 250px; background: linear-gradient(145deg, #222531 0%, #171923 100%); border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.3);",
-            div {
-                style: "font-size: 48px; font-weight: 700; background: -webkit-linear-gradient(#fff, #9ca3af); -webkit-background-clip: text; -webkit-text-fill-color: transparent;",
+            style: "background: #171923; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; height: 140px; flex-shrink: 0; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center;",
+            span {
+                style: "font-size: 3rem; font-weight: bold;",
                 "{time_str}"
             }
-            div {
-                style: "font-size: 16px; color: #9ca3af; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px;",
+            span {
+                style: "color: #9ca3af; font-size: 1rem; margin-top: 8px;",
                 "{date_str}"
             }
         }

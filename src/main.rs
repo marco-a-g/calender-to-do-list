@@ -22,12 +22,28 @@ use crate::user::frontend::{create_profile::CreateProfileView, profile_view::Pro
 use axum::extract::DefaultBodyLimit;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
-
 static CSS: Asset = asset!("/assets/tailwind.css");
 
 fn main() {
-    dotenvy::dotenv().ok(); //die .env hat arno doch raus gemacht?
-    dioxus::launch(App);
+    //Launch/Windowbuilder nutzen um Kontextmenü oben in App weg zu bekommen und um "immer im Vordergrund" zu deaktivieren
+    #[cfg(not(feature = "server"))]
+    {
+        let mut builder = LaunchBuilder::new();
+
+        #[cfg(feature = "desktop")]
+        {
+            let window = dioxus::desktop::WindowBuilder::new()
+                .with_title("Planify")
+                .with_always_on_top(false);
+            let cfg = dioxus::desktop::Config::new()
+                .with_window(window)
+                .with_menu(None)
+                .with_disable_context_menu(true);
+
+            builder = builder.with_cfg(cfg);
+        }
+        builder.launch(App);
+    }
 }
 
 #[derive(Routable, Clone, PartialEq)]

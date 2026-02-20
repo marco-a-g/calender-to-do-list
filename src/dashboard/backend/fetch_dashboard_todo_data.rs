@@ -6,14 +6,10 @@ use crate::utils::functions::get_user_id_and_session_token;
 use crate::utils::structs::TodoEventLight;
 use chrono::{DateTime, Datelike, Duration, Local};
 use tokio::join;
-
 pub async fn fetch_todos_dashboard_tuples()
 -> Result<Vec<(String, Option<String>, String, String)>, Box<dyn std::error::Error>> {
     // Id Holen für filterung nach ID der Users
-    let (current_user_id, _token) = match get_user_id_and_session_token().await {
-        Ok(data) => data,
-        Err(e) => return Err(Box::new(e)),
-    };
+    let user_id = get_user_id_and_session_token().await?.0;
 
     //todos, listen, gruppen holen und joinen
     let (todos_res, lists_res, groups_res) = join!(
@@ -28,7 +24,7 @@ pub async fn fetch_todos_dashboard_tuples()
 
     // Todos Expanden
     let expanded_pool = expand_recurring_todos(pool)?;
-    let user_id_str = current_user_id.to_string();
+    let user_id_str = user_id.to_string();
 
     // Datumsgrenzen für Wochenansicht
     let now = Local::now();

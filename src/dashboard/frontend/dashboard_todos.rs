@@ -9,8 +9,6 @@ pub fn DashboardTodos(
     rsx! {
         div {
             style: "padding: 20px; height: 100%; display: flex; flex-direction: column;",
-
-            // Header
             div {
                 style: "margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;",
                 h3 { style: "margin: 0; color: white; font-size: 16px; font-weight: 600;", "My Tasks this week" }
@@ -20,7 +18,7 @@ pub fn DashboardTodos(
                 }
             }
 
-            // Liste
+            //TodoListe
             div {
                 style: "flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;",
                 //wenn keine todos bekommen, zeige exttra ansicht an
@@ -46,7 +44,7 @@ pub fn DashboardTodos(
                                     style: "color: white; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;",
                                     "{name}"
                                 }
-                                //Falls dateformatting nicht fehlschlägt zeigen wir das due date an
+                                //Falls dateformatting nicht fehlschlägt oder leer ist zeigen wir das due date an
                                 if !date_str.is_empty() {
                                     div { style: "display: flex; align-items: center; gap: 4px; color: #9ca3af; font-size: 11px;",
                                         span { "🕒" }
