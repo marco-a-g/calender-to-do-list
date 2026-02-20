@@ -1,5 +1,8 @@
-pub mod create_todo;
+pub mod create_edit_todo;
+pub mod create_edit_todolist;
 pub mod filter_todos;
 pub mod open_todos;
+pub mod recurrance_edit_modal;
+pub mod todo_dashboard;
+pub mod todo_detail;
 pub mod todo_history;
-pub mod todo_view;

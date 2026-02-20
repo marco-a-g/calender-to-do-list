@@ -61,7 +61,7 @@ pub fn Navbar() -> Element {
                     }
 
                     NavButton {
-                        to: Route::ToDoView ,
+                        to: Route::ToDoDashboard ,
                         icon: "📝",
                     }
 

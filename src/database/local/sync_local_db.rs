@@ -16,7 +16,7 @@ use sqlx::{
 use std::str::FromStr;
 use supabase::Client;
 
-//#[server] -> funktioniert vorerst noch nicht mit #server
+//#[server] -> funktioniert vorerst noch nicht mit #server // soll ja auch nicht auf server sondern db localer rechner speichern!
 pub async fn sync_local_to_remote_db() -> Result<(), ServerFnError> {
     //Client holen und Auth checken
     let client = match get_client() {

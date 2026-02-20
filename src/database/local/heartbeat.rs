@@ -14,7 +14,7 @@ pub async fn start_heartbeat() {
                 }
             }
             // bestimmte Zeit warten
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(300)).await;
         }
     });
 }
