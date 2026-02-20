@@ -1,0 +1,102 @@
+use crate::database::local::init_fetch::init_fetch_local_db::{
+    fetch_groups_lokal_db, fetch_todo_events_lokal_db, fetch_todo_lists_lokal_db,
+};
+use crate::todos::backend::handle_recurrence_todos::expand_recurring_todos;
+use crate::utils::functions::get_user_id_and_session_token;
+use crate::utils::structs::TodoEventLight;
+use chrono::{DateTime, Datelike, Duration, Local};
+use tokio::join;
+
+pub async fn fetch_todos_dashboard_tuples()
+-> Result<Vec<(String, Option<String>, String, String)>, Box<dyn std::error::Error>> {
+    // Id Holen für filterung nach ID der Users
+    let (current_user_id, _token) = match get_user_id_and_session_token().await {
+        Ok(data) => data,
+        Err(e) => return Err(Box::new(e)),
+    };
+
+    //todos, listen, gruppen holen und joinen
+    let (todos_res, lists_res, groups_res) = join!(
+        fetch_todo_events_lokal_db(),
+        fetch_todo_lists_lokal_db(),
+        fetch_groups_lokal_db()
+    );
+    //aus join in einzelne Vecs
+    let pool = todos_res?;
+    let all_lists = lists_res?;
+    let all_groups = groups_res?;
+
+    // Todos Expanden
+    let expanded_pool = expand_recurring_todos(pool)?;
+    let user_id_str = current_user_id.to_string();
+
+    // Datumsgrenzen für Wochenansicht
+    let now = Local::now();
+    let today = now.date_naive();
+    let days_to_sunday = 6 - now.weekday().num_days_from_monday() as i64;
+    let end_of_week = today + Duration::days(days_to_sunday);
+
+    //Filtern nach ID=User, Completed=false, Due Date in der Woche
+    let mut filtered_pool: Vec<TodoEventLight> = expanded_pool
+        .into_iter()
+        .filter(|todo| {
+            if todo.assigned_to_user.as_deref() != Some(&user_id_str) {
+                return false;
+            }
+            if todo.completed {
+                return false;
+            }
+            //alles was über berechneten Enddatum der Woche ist = false
+            if let Some(due_str) = &todo.due_datetime {
+                if let Ok(date) = DateTime::parse_from_rfc3339(due_str) {
+                    let todo_date = date.with_timezone(&Local).date_naive();
+
+                    return todo_date <= end_of_week;
+                }
+            }
+            false
+        })
+        .collect();
+
+    // nach Datum Due Date Sortiern
+    filtered_pool.sort_by(|a, b| {
+        let date_a = a
+            .due_datetime
+            .as_deref()
+            .and_then(|s| DateTime::parse_from_rfc3339(s).ok());
+        let date_b = b
+            .due_datetime
+            .as_deref()
+            .and_then(|s| DateTime::parse_from_rfc3339(s).ok());
+        date_a.cmp(&date_b)
+    });
+
+    // Auf Tupel mappen für Ansicht, hier brauchts keine Structs da keine Interaktion
+    let result_tuples: Vec<(String, Option<String>, String, String)> = filtered_pool
+        .into_iter()
+        .map(|todo| {
+            let (group_name, group_color) =
+                if let Some(list) = all_lists.iter().find(|l| l.id == todo.todo_list_id) {
+                    if let Some(gid) = &list.group_id {
+                        if let Some(group) = all_groups.iter().find(|g| g.id == *gid) {
+                            //Group id der Liste matched -> name und color der nehmen
+                            (group.name.clone(), group.color.clone())
+                        } else {
+                            //Fallback keine passende Groupe zur Group id gefunden, sollte eigentlich nicht
+                            ("Unknown Group".to_string(), "#9ca3af".to_string())
+                        }
+                    } else {
+                        //Liste hat keine Gruppen ID -> privat
+                        ("Private".to_string(), "#9ca3af".to_string())
+                    }
+                } else {
+                    //Fallback, sollte eig nicht passieren
+                    ("Unknown List".to_string(), "#9ca3af".to_string())
+                };
+            //Tupel zusammensetzen
+            (todo.summary, todo.due_datetime, group_name, group_color)
+        })
+        .collect();
+
+    Ok(result_tuples)
+}
