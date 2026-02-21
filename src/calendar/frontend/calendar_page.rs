@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use uuid::Uuid;
 
-use crate::utils::structs::{Calendar, CalendarEvent};
 use crate::calendar::frontend::{
     calendar_grid::{CalendarGrid, ViewMode},
     event_form::{EventForm, EventFormMode},
 };
+use crate::utils::structs::{Calendar, CalendarEvent};
 
 #[component]
 pub fn CalendarPage() -> Element {

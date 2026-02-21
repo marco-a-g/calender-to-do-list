@@ -1,3 +1,3 @@
 pub mod backend;
-pub mod ui;
 pub mod frontend;
+pub mod ui;

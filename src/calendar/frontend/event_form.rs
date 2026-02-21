@@ -423,8 +423,7 @@ fn RecurrentScopeDialog(
 #[component]
 fn FormField(
     label: &'static str,
-    #[props(default = false)]
-    required: bool,
+    #[props(default = false)] required: bool,
     children: Element,
 ) -> Element {
     rsx! {

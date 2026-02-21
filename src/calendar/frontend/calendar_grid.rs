@@ -64,15 +64,12 @@ pub fn CalendarGrid(
 }
 
 #[component]
-fn GridToolbar(
-    displayed_date: Signal<DateTime<Utc>>,
-    view_mode: Signal<ViewMode>,
-) -> Element {
+fn GridToolbar(displayed_date: Signal<DateTime<Utc>>, view_mode: Signal<ViewMode>) -> Element {
     let title = use_memo(move || {
         let d = displayed_date();
         match view_mode() {
             ViewMode::Month => format!("{} {}", month_name(d.month()), d.year()),
-            ViewMode::Week => format!("KW {} – {}", d.iso_week().week(), d.year()),
+            ViewMode::Week => format!("CW {} – {}", d.iso_week().week(), d.year()),
             ViewMode::Day => format!("{}.{}.{}", d.day(), d.month(), d.year()),
         }
     });
@@ -296,15 +293,28 @@ fn DayGrid(
 
 fn month_name(month: u32) -> &'static str {
     match month {
-        1 => "January", 2 => "February", 3 => "March", 4 => "April",
-        5 => "May", 6 => "June", 7 => "July", 8 => "August",
-        9 => "September", 10 => "October", 11 => "November", 12 => "December",
+        1 => "January",
+        2 => "February",
+        3 => "March",
+        4 => "April",
+        5 => "May",
+        6 => "June",
+        7 => "July",
+        8 => "August",
+        9 => "September",
+        10 => "October",
+        11 => "November",
+        12 => "December",
         _ => "",
     }
 }
 
 fn days_in_month(year: i32, month: u32) -> u32 {
-    let (next_year, next_month) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+    let (next_year, next_month) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
     chrono::NaiveDate::from_ymd_opt(next_year, next_month, 1)
         .unwrap()
         .pred_opt()
