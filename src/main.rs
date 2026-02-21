@@ -10,8 +10,11 @@ mod utils;
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
 use crate::calendar::frontend::calendar_page::CalendarPage;
+use crate::dashboard::frontend::dashboard::DashboardView;
 use crate::database::local::heartbeat::start_heartbeat;
 use crate::database::local::init_fetch::init_fetch_local_db::init_database;
+use crate::database::local::sync_local_db::SyncIndicator;
+use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::groups::frontend::GroupsPage;
 use crate::groups::frontend::group_detail::GroupDetailPage;
 use crate::todos::frontend::todo_dashboard::ToDoDashboard;
@@ -22,8 +25,25 @@ use dioxus_router::{Routable, Router};
 static CSS: Asset = asset!("/assets/tailwind.css");
 
 fn main() {
-    dotenvy::dotenv().ok();
-    dioxus::launch(App);
+    //Launch/Windowbuilder nutzen um Kontextmenü oben in App weg zu bekommen und um "immer im Vordergrund" zu deaktivieren
+    #[cfg(not(feature = "server"))]
+    {
+        let mut builder = LaunchBuilder::new();
+
+        #[cfg(feature = "desktop")]
+        {
+            let window = dioxus::desktop::WindowBuilder::new()
+                .with_title("Planify")
+                .with_always_on_top(false);
+            let cfg = dioxus::desktop::Config::new()
+                .with_window(window)
+                .with_menu(None)
+                .with_disable_context_menu(true);
+
+            builder = builder.with_cfg(cfg);
+        }
+        builder.launch(App);
+    }
 }
 
 #[derive(Routable, Clone, PartialEq)]
@@ -50,7 +70,8 @@ fn App() -> Element {
     let auth_view = use_signal(|| AuthView::Login);
     let mut initialized = use_signal(|| false); // use later to enable offline mode/view, maybe enum ClientState {Ready, Offline, Error(AuthError)}
     let mut db_is_ready = use_signal(|| false);
-
+    let mut is_syncing = use_signal(|| false);
+    use_context_provider(|| is_syncing);
     // initialize Supabase client
     use_effect(move || {
         spawn(async move {
@@ -69,6 +90,9 @@ fn App() -> Element {
                 match init_database().await {
                     Ok(_) => {
                         println!("DB Init erfolgreich.");
+                        if let Err(e) = sync_local_to_remote_db().await {
+                            eprintln!("Initial sync failed: {}", e);
+                        }
                         db_is_ready.set(true);
                         start_heartbeat().await;
                     }
@@ -82,7 +106,7 @@ fn App() -> Element {
 
     rsx! {
         document::Stylesheet { href: CSS }
-
+        SyncIndicator {}
         // nach signup (bei aktivierter Email Verification auch erst danach) ist man schon authenticated, heißt CreateProfile müsste vielleicht in AuthStatus::Authenticated, aber das kann Probleme geben, weil App vllt davon ausgeht, dass Profil schon existiert
         match auth_status() {
             AuthStatus::Unauthenticated => rsx!(
@@ -114,19 +138,10 @@ fn App() -> Element {
                     div {
                         class: "h-screen w-screen flex flex-col items-center justify-center bg-[#080910] text-white gap-4",
                         div { class: "animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500" }
-                        div { "Loading DB..." }
+                        div { "Initialization of Database ..." }
                     }
                 }
             ),
-        }
-    }
-}
-
-#[component]
-fn DashboardView() -> Element {
-    rsx! {
-        div {
-            "Dashboard"
         }
     }
 }

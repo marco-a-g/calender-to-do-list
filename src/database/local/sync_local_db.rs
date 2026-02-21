@@ -18,6 +18,11 @@ use supabase::Client;
 
 //#[server] -> funktioniert vorerst noch nicht mit #server // soll ja auch nicht auf server sondern db localer rechner speichern!
 pub async fn sync_local_to_remote_db() -> Result<(), ServerFnError> {
+    let is_syncing = try_consume_context::<Signal<bool>>();
+
+    if let Some(mut sig) = is_syncing {
+        sig.set(true);
+    }
     //Client holen und Auth checken
     let client = match get_client() {
         Ok(c) => c,
@@ -81,5 +86,27 @@ pub async fn sync_local_to_remote_db() -> Result<(), ServerFnError> {
         .map_err(|e| ServerFnError::new(format!("Commit Error: {}", e)))?;
 
     println!("Sync completed successfully.");
+    if let Some(mut sig) = is_syncing {
+        sig.set(false);
+    }
     Ok(())
+}
+
+#[component]
+pub fn SyncIndicator() -> Element {
+    let is_syncing = use_context::<Signal<bool>>();
+    if !is_syncing() {
+        return rsx! {};
+    }
+    rsx! {
+    div {
+            class: "fixed bottom-6 right-6 z-[9999] flex items-center gap-3 bg-[#171923] border border-white/10 text-white px-4 py-3 rounded-xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300",
+        div {
+            class: "w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
+        }
+            span {
+                class: "text-xs font-medium tracking-wide text-gray-300", "Sync in progress..."
+            }
+        }
+    }
 }

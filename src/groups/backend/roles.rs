@@ -71,7 +71,7 @@ struct ProfileRow {
 }
 
 // Retrieves all group members with their usernames and roles
-#[server]
+//#[server]
 pub async fn fetch_members_with_roles(
     group_id: String,
     access_token: String,
@@ -156,7 +156,7 @@ pub async fn fetch_members_with_roles(
 }
 
 // Changes a member's role (promote to admin or demote to member)
-#[server]
+//#[server]
 pub async fn change_member_role(
     group_id: String,
     target_user_id: String,
@@ -218,7 +218,7 @@ pub async fn change_member_role(
 }
 
 // Transfers group ownership to another member
-#[server]
+//#[server]
 pub async fn transfer_ownership(
     group_id: String,
     new_owner_id: String,
@@ -330,7 +330,7 @@ pub async fn transfer_ownership(
 }
 
 // Removes a member from the group
-#[server]
+//#[server]
 pub async fn kick_member(
     group_id: String,
     target_user_id: String,
