@@ -8,6 +8,8 @@ use crate::{
         todos::sync_todos,
     },
 };
+use server_fn::error::ServerFnError;
+
 use dioxus::prelude::*;
 use sqlx::{
     ConnectOptions,

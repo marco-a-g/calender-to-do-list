@@ -5,6 +5,7 @@ Contains two widgets:
 - InvitesWidget: Shows pending invitations on the groups overview page
 - UserSearchDropdown: User search and invite UI for the group detail page
 */
+use server_fn::error::ServerFnError;
 
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use dioxus::prelude::*;
@@ -19,7 +20,7 @@ pub fn InvitesWidget(user_id: String, on_change: EventHandler<()>) -> Element {
         async move {
             let (_, token) = crate::utils::functions::get_user_id_and_session_token()
                 .await
-                .map_err(|e| dioxus::prelude::ServerFnError::new(e.to_string()))?;
+                .map_err(|e| ServerFnError::new(e.to_string()))?;
             crate::groups::backend::invites::fetch_my_invites(uid, token).await
         }
     });

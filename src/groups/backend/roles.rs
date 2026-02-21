@@ -9,6 +9,7 @@ use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use dioxus::prelude::*;
 use dioxus_logger::tracing::{debug, warn};
 use serde::Deserialize;
+use server_fn::error::ServerFnError;
 
 // Member data for the roles UI: (user_id, username, role)
 pub type MemberWithRole = (String, String, String);

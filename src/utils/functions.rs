@@ -4,6 +4,7 @@
 use chrono::{DateTime, Datelike, Utc, Weekday};
 use dioxus::prelude::*;
 use reqwest::*;
+use server_fn::error::ServerFnError;
 use std::*;
 use uuid::Uuid;
 

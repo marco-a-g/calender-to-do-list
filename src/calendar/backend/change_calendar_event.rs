@@ -2,6 +2,7 @@ use chrono::{DateTime, Datelike, Days, Local, NaiveDateTime, NaiveTime, TimeZone
 use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
+use server_fn::error::ServerFnError;
 use uuid::Uuid;
 
 use crate::auth::backend::*;

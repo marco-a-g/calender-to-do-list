@@ -10,6 +10,7 @@ Admins can only kick regular members, not other admins or the owner
 
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use dioxus::prelude::*;
+use server_fn::error::ServerFnError;
 
 // Roles tab showing all members with role management actions
 #[component]
@@ -21,7 +22,7 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
         async move {
             let (_, token) = crate::utils::functions::get_user_id_and_session_token()
                 .await
-                .map_err(|e| dioxus::prelude::ServerFnError::new(e.to_string()))?;
+                .map_err(|e| ServerFnError::new(e.to_string()))?;
             crate::groups::backend::roles::fetch_members_with_roles(gid, token).await
         }
     });
@@ -338,10 +339,10 @@ fn ActionButton(
                                             gid, target, actor, token
                                         ).await
                                     }
-                                    _ => Err(dioxus::prelude::ServerFnError::new("Unknown action"))
+                                    _ => Err(ServerFnError::new("Unknown action"))
                                 }
                             }
-                            Err(e) => Err(dioxus::prelude::ServerFnError::new(e.to_string()))
+                            Err(e) => Err(ServerFnError::new(e.to_string()))
                         };
 
                         match result {

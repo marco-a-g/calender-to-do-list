@@ -17,9 +17,9 @@ pub async fn fetch_calendar_dashboard_tuples()
         fetch_groups_lokal_db()
     );
     //extrahieren
-    let pool_events = events_res?;
-    let all_calendars = calendars_res?;
-    let all_groups = groups_res?;
+    let pool_events = events_res.map_err(|e| e.to_string())?;
+    let all_calendars = calendars_res.map_err(|e| e.to_string())?;
+    let all_groups = groups_res.map_err(|e| e.to_string())?;
 
     //Recurrring events entpacken
     //richtig: let expanded_pool = expand_recurring_calendar_events(pool_events)?;

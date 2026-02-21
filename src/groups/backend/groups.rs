@@ -6,6 +6,7 @@ use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use crate::utils::functions::get_user_id_and_session_token;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+use server_fn::error::ServerFnError;
 
 // Transfer type for group data: (group_id, name, color_hex, member_count)
 type GroupTransfer = (String, String, String, i32);

@@ -3,6 +3,7 @@ use crate::utils::structs::{
     TodoListLight,
 };
 use dioxus::prelude::*;
+use server_fn::error::ServerFnError;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 use std::fs;
 use std::path::Path;

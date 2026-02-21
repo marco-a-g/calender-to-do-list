@@ -10,8 +10,8 @@ use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use reqwest::StatusCode;
 use serde::Serialize;
+use server_fn::error::ServerFnError;
 use uuid::Uuid;
-
 // LLM: Lieber Payloads reduzieren so:
 #[derive(Serialize)]
 struct UpdateMasterDate {

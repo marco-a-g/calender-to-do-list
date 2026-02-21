@@ -1,5 +1,6 @@
 use chrono::{DateTime, Local, TimeZone, Utc};
-use dioxus::prelude::ServerFnError;
+use dioxus::prelude::*;
+use server_fn::error::ServerFnError;
 use uuid::Uuid;
 
 use crate::utils::functions::{check_overriding_recurrence, get_calendar_event_from_remote};
