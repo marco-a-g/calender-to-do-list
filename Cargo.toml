@@ -24,7 +24,8 @@ server_fn = "0.8.10"
 http = "1.4.0"
 
 [features]
-default = ["desktop"] 
+# hier web drinnen lassen sonst meckern github runner, aber weiterhin starten mit dx serve --desktop
+default = ["web"] 
 web = ["dioxus/web", "chrono/wasmbind"]
 desktop = ["dioxus/desktop"]
 server = ["dioxus/server", "dioxus/fullstack"]
