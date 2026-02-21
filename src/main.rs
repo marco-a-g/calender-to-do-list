@@ -9,6 +9,7 @@ mod user;
 mod utils;
 use crate::auth::backend::{AuthStatus, AuthView, init_client};
 use crate::auth::ui::{LoginView, RegisterView};
+use crate::calendar::frontend::calendar_page::CalendarPage;
 use crate::database::local::heartbeat::start_heartbeat;
 use crate::database::local::init_fetch::init_fetch_local_db::init_database;
 use crate::groups::frontend::GroupsPage;
@@ -133,9 +134,7 @@ fn DashboardView() -> Element {
 #[component]
 fn Calendar() -> Element {
     rsx! {
-        div {
-            "Calendar"
-        }
+        CalendarPage {}
     }
 }
 
