@@ -296,13 +296,13 @@ pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
                             onchange: move |e| {
                                 // TODO: Parse Rrule variant from string and update recurrence signal
                             },
-                            option { value: "Daily" }
-                            option { value: "Weekly" }
-                            option { value: "Fortnight" }
-                            option { value: "OnWeekDays" }
-                            option { value: "MonthlyOnDate" }
-                            option { value: "MonthlyOnWeekday" }
-                            option { value: "Annual" }
+                            option { value: "Daily", "Daily" }
+                            option { value: "Weekly", "Weekly" }
+                            option { value: "Fortnight", "Fortnight" }
+                            option { value: "OnWeekDays", "OnWeekDays" }
+                            option { value: "MonthlyOnDate", "MonthlyOnDate"}
+                            option { value: "MonthlyOnWeekday", "MonthlyOnWeekday"}
+                            option { value: "Annual", "Annual" }
                         }
                     }
 
@@ -348,7 +348,7 @@ fn DeleteButton(
                         on_delete_single.call(());
                     }
                 },
-                "Löschen"
+                "Delete"
             }
 
             if show_delete_menu() {
@@ -364,7 +364,7 @@ fn DeleteButton(
                             show_delete_menu.set(false);
                             on_delete_instance.call(());
                         },
-                        "Nur diesen Termin löschen"
+                        "Delete only this Event"
                     }
                     div { class: "h-px bg-white/10" }
                     button {
@@ -373,7 +373,7 @@ fn DeleteButton(
                             show_delete_menu.set(false);
                             on_delete_all.call(());
                         },
-                        "Alle Termine löschen"
+                        "Delete all Events"
                     }
                 }
             }
@@ -395,24 +395,24 @@ fn RecurrentScopeDialog(
                     bg-[#0E1120] border border-white/10 rounded-2xl
                     p-6 w-[340px] shadow-2xl flex flex-col gap-5
                 ",
-                h3 { class: "text-white font-semibold text-base", "Wiederholenden Termin bearbeiten" }
-                p { class: "text-white/50 text-sm", "Möchtest du nur diesen oder alle Termine der Reihe ändern?" }
+                h3 { class: "text-white font-semibold text-base", "edit repeating event" }
+                p { class: "text-white/50 text-sm", "Do you want to change only this or all events?" }
 
                 div { class: "flex flex-col gap-2",
                     button {
                         class: "w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-sm text-white transition",
                         onclick: move |_| on_only_this.call(()),
-                        "Nur diesen Termin"
+                        "Only this event"
                     }
                     button {
                         class: "w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm text-white font-medium transition",
                         onclick: move |_| on_all.call(()),
-                        "Alle Termine"
+                        "All events"
                     }
                     button {
                         class: "text-sm text-white/40 hover:text-white/70 transition",
                         onclick: move |_| on_cancel.call(()),
-                        "Abbrechen"
+                        "Cancel"
                     }
                 }
             }

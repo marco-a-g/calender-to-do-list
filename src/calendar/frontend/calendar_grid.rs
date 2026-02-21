@@ -150,6 +150,12 @@ fn MonthGrid(
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEvent>,
 ) -> Element {
+    let first_day = displayed_date.with_day(1).unwrap();
+    // Monday = 0, Sunday = 6
+    let offset = first_day.weekday().num_days_from_monday() as usize;
+    let days = days_in_month(displayed_date.year(), displayed_date.month());
+    let today = Utc::now().date_naive();
+
     rsx! {
         div {
             class: "grid grid-cols-7 gap-px bg-white/5 flex-1",
@@ -159,6 +165,10 @@ fn MonthGrid(
                     class: "py-2 text-center text-xs text-white/40 bg-[#070B18]",
                     "{day}"
                 }
+            }
+
+            for _ in 0..offset {
+                div { class: "min-h-[100px] bg-[#070B18]" }
             }
 
             for day in 1..=days_in_month(displayed_date.year(), displayed_date.month()) {
