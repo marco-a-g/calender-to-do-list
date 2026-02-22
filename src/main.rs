@@ -7,7 +7,7 @@ mod navbar;
 mod todos;
 mod user;
 mod utils;
-use crate::auth::backend::{AuthStatus, AuthView, init_client};
+use crate::auth::backend::{AuthStatus, AuthView, init_client, login};
 use crate::auth::ui::{LoginView, RegisterView};
 use crate::calendar::frontend::calendar_page::CalendarPage;
 use crate::dashboard::frontend::dashboard::DashboardView;
@@ -65,7 +65,7 @@ enum Route {
 
 #[component]
 fn App() -> Element {
-    let auth_status = use_signal(|| AuthStatus::Unauthenticated);
+    let mut auth_status = use_signal(|| AuthStatus::Unauthenticated); // only mutable for auto-login while developing
     use_context_provider(|| auth_status);
     let sync_counter = use_signal(|| 0u32);
     use_context_provider(|| sync_counter);
@@ -81,6 +81,16 @@ fn App() -> Element {
                 Ok(_) => initialized.set(true),
                 Err(_) => initialized.set(false),
             }
+        });
+    });
+
+    // auto-login while developing
+    use_effect(move || {
+        spawn(async move {
+            match login("profil@test.com", "password").await {
+                Ok(status) => &auth_status.set(status),
+                Err(_) => &auth_status.set(AuthStatus::Unauthenticated),
+            };
         });
     });
 

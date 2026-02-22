@@ -1,13 +1,13 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use dioxus::prelude::*;
 use uuid::Uuid;
 
-use crate::utils::structs::{Calendar, CalendarEvent, Recurrent, Rrule};
+use crate::utils::structs::{CalendarEventLight, CalendarLight, Recurrent, Rrule};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EventFormMode {
     Create,
-    Edit(CalendarEvent),
+    Edit(CalendarEventLight),
 }
 
 /// Whether a recurring event edit applies to one instance or the entire series
@@ -21,7 +21,7 @@ pub enum RecurrentEditScope {
 pub fn EventForm(
     mode: EventFormMode,
     /// All user calendars — used to populate the calendar selector dropdown
-    calendars: Vec<Calendar>,
+    calendars: Vec<CalendarLight>,
     /// Pre-filled start date when form is opened via a day click
     prefilled_date: Option<DateTime<Utc>>,
     on_close: EventHandler<()>,
@@ -30,42 +30,80 @@ pub fn EventForm(
 ) -> Element {
     let initial_event = match &mode {
         EventFormMode::Edit(e) => e.clone(),
-        EventFormMode::Create => CalendarEvent {
-            id: Uuid::nil(),
+        EventFormMode::Create => CalendarEventLight {
+            calendar_id: calendars
+                .first()
+                .map(|c| c.id.clone())
+                .unwrap_or(Uuid::nil().to_string())
+                .to_string(), // edit to correctly pick chosen calendar
             summary: String::new(),
             description: None,
-            calendar_id: calendars.first().map(|c| c.id).unwrap_or(Uuid::nil()),
-            created_at: Utc::now(),
-            created_by: Uuid::nil(),
-            from_date_time: prefilled_date.unwrap_or_else(Utc::now),
-            to_date_time: None,
+            from_date_time: prefilled_date
+                .unwrap_or_else(Utc::now)
+                .format("%Y-%m-%dT%H:%M")
+                .to_string(),
+            to_date_time: Some(
+                (prefilled_date.unwrap_or_else(Utc::now) + Duration::hours(1))
+                    .format("%Y-%m-%dT%H:%M")
+                    .to_string(),
+            ),
             attachment: None,
-            recurrence: None,
-            recurrence_exception: None,
             location: None,
-            categories: None,
+            category: None,
             is_all_day: false,
-            last_mod: Utc::now(),
+            rrule: None,
+            recurrence_until: None,
+            recurrence_id: None,
+            overrides_datetime: None,
+            skipped: false,
+            // Ignore: following fields are not needed for this function and/or should only be handled by supabase, but there to complete this struct
+            id: String::new(),
+            created_at: String::new(),
+            created_by: String::new(),
+            last_mod: String::new(),
         },
     };
 
-    let mut summary = use_signal(|| initial_event.summary.clone());
-    let mut description = use_signal(|| initial_event.description.clone().unwrap_or_default());
+    // category implementen
+    // CalendarEvent signals
+    let mut summary = use_signal(|| initial_event.summary);
+    let mut description = use_signal(|| initial_event.description.unwrap_or_default());
     let mut selected_calendar_id = use_signal(|| initial_event.calendar_id);
     let mut from_date = use_signal(|| initial_event.from_date_time);
-    let mut to_date: Signal<Option<DateTime<Utc>>> = use_signal(|| initial_event.to_date_time);
-    let mut location = use_signal(|| initial_event.location.clone().unwrap_or_default());
+    let mut to_date = use_signal(|| initial_event.to_date_time);
+    let mut location = use_signal(|| initial_event.location.unwrap_or_default());
+    let mut categories = use_signal(|| initial_event.category.unwrap_or_default());
     let mut is_all_day = use_signal(|| initial_event.is_all_day);
-    let mut recurrence: Signal<Option<Recurrent>> = use_signal(|| initial_event.recurrence.clone());
-
+    // Recurrence signals
+    let mut rrule = use_signal(|| initial_event.rrule);
+    let mut recurrence_until = use_signal(|| initial_event.recurrence_until);
+    let is_recurrent = rrule().is_some();
+    let is_recurrence_exception = initial_event.overrides_datetime.is_some();
+    // other signals
     let mut show_recurrent_scope_dialog = use_signal(|| false);
     let mut recurrent_scope: Signal<Option<RecurrentEditScope>> = use_signal(|| None);
-    let mut error_msg: Signal<Option<String>> = use_signal(|| None);
-    let mut is_loading = use_signal(|| false);
-
     let is_edit = matches!(mode, EventFormMode::Edit(_));
-    let is_recurrent = initial_event.recurrence.is_some();
-    let is_recurrence_exception = initial_event.recurrence_exception.is_some();
+    let mut is_loading = use_signal(|| false);
+    let mut error_msg: Signal<Option<String>> = use_signal(|| None);
+
+    // ----------Debugging and developing----------
+    use_effect(move || {
+        println!("rrule: {:?}", rrule());
+        println!("recurrence_until: {:?}", recurrence_until());
+    });
+    let testcalendar = CalendarLight {
+        id: "0000000000000000".to_string(),
+        name: "Testkalender".to_string(),
+        calendar_type: "private".to_string(),
+        description: None,
+        owner_id: Some("111111111111111".to_string()),
+        group_id: Some("2222222222222222".to_string()),
+        created_at: "2026-07-19T10:45".to_string(),
+        created_by: "111111111111111".to_string(),
+        last_mod: "2026-07-19T10:47".to_string(),
+    };
+    calendars.push(testcalendar);
+    // --------------------------------------------
 
     rsx! {
         // Dimmed backdrop — clicking it closes the form
@@ -85,7 +123,7 @@ pub fn EventForm(
                 class: "flex items-center justify-between px-6 py-5 border-b border-white/10",
                 h2 {
                     class: "text-white font-semibold text-base",
-                    if is_edit { "edit event" } else { "New Event" }
+                    if is_edit { "Edit Event" } else { "New Event" }
                 }
                 button {
                     class: "text-white/40 hover:text-white transition text-xl",
@@ -105,7 +143,7 @@ pub fn EventForm(
                         placeholder: "Event-Title (max. 25 characters)",
                         maxlength: 25,
                         value: "{summary}",
-                        oninput: move |e| summary.set(e.value()),
+                        onchange: move |e| summary.set(e.value()),
                     }
                 }
 
@@ -115,9 +153,7 @@ pub fn EventForm(
                     select {
                         class: field_input_class(),
                         onchange: move |e| {
-                            if let Ok(id) = Uuid::parse_str(&e.value()) {
-                                selected_calendar_id.set(id);
-                            }
+                            selected_calendar_id.set(e.value());
                         },
                         for cal in &calendars {
                             option {
@@ -137,7 +173,7 @@ pub fn EventForm(
                         checked: is_all_day(),
                         onchange: move |_| is_all_day.set(!is_all_day()),
                     }
-                    label { class: "text-sm text-white/70", "all-day" }
+                    label { class: "text-sm text-white/70", "All Day" }
                 }
 
                 FormField {
@@ -146,18 +182,37 @@ pub fn EventForm(
                     input {
                         class: field_input_class(),
                         r#type: if is_all_day() { "date" } else { "datetime-local" },
-                        // TODO: Bind value to `from_date` signal and parse on change
+                        value: "{from_date}", // pre-set value doesn't work if is_all_day(), because you would give a datetime to a date
+                        onchange: move |e| from_date.set(e.value()),
                     }
                 }
 
                 if !is_all_day() {
                     FormField {
-                        label: "till (optional)",
+                        label: "to (optional)",
                         input {
                             class: field_input_class(),
                             r#type: "datetime-local",
-                            // TODO: Bind value to `to_date` signal and parse on change
+                            value: "{to_date().unwrap_or_default()}",
+                            onchange: move |e| {
+                                let value = e.value();
+                                if value.is_empty() {
+                                    to_date.set(None);
+                                } else {
+                                    to_date.set(Some(e.value()));
+                                }
+                            },
                         }
+                    }
+                }
+
+                FormField {
+                    label: "Categories (optional)",
+                    input {
+                        class: field_input_class(),
+                        placeholder: "Categories (seperated by comma)",
+                        value: "{categories}",
+                        onchange: move |e| categories.set(e.value()),
                     }
                 }
 
@@ -167,7 +222,7 @@ pub fn EventForm(
                         class: field_input_class(),
                         placeholder: "Location or Link",
                         value: "{location}",
-                        oninput: move |e| location.set(e.value()),
+                        onchange: move |e| location.set(e.value()),
                     }
                 }
 
@@ -182,11 +237,11 @@ pub fn EventForm(
                         ",
                         placeholder: "Description…",
                         value: "{description}",
-                        oninput: move |e| description.set(e.value()),
+                        onchange: move |e| description.set(e.value()),
                     }
                 }
 
-                RecurrencePicker { recurrence }
+                RecurrencePicker { rrule, recurrence_until, from_date }
 
                 if let Some(msg) = error_msg() {
                     div {
@@ -214,6 +269,35 @@ pub fn EventForm(
                             show_recurrent_scope_dialog.set(true);
                         } else {
                             // TODO: Call create_calendar_event or edit_single_calendar_event
+                            println!(
+                                "
+                                summary: {}\n
+                                description: {}\n
+                                calendar_id: {}\n
+                                from_date_time: {}\n
+                                to_date_time: {:?}\n
+                                rrule: {:?}\n
+                                recurrence_until: {:?}\n
+                                recurrence_id: {:?}\n
+                                overrides_exception: {:?}\n
+                                location: {:?}\n
+                                categories: {:?}\n
+                                is_all_day: {}\n
+                                ",
+                                summary(),
+                                description(),
+                                selected_calendar_id(),
+                                from_date(),
+                                to_date(),
+                                rrule(),
+                                recurrence_until(),
+                                "None", // recurrence_id not yet implemented
+                                "None", // overrides_exception not yet implemented
+                                location(),
+                                categories(),
+                                is_all_day(),
+
+                            );
                         }
                     },
                     if is_loading() { "Saving…" } else { "Save" }
@@ -257,8 +341,12 @@ pub fn EventForm(
 }
 
 #[component]
-pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
-    let is_active = use_memo(move || recurrence().is_some());
+pub fn RecurrencePicker(
+    rrule: Signal<Option<String>>,
+    recurrence_until: Signal<Option<String>>,
+    from_date: Signal<String>,
+) -> Element {
+    let is_active = use_memo(move || rrule().is_some());
 
     rsx! {
         div {
@@ -272,17 +360,18 @@ pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
                     checked: is_active(),
                     onchange: move |_| {
                         if is_active() {
-                            recurrence.set(None);
+                            rrule.set(None);
+                            recurrence_until.set(None);
                         } else {
                             // Default to daily, ending 30 days from now
-                            recurrence.set(Some(Recurrent {
-                                rrule: Rrule::Daily,
-                                recurrence_until: Utc::now() + chrono::Duration::days(30),
-                            }));
+                            rrule.set(Some("Daily".to_string()));
+                            let naive = NaiveDate::parse_from_str(&from_date(), "%Y-%m-%d").unwrap_or_else(|_| Utc::now().date_naive());
+                            let until = naive + Duration::days(30);
+                            recurrence_until.set(Some(until.to_string()));
                         }
                     },
                 }
-                label { class: "text-sm text-white/70", "Recurrance" }
+                label { class: "text-sm text-white/70", "Recurrence" }
             }
 
             if is_active() {
@@ -293,16 +382,17 @@ pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
                         label: "Frequency",
                         select {
                             class: field_input_class(),
+                            value: "{rrule().unwrap_or_else(|| \"Daily\".to_string())}",
                             onchange: move |e| {
-                                // TODO: Parse Rrule variant from string and update recurrence signal
+                                rrule.set(Some(e.value()));
                             },
-                            option { value: "Daily", "Daily" }
-                            option { value: "Weekly", "Weekly" }
-                            option { value: "Fortnight", "Fortnight" }
-                            option { value: "OnWeekDays", "OnWeekDays" }
-                            option { value: "MonthlyOnDate", "MonthlyOnDate"}
-                            option { value: "MonthlyOnWeekday", "MonthlyOnWeekday"}
-                            option { value: "Annual", "Annual" }
+                            option { value: "Daily", style: "background: #1A1D2B", "Daily" }
+                            option { value: "Weekly", style: "background: #1A1D2B", "Weekly" }
+                            option { value: "Fortnight", style: "background: #1A1D2B", "Fortnight" }
+                            option { value: "OnWeekDays", style: "background: #1A1D2B", "On Week Days" }
+                            option { value: "MonthlyOnDate", style: "background: #1A1D2B", "Monthly On Date"}
+                            option { value: "MonthlyOnWeekday", style: "background: #1A1D2B", "Monthly On Weekday"}
+                            option { value: "Annual", style: "background: #1A1D2B", "Annual" }
                         }
                     }
 
@@ -311,7 +401,10 @@ pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
                         input {
                             class: field_input_class(),
                             r#type: "date",
-                            // TODO: Bind to recurrence_until and update recurrence signal on change
+                            value: "{recurrence_until().unwrap_or_default()}",
+                            onchange: move |e| {
+                                recurrence_until.set(Some(e.value()));
+                            },
                         }
                     }
                 }
