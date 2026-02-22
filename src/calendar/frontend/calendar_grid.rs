@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::utils::structs::{Calendar, CalendarEventLight};
+use crate::utils::structs::{CalendarEventLight, CalendarLight};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewMode {
@@ -14,26 +14,22 @@ pub enum ViewMode {
 
 #[component]
 pub fn CalendarGrid(
+    /// Pre-filtered events (only from active calendars)
     events: Vec<CalendarEventLight>,
-    calendars: Vec<Calendar>,
+    /// Calendar metadata used for color lookup per event
+    calendars: Vec<CalendarLight>,
     displayed_date: Signal<DateTime<Utc>>,
     view_mode: Signal<ViewMode>,
     active_calendar_ids: Signal<Vec<String>>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
-    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
     rsx! {
         div {
-            style: "display: flex; flex-direction: column; flex: 1; overflow: hidden;",
-            GridToolbar {
-                displayed_date,
-                view_mode,
-                calendars: calendars.clone(),
-                active_calendar_ids,
-            }
+            class: "flex flex-col flex-1 h-full overflow-hidden",
+            GridToolbar { displayed_date, view_mode }
             div {
-                style: "flex: 1; overflow: hidden; display: flex; flex-direction: column;",
+                class: "flex-1 overflow-auto",
                 if view_mode() == ViewMode::Month {
                     MonthGrid {
                         events: events.clone(),
@@ -41,7 +37,6 @@ pub fn CalendarGrid(
                         displayed_date: displayed_date(),
                         on_day_click: on_day_click.clone(),
                         on_event_click: on_event_click.clone(),
-                        calendar_color_by_id: calendar_color_by_id.clone(),
                     }
                 } else if view_mode() == ViewMode::Week {
                     WeekGrid {
@@ -50,7 +45,6 @@ pub fn CalendarGrid(
                         displayed_date: displayed_date(),
                         on_day_click: on_day_click.clone(),
                         on_event_click: on_event_click.clone(),
-                        calendar_color_by_id: calendar_color_by_id.clone(),
                     }
                 } else {
                     DayGrid {
@@ -59,7 +53,6 @@ pub fn CalendarGrid(
                         displayed_date: displayed_date(),
                         on_day_click,
                         on_event_click,
-                        calendar_color_by_id: calendar_color_by_id.clone(),
                     }
                 }
             }
@@ -99,8 +92,7 @@ fn GridToolbar(
             style: "display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; gap: 8px;",
 
             div {
-                style: "display: flex; align-items: center; gap: 6px; flex-wrap: wrap;",
-
+                class: "flex items-center gap-3",
                 button {
                     style: "padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); cursor: pointer; font-size: 13px;",
                     onclick: move |_| {
@@ -227,30 +219,30 @@ fn GridToolbar(
             }
 
             div {
-                style: "display: flex; gap: 2px; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 3px; border: 1px solid rgba(255,255,255,0.08);",
+                class: "flex gap-1 bg-white/5 rounded-xl p-1",
                 button {
-                    style: if view_mode() == ViewMode::Month {
-                        "padding: 4px 12px; border-radius: 7px; background: rgba(255,255,255,0.14); color: white; font-size: 12px; font-weight: 600; cursor: pointer; border: none;"
+                    class: if view_mode() == ViewMode::Month {
+                        "px-3 py-1 rounded-lg bg-white/15 text-white text-sm font-medium transition"
                     } else {
-                        "padding: 4px 12px; border-radius: 7px; background: transparent; color: rgba(255,255,255,0.35); font-size: 12px; cursor: pointer; border: none;"
+                        "px-3 py-1 rounded-lg text-white/50 hover:text-white text-sm transition"
                     },
                     onclick: move |_| view_mode.set(ViewMode::Month),
                     "Month"
                 }
                 button {
-                    style: if view_mode() == ViewMode::Week {
-                        "padding: 4px 12px; border-radius: 7px; background: rgba(255,255,255,0.14); color: white; font-size: 12px; font-weight: 600; cursor: pointer; border: none;"
+                    class: if view_mode() == ViewMode::Week {
+                        "px-3 py-1 rounded-lg bg-white/15 text-white text-sm font-medium transition"
                     } else {
-                        "padding: 4px 12px; border-radius: 7px; background: transparent; color: rgba(255,255,255,0.35); font-size: 12px; cursor: pointer; border: none;"
+                        "px-3 py-1 rounded-lg text-white/50 hover:text-white text-sm transition"
                     },
                     onclick: move |_| view_mode.set(ViewMode::Week),
                     "Week"
                 }
                 button {
-                    style: if view_mode() == ViewMode::Day {
-                        "padding: 4px 12px; border-radius: 7px; background: rgba(255,255,255,0.14); color: white; font-size: 12px; font-weight: 600; cursor: pointer; border: none;"
+                    class: if view_mode() == ViewMode::Day {
+                        "px-3 py-1 rounded-lg bg-white/15 text-white text-sm font-medium transition"
                     } else {
-                        "padding: 4px 12px; border-radius: 7px; background: transparent; color: rgba(255,255,255,0.35); font-size: 12px; cursor: pointer; border: none;"
+                        "px-3 py-1 rounded-lg text-white/50 hover:text-white text-sm transition"
                     },
                     onclick: move |_| view_mode.set(ViewMode::Day),
                     "Day"
@@ -263,11 +255,10 @@ fn GridToolbar(
 #[component]
 fn MonthGrid(
     events: Vec<CalendarEventLight>,
-    calendars: Vec<Calendar>,
+    calendars: Vec<CalendarLight>,
     displayed_date: DateTime<Utc>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
-    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
     let first_day = displayed_date.with_day(1).unwrap();
     let offset = first_day.weekday().num_days_from_monday() as usize;
@@ -278,24 +269,29 @@ fn MonthGrid(
         div {
             style: "display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(60px, 1fr)); gap: 1px; background: rgba(255,255,255,0.04); flex: 1; height: 100%;",
 
-            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Mon" }
-            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Tue" }
-            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Wed" }
-            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Thu" }
-            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Fri" }
-            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Sat" }
-            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Sun" }
+            // Weekday headers
+            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Mon" }
+            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Tue" }
+            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Wed" }
+            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Thu" }
+            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Fri" }
+            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Sat" }
+            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Sun" }
 
+            // Empty cells before the 1st of the month
             for _ in 0..offset {
                 div { style: "background: rgba(255,255,255,0.015);" }
             }
 
+            // One cell per day, events filtered per day inside the loop
             for day in 1..=days {
                 {
                     let cell_date = displayed_date.with_day(day).unwrap();
                     let cell_naive = cell_date.date_naive();
                     let is_today = cell_naive == today;
 
+                    // Filter events whose from_date_time falls on this day.
+                    // from_date_time is stored as an ISO string in CalendarEventLight.
                     let day_events: Vec<CalendarEventLight> = events
                         .iter()
                         .filter(|e| {
@@ -330,44 +326,36 @@ fn MonthGrid(
 #[component]
 fn DayCell(
     date: DateTime<Utc>,
+    /// Events filtered to this specific day
     events: Vec<CalendarEventLight>,
-    calendars: Vec<Calendar>,
+    calendars: Vec<CalendarLight>,
     is_today: bool,
     is_current_month: bool,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
-    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
-    let mut hovered = use_signal(|| false);
-
-    let cell_style = if is_today {
-        if hovered() {
-            "padding: 6px 8px; background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.35); cursor: pointer; overflow-y: auto;"
-        } else {
-            "padding: 6px 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25); cursor: pointer; overflow-y: auto;"
-        }
-    } else if hovered() {
-        "padding: 6px 8px; background: rgba(255,255,255,0.05); cursor: pointer; overflow-y: auto;"
+    let cell_class = if is_today {
+        "min-h-[100px] p-1.5 bg-[#070B18] border border-blue-500/40 cursor-pointer hover:bg-white/5 transition"
     } else {
-        "padding: 6px 8px; background: rgba(255,255,255,0.015); cursor: pointer; overflow-y: auto;"
+        "min-h-[100px] p-1.5 bg-[#070B18] cursor-pointer hover:bg-white/5 transition"
     };
 
-    let number_style = if is_today {
-        "font-size: 11px; font-weight: 700; color: #60a5fa; background: rgba(59,130,246,0.2); padding: 1px 5px; border-radius: 5px; display: inline-block;"
+    let number_class = if is_today {
+        "text-xs font-bold text-blue-400"
     } else if is_current_month {
-        "font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.5); display: inline-block;"
+        "text-xs text-white/70"
     } else {
-        "font-size: 11px; color: rgba(255,255,255,0.1); display: inline-block;"
+        "text-xs text-white/20"
     };
 
     rsx! {
         div {
-            style: "{cell_style}",
+            class: "{cell_class}",
             onclick: move |_| on_day_click.call(date),
             onmouseenter: move |_| hovered.set(true),
             onmouseleave: move |_| hovered.set(false),
 
-            span { style: "{number_style}", "{date.day()}" }
+            span { class: "{number_class}", "{date.day()}" }
 
             div {
                 style: "display: flex; flex-direction: column; gap: 2px; margin-top: 4px;",
@@ -383,45 +371,15 @@ fn DayCell(
     }
 }
 
+/// Compact event pill rendered inside a day cell.
 #[component]
 fn EventChip(
     event: CalendarEventLight,
+    calendars: Vec<CalendarLight>,
     on_click: EventHandler<CalendarEventLight>,
-    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
-    let color = calendar_color_by_id
-        .get(&event.calendar_id)
-        .map(|s| s.as_str())
-        .unwrap_or("#9ca3af");
-
-    let time_str = if event.is_all_day {
-        String::new()
-    } else {
-        event
-            .from_date_time
-            .parse::<DateTime<Utc>>()
-            .map(|dt| dt.format("%H:%M").to_string())
-            .unwrap_or_default()
-    };
-
-    let to_str = if event.is_all_day {
-        String::new()
-    } else {
-        event
-            .to_date_time
-            .as_deref()
-            .and_then(|s| s.parse::<DateTime<Utc>>().ok())
-            .map(|dt| format!(" – {}", dt.format("%H:%M")))
-            .unwrap_or_default()
-    };
-
-    let prefix = if event.is_all_day {
-        String::new()
-    } else if time_str.is_empty() {
-        String::new()
-    } else {
-        format!("{time_str}{to_str} ")
-    };
+    // TODO: add a color field to CalendarLight and derive it here per calendar
+    let color = "#3A6BFF";
 
     rsx! {
         div {
@@ -461,11 +419,10 @@ fn EventChip(
 #[component]
 fn WeekGrid(
     events: Vec<CalendarEventLight>,
-    calendars: Vec<Calendar>,
+    calendars: Vec<CalendarLight>,
     displayed_date: DateTime<Utc>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
-    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
     // TODO: Render 7 columns (Mon–Sun) with 24 hour rows, events as positioned blocks
     rsx! {
@@ -479,11 +436,10 @@ fn WeekGrid(
 #[component]
 fn DayGrid(
     events: Vec<CalendarEventLight>,
-    calendars: Vec<Calendar>,
+    calendars: Vec<CalendarLight>,
     displayed_date: DateTime<Utc>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
-    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
     // TODO: Render 24 hour rows, events as blocks positioned by start/end time
     rsx! {
