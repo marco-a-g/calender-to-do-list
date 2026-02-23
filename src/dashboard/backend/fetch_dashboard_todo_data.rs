@@ -9,8 +9,10 @@ use tokio::join;
 pub async fn fetch_todos_dashboard_tuples()
 -> Result<Vec<(String, Option<String>, String, String)>, Box<dyn std::error::Error>> {
     // Id Holen für filterung nach ID der Users
-    let user_id = get_user_id_and_session_token().await?.0;
-
+    let user_id = get_user_id_and_session_token()
+        .await
+        .map_err(|e| e.to_string())?
+        .0;
     //todos, listen, gruppen holen und joinen
     let (todos_res, lists_res, groups_res) = join!(
         fetch_todo_events_lokal_db(),
@@ -18,9 +20,9 @@ pub async fn fetch_todos_dashboard_tuples()
         fetch_groups_lokal_db()
     );
     //aus join in einzelne Vecs
-    let pool = todos_res?;
-    let all_lists = lists_res?;
-    let all_groups = groups_res?;
+    let pool = todos_res.map_err(|e| e.to_string())?;
+    let all_lists = lists_res.map_err(|e| e.to_string())?;
+    let all_groups = groups_res.map_err(|e| e.to_string())?;
 
     // Todos Expanden
     let expanded_pool = expand_recurring_todos(pool)?;

@@ -4,10 +4,9 @@
 // - (optional) auth event listener with on_auth_state_change
 // - maybe put api key into env var or config file
 #![allow(dead_code, unused_imports)]
-use dioxus::{
-    fullstack::{http::response, serde::de::value::Error},
-    prelude::ServerFnError,
-};
+use http::Response;
+use serde::de::value::Error as SerdeError;
+use server_fn::ServerFnError;
 use std::fmt;
 use std::sync::OnceLock;
 use supabase::{Auth, Client};

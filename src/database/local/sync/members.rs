@@ -1,6 +1,7 @@
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use crate::utils::structs::GroupMemberLight;
-use dioxus::prelude::ServerFnError;
+use dioxus::prelude::*;
+use server_fn::error::ServerFnError;
 use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
 

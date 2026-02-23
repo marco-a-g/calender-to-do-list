@@ -2,6 +2,7 @@ use chrono::{DateTime, Datelike, Days, Local, Months, NaiveDateTime, TimeZone, U
 use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
+use server_fn::error::ServerFnError;
 use supabase::client::*;
 use uuid::Uuid;
 

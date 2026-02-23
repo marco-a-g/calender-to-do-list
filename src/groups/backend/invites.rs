@@ -1,6 +1,7 @@
 /* Server functions for group invitation management
 Handles user search, sending invites, and accepting/declining invitations
 All functions use the user's access token for Supabase RLS authentication */
+use server_fn::error::ServerFnError;
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use dioxus::prelude::*;

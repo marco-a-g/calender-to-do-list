@@ -7,6 +7,7 @@ fetching is handled by the parent component
 
 use dioxus::prelude::*;
 use dioxus_router::use_navigator;
+use server_fn::error::ServerFnError;
 
 use crate::Route;
 

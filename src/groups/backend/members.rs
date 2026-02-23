@@ -1,5 +1,6 @@
 // Local members backend (SQLite)
 // Uses the central database pool and maps data for frontend display
+use server_fn::error::ServerFnError;
 
 use crate::database::local::init_fetch::init_fetch_local_db::{
     fetch_group_members_lokal_db, fetch_profiles_lokal_db,
