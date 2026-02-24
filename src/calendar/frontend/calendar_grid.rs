@@ -1,7 +1,7 @@
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use dioxus::prelude::*;
 
-use crate::utils::structs::{CalendarEventLight, CalendarLight};
+use crate::utils::structs::{Calendar, CalendarEventLight};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewMode {
@@ -12,21 +12,25 @@ pub enum ViewMode {
 
 #[component]
 pub fn CalendarGrid(
-    /// Pre-filtered events (only from active calendars)
     events: Vec<CalendarEventLight>,
-    /// Calendar metadata used for color lookup per event
-    calendars: Vec<CalendarLight>,
+    calendars: Vec<Calendar>,
     displayed_date: Signal<DateTime<Utc>>,
     view_mode: Signal<ViewMode>,
+    active_calendar_ids: Signal<Vec<String>>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
 ) -> Element {
     rsx! {
         div {
-            class: "flex flex-col flex-1 h-full overflow-hidden",
-            GridToolbar { displayed_date, view_mode }
+            style: "display: flex; flex-direction: column; flex: 1; overflow: hidden;",
+            GridToolbar {
+                displayed_date,
+                view_mode,
+                calendars: calendars.clone(),
+                active_calendar_ids,
+            }
             div {
-                class: "flex-1 overflow-auto",
+                style: "flex: 1; overflow: hidden; display: flex; flex-direction: column;",
                 if view_mode() == ViewMode::Month {
                     MonthGrid {
                         events: events.clone(),
@@ -58,7 +62,14 @@ pub fn CalendarGrid(
 }
 
 #[component]
-fn GridToolbar(displayed_date: Signal<DateTime<Utc>>, view_mode: Signal<ViewMode>) -> Element {
+fn GridToolbar(
+    displayed_date: Signal<DateTime<Utc>>,
+    view_mode: Signal<ViewMode>,
+    calendars: Vec<Calendar>,
+    active_calendar_ids: Signal<Vec<String>>,
+) -> Element {
+    let mut show_filter = use_signal(|| false);
+
     let title = use_memo(move || {
         let d = displayed_date();
         match view_mode() {
@@ -68,14 +79,24 @@ fn GridToolbar(displayed_date: Signal<DateTime<Utc>>, view_mode: Signal<ViewMode
         }
     });
 
+    let filter_label = use_memo(move || {
+        let ids = active_calendar_ids();
+        if ids.is_empty() {
+            "All Calendars".to_string()
+        } else {
+            format!("{} selected", ids.len())
+        }
+    });
+
     rsx! {
         div {
-            class: "flex items-center justify-between px-6 py-4 border-b border-white/10",
+            style: "display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; gap: 8px;",
 
             div {
-                class: "flex items-center gap-3",
+                style: "display: flex; align-items: center; gap: 6px; flex-wrap: wrap;",
+
                 button {
-                    class: "px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-sm transition",
+                    style: "padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); cursor: pointer; font-size: 13px;",
                     onclick: move |_| {
                         let d = displayed_date();
                         let (prev_year, prev_month) = if d.month() == 1 {
@@ -92,11 +113,11 @@ fn GridToolbar(displayed_date: Signal<DateTime<Utc>>, view_mode: Signal<ViewMode
                     "<"
                 }
                 span {
-                    class: "text-white font-medium text-base min-w-[160px] text-center",
+                    style: "color: white; font-weight: 700; font-size: 15px; min-width: 140px; text-align: center;",
                     "{title}"
                 }
                 button {
-                    class: "px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-sm transition",
+                    style: "padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); cursor: pointer; font-size: 13px;",
                     onclick: move |_| {
                         let d = displayed_date();
                         let (next_year, next_month) = if d.month() == 12 {
@@ -113,37 +134,117 @@ fn GridToolbar(displayed_date: Signal<DateTime<Utc>>, view_mode: Signal<ViewMode
                     ">"
                 }
                 button {
-                    class: "px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-white/60 transition",
+                    style: "padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.45); cursor: pointer; font-size: 11px;",
                     onclick: move |_| displayed_date.set(Utc::now()),
                     "Today"
+                }
+
+                div {
+                    style: "position: relative;",
+                    button {
+                        style: if active_calendar_ids().is_empty() {
+                            "display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.45); cursor: pointer; font-size: 11px;"
+                        } else {
+                            "display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 8px; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.35); color: #60a5fa; cursor: pointer; font-size: 11px;"
+                        },
+                        onclick: move |_| show_filter.set(!show_filter()),
+                        span { "▾" }
+                        span { "{filter_label}" }
+                    }
+
+                    if show_filter() {
+                        div {
+                            style: "position: fixed; inset: 0; z-index: 10;",
+                            onclick: move |_| show_filter.set(false),
+                        }
+                        div {
+                            style: "position: absolute; top: 100%; left: 0; margin-top: 4px; z-index: 20; min-width: 190px; background: linear-gradient(145deg, #1f222c 0%, #14161f 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.7); overflow: hidden;",
+
+                            div {
+                                style: "display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer;",
+                                onclick: move |_| {
+                                    active_calendar_ids.set(vec![]);
+                                    show_filter.set(false);
+                                },
+                                div {
+                                    style: if active_calendar_ids().is_empty() {
+                                        "width: 13px; height: 13px; border-radius: 3px; border: 1px solid #3b82f6; background: #3b82f6; display: flex; align-items: center; justify-content: center;"
+                                    } else {
+                                        "width: 13px; height: 13px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.2);"
+                                    },
+                                    if active_calendar_ids().is_empty() {
+                                        span { style: "color: white; font-size: 8px;", "✓" }
+                                    }
+                                }
+                                span { style: "font-size: 12px; color: rgba(255,255,255,0.7);", "All Calendars" }
+                            }
+
+                            div { style: "height: 1px; background: rgba(255,255,255,0.06);" }
+
+                            for cal in &calendars {
+                                {
+                                    let cal_id = cal.id.to_string();
+                                    let cal_name = cal.name.clone();
+                                    let is_active = active_calendar_ids().contains(&cal_id);
+
+                                    rsx! {
+                                        div {
+                                            key: "{cal_id}",
+                                            style: "display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer;",
+                                            onclick: move |_| {
+                                                let mut ids = active_calendar_ids();
+                                                if ids.contains(&cal_id) {
+                                                    ids.retain(|id| id != &cal_id);
+                                                } else {
+                                                    ids.push(cal_id.clone());
+                                                }
+                                                active_calendar_ids.set(ids);
+                                            },
+                                            div {
+                                                style: if is_active {
+                                                    "width: 13px; height: 13px; border-radius: 3px; border: 1px solid #3b82f6; background: #3b82f6; display: flex; align-items: center; justify-content: center;"
+                                                } else {
+                                                    "width: 13px; height: 13px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.2);"
+                                                },
+                                                if is_active {
+                                                    span { style: "color: white; font-size: 8px;", "✓" }
+                                                }
+                                            }
+                                            span { style: "font-size: 12px; color: rgba(255,255,255,0.8);", "{cal_name}" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
             div {
-                class: "flex gap-1 bg-white/5 rounded-xl p-1",
+                style: "display: flex; gap: 2px; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 3px; border: 1px solid rgba(255,255,255,0.08);",
                 button {
-                    class: if view_mode() == ViewMode::Month {
-                        "px-3 py-1 rounded-lg bg-white/15 text-white text-sm font-medium transition"
+                    style: if view_mode() == ViewMode::Month {
+                        "padding: 4px 12px; border-radius: 7px; background: rgba(255,255,255,0.14); color: white; font-size: 12px; font-weight: 600; cursor: pointer; border: none;"
                     } else {
-                        "px-3 py-1 rounded-lg text-white/50 hover:text-white text-sm transition"
+                        "padding: 4px 12px; border-radius: 7px; background: transparent; color: rgba(255,255,255,0.35); font-size: 12px; cursor: pointer; border: none;"
                     },
                     onclick: move |_| view_mode.set(ViewMode::Month),
                     "Month"
                 }
                 button {
-                    class: if view_mode() == ViewMode::Week {
-                        "px-3 py-1 rounded-lg bg-white/15 text-white text-sm font-medium transition"
+                    style: if view_mode() == ViewMode::Week {
+                        "padding: 4px 12px; border-radius: 7px; background: rgba(255,255,255,0.14); color: white; font-size: 12px; font-weight: 600; cursor: pointer; border: none;"
                     } else {
-                        "px-3 py-1 rounded-lg text-white/50 hover:text-white text-sm transition"
+                        "padding: 4px 12px; border-radius: 7px; background: transparent; color: rgba(255,255,255,0.35); font-size: 12px; cursor: pointer; border: none;"
                     },
                     onclick: move |_| view_mode.set(ViewMode::Week),
                     "Week"
                 }
                 button {
-                    class: if view_mode() == ViewMode::Day {
-                        "px-3 py-1 rounded-lg bg-white/15 text-white text-sm font-medium transition"
+                    style: if view_mode() == ViewMode::Day {
+                        "padding: 4px 12px; border-radius: 7px; background: rgba(255,255,255,0.14); color: white; font-size: 12px; font-weight: 600; cursor: pointer; border: none;"
                     } else {
-                        "px-3 py-1 rounded-lg text-white/50 hover:text-white text-sm transition"
+                        "padding: 4px 12px; border-radius: 7px; background: transparent; color: rgba(255,255,255,0.35); font-size: 12px; cursor: pointer; border: none;"
                     },
                     onclick: move |_| view_mode.set(ViewMode::Day),
                     "Day"
@@ -156,44 +257,38 @@ fn GridToolbar(displayed_date: Signal<DateTime<Utc>>, view_mode: Signal<ViewMode
 #[component]
 fn MonthGrid(
     events: Vec<CalendarEventLight>,
-    calendars: Vec<CalendarLight>,
+    calendars: Vec<Calendar>,
     displayed_date: DateTime<Utc>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
 ) -> Element {
     let first_day = displayed_date.with_day(1).unwrap();
-    // Monday = 0, Sunday = 6
     let offset = first_day.weekday().num_days_from_monday() as usize;
     let days = days_in_month(displayed_date.year(), displayed_date.month());
     let today = Utc::now().date_naive();
 
     rsx! {
         div {
-            class: "grid grid-cols-7 gap-px bg-white/5 flex-1",
+            style: "display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(60px, 1fr)); gap: 1px; background: rgba(255,255,255,0.04); flex: 1; height: 100%;",
 
-            // Weekday headers
-            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Mon" }
-            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Tue" }
-            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Wed" }
-            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Thu" }
-            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Fri" }
-            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Sat" }
-            div { class: "py-2 text-center text-xs text-white/40 bg-[#070B18]", "Sun" }
+            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Mon" }
+            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Tue" }
+            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Wed" }
+            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Thu" }
+            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Fri" }
+            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Sat" }
+            div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Sun" }
 
-            // Empty cells before the 1st of the month
             for _ in 0..offset {
-                div { class: "min-h-[100px] bg-[#070B18]" }
+                div { style: "background: rgba(255,255,255,0.015);" }
             }
 
-            // One cell per day, events filtered per day inside the loop
             for day in 1..=days {
                 {
                     let cell_date = displayed_date.with_day(day).unwrap();
                     let cell_naive = cell_date.date_naive();
                     let is_today = cell_naive == today;
 
-                    // Filter events whose from_date_time falls on this day.
-                    // from_date_time is stored as an ISO string in CalendarEventLight.
                     let day_events: Vec<CalendarEventLight> = events
                         .iter()
                         .filter(|e| {
@@ -227,37 +322,46 @@ fn MonthGrid(
 #[component]
 fn DayCell(
     date: DateTime<Utc>,
-    /// Events filtered to this specific day
     events: Vec<CalendarEventLight>,
-    calendars: Vec<CalendarLight>,
+    calendars: Vec<Calendar>,
     is_today: bool,
     is_current_month: bool,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
 ) -> Element {
-    let cell_class = if is_today {
-        "min-h-[100px] p-1.5 bg-[#070B18] border border-blue-500/40 cursor-pointer hover:bg-white/5 transition"
+    let mut hovered = use_signal(|| false);
+
+    let cell_style = if is_today {
+        if hovered() {
+            "padding: 6px 8px; background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.35); cursor: pointer; overflow: hidden;"
+        } else {
+            "padding: 6px 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25); cursor: pointer; overflow: hidden;"
+        }
+    } else if hovered() {
+        "padding: 6px 8px; background: rgba(255,255,255,0.05); cursor: pointer; overflow: hidden;"
     } else {
-        "min-h-[100px] p-1.5 bg-[#070B18] cursor-pointer hover:bg-white/5 transition"
+        "padding: 6px 8px; background: rgba(255,255,255,0.015); cursor: pointer; overflow: hidden;"
     };
 
-    let number_class = if is_today {
-        "text-xs font-bold text-blue-400"
+    let number_style = if is_today {
+        "font-size: 11px; font-weight: 700; color: #60a5fa; background: rgba(59,130,246,0.2); padding: 1px 5px; border-radius: 5px; display: inline-block;"
     } else if is_current_month {
-        "text-xs text-white/70"
+        "font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.5); display: inline-block;"
     } else {
-        "text-xs text-white/20"
+        "font-size: 11px; color: rgba(255,255,255,0.1); display: inline-block;"
     };
 
     rsx! {
         div {
-            class: "{cell_class}",
+            style: "{cell_style}",
             onclick: move |_| on_day_click.call(date),
+            onmouseenter: move |_| hovered.set(true),
+            onmouseleave: move |_| hovered.set(false),
 
-            span { class: "{number_class}", "{date.day()}" }
+            span { style: "{number_style}", "{date.day()}" }
 
             div {
-                class: "flex flex-col gap-0.5 mt-1",
+                style: "display: flex; flex-direction: column; gap: 2px; margin-top: 4px;",
                 for event in events {
                     EventChip {
                         event: event.clone(),
@@ -270,25 +374,34 @@ fn DayCell(
     }
 }
 
-/// Compact event pill rendered inside a day cell.
 #[component]
 fn EventChip(
     event: CalendarEventLight,
-    calendars: Vec<CalendarLight>,
+    calendars: Vec<Calendar>,
     on_click: EventHandler<CalendarEventLight>,
 ) -> Element {
-    // TODO: add a color field to CalendarLight and derive it here per calendar
+    // TODO: add a color field to Calendar and derive it here per calendar
     let color = "#3A6BFF";
+    let time_str = event
+        .from_date_time
+        .parse::<DateTime<Utc>>()
+        .map(|dt| dt.format("%H:%M").to_string())
+        .unwrap_or_default();
+    let to_str = event
+        .to_date_time
+        .as_deref()
+        .and_then(|s| s.parse::<DateTime<Utc>>().ok())
+        .map(|dt| format!(" – {}", dt.format("%H:%M")))
+        .unwrap_or_default();
 
     rsx! {
         div {
-            class: "text-[10px] px-1.5 py-0.5 rounded text-white truncate cursor-pointer hover:opacity-80 transition",
-            style: "background: {color}44; border-left: 2px solid {color};",
+            style: "font-size: 10px; padding: 2px 5px; border-radius: 4px; color: rgba(255,255,255,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; background: {color}2a; border-left: 2px solid {color}; font-weight: 500;",
             onclick: move |e| {
                 e.stop_propagation();
                 on_click.call(event.clone());
             },
-            "{event.summary}"
+            "{time_str}{to_str} {event.summary}"
         }
     }
 }
@@ -296,7 +409,7 @@ fn EventChip(
 #[component]
 fn WeekGrid(
     events: Vec<CalendarEventLight>,
-    calendars: Vec<CalendarLight>,
+    calendars: Vec<Calendar>,
     displayed_date: DateTime<Utc>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
@@ -304,7 +417,7 @@ fn WeekGrid(
     // TODO: Render 7 columns (Mon–Sun) with 24 hour rows, events as positioned blocks
     rsx! {
         div {
-            class: "flex flex-col items-center justify-center h-full text-white/40 text-sm",
+            style: "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: rgba(255,255,255,0.3); font-size: 14px;",
             "Week view – not yet implemented"
         }
     }
@@ -313,7 +426,7 @@ fn WeekGrid(
 #[component]
 fn DayGrid(
     events: Vec<CalendarEventLight>,
-    calendars: Vec<CalendarLight>,
+    calendars: Vec<Calendar>,
     displayed_date: DateTime<Utc>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
@@ -321,7 +434,7 @@ fn DayGrid(
     // TODO: Render 24 hour rows, events as blocks positioned by start/end time
     rsx! {
         div {
-            class: "flex flex-col items-center justify-center h-full text-white/40 text-sm",
+            style: "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: rgba(255,255,255,0.3); font-size: 14px;",
             "Day view – not yet implemented"
         }
     }
@@ -333,7 +446,7 @@ fn days_in_month(year: i32, month: u32) -> u32 {
     } else {
         (year, month + 1)
     };
-    chrono::NaiveDate::from_ymd_opt(next_year, next_month, 1)
+    NaiveDate::from_ymd_opt(next_year, next_month, 1)
         .unwrap()
         .pred_opt()
         .unwrap()
