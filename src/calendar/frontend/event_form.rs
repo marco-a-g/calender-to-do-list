@@ -449,3 +449,4 @@ fn field_input_class() -> &'static str {
     transition
     "
 }
+
