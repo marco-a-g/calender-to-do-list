@@ -129,7 +129,7 @@ pub fn expand_recurring_events(
                 } else {
                     // hier sind Wiederholungen
                     let mut rec_instance = master.clone();
-                    // rec_instance.id = Uuid::new_v4().to_string(); //Richtige neue id setzt Supabase dann wenn man etwas ändert, hierfür erstmal eine temp generieren lassen für Typesafety oder nochmal referenzierbar sein soll
+                    rec_instance.id = Uuid::new_v4().to_string(); //Richtige neue id setzt Supabase dann wenn man etwas ändert, hierfür erstmal eine temp generieren lassen für Typesafety oder nochmal referenzierbar sein soll
                     rec_instance.from_date_time = current_date_in_loop_as_str; //wiederholung kriegt aktuelles datum der itteration
                     rec_instance.to_date_time = current_end_in_loop_as_str;
                     rec_instance.recurrence_id = Some(master.id.clone());
