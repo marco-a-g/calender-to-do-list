@@ -291,10 +291,13 @@ fn DayGrid(
     }
 }
 
-/// Returns the number of days in the given month by finding the last day before the 1st of next month
 fn days_in_month(year: i32, month: u32) -> u32 {
-    let (next_year, next_month) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
-    NaiveDate::from_ymd_opt(next_year, next_month, 1)
+    let (next_year, next_month) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
+    chrono::NaiveDate::from_ymd_opt(next_year, next_month, 1)
         .unwrap()
         .pred_opt()
         .unwrap()
@@ -317,17 +320,4 @@ fn month_name(month: u32) -> &'static str {
         12 => "December",
         _ => "",
     }
-}
-
-fn days_in_month(year: i32, month: u32) -> u32 {
-    let (next_year, next_month) = if month == 12 {
-        (year + 1, 1)
-    } else {
-        (year, month + 1)
-    };
-    chrono::NaiveDate::from_ymd_opt(next_year, next_month, 1)
-        .unwrap()
-        .pred_opt()
-        .unwrap()
-        .day()
 }
