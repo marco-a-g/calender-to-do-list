@@ -6,7 +6,6 @@ use dioxus_router::{Link, Outlet, use_route};
 
 #[component]
 pub fn Navbar() -> Element {
-    
     let mut auth_status = use_context::<Signal<AuthStatus>>();
 
     let mut syncing = use_signal(|| false);
