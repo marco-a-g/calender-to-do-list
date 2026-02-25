@@ -8,6 +8,7 @@ Contains two main pages:
 */
 use dioxus::prelude::*;
 use dioxus_router::use_navigator;
+use server_fn::error::ServerFnError;
 
 use crate::auth::backend::AuthStatus;
 use crate::database::local::init_fetch::init_fetch_local_db::{
@@ -19,7 +20,7 @@ use crate::groups::frontend::invite_widget::{InvitesWidget, UserSearchDropdown};
 use crate::groups::frontend::members::MembersTab;
 use crate::groups::frontend::overview::{GroupsOverview, GroupsRes};
 use crate::groups::frontend::roles_tab::RolesTab;
-use crate::groups::{create_group, delete_group, fetch_group_by_id, fetch_groups};
+use crate::groups::{create_group, delete_group};
 use crate::utils::functions::get_user_id_and_session_token;
 
 // Color palette for group creation (hex values matching DB format)
@@ -212,25 +213,25 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
         _ => None,
     };
 
-    // Fetch group metadata (returns None if not found or not accessible via RLS)
-    let group_res = use_resource({
-        let id = id.clone();
-        let auth_status = auth_status.clone();
-        move || {
+    let group_res: Resource<Result<Option<(String, String, String)>, ServerFnError>> =
+        use_resource({
             let id = id.clone();
-            let auth_status = auth_status.clone();
-            async move {
-                if !matches!(auth_status.read().clone(), AuthStatus::Authenticated { .. }) {
-                    return Ok(None);
+            move || {
+                let id = id.clone();
+                async move {
+                    let groups = fetch_groups_lokal_db().await?;
+                    let group = groups.into_iter().find(|g| g.id == id);
+                    Ok(group.map(|g| {
+                        let color = if g.color.is_empty() {
+                            "#3A6BFF".to_string()
+                        } else {
+                            g.color
+                        };
+                        (g.id, g.name, color)
+                    }))
                 }
-                let (user_id, token) = match get_user_id_and_session_token().await {
-                    Ok(t) => t,
-                    Err(_) => return Ok(None),
-                };
-                fetch_group_by_id(id, user_id.to_string(), token).await
             }
-        }
-    });
+        });
 
     let mut tab = use_signal(|| DetailTab::Members);
     let mut open_invite_from_right = use_signal(|| false);
