@@ -164,6 +164,17 @@ pub async fn create_calendar_event_unchecked(
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
     // println!("insert event durchgelaufen");
+
+    if !insert_event.status().is_success() {
+        println!(
+            "Statuscode: {}\nText: {:?}",
+            insert_event.status(),
+            insert_event.text().await
+        );
+        return Err(ServerFnError::new(
+            "Create calendar-event request not successful",
+        ));
+    }
     Ok(insert_event.status())
 }
 

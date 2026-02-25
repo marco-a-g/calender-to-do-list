@@ -1,8 +1,14 @@
-use chrono::{DateTime, Duration, NaiveDate, Utc};
+use chrono::{DateTime, Duration, Local, NaiveDate, Utc};
 use dioxus::prelude::*;
 use uuid::Uuid;
 
-use crate::utils::structs::{CalendarEventLight, CalendarLight, Recurrent, Rrule};
+use crate::{
+    calendar::backend::create_calendar_event::create_calendar_event,
+    utils::{
+        functions::parse_calendar_event_light_to_calendar_event,
+        structs::{CalendarEventLight, CalendarLight, Recurrent, Rrule},
+    },
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EventFormMode {
@@ -23,11 +29,29 @@ pub fn EventForm(
     /// All user calendars — used to populate the calendar selector dropdown
     calendars: Vec<CalendarLight>,
     /// Pre-filled start date when form is opened via a day click
-    prefilled_date: Option<DateTime<Utc>>,
+    prefilled_date: Option<DateTime<Utc>>, // change to local
     on_close: EventHandler<()>,
     on_saved: EventHandler<()>,
     on_deleted: EventHandler<()>,
 ) -> Element {
+    // ----------Debugging and developing----------
+    use_effect(move || {
+        // on-change-prints
+    });
+    let testcalendar = CalendarLight {
+        id: "e6abe79c-7403-45e5-aa1b-b573e4523826".to_string(),
+        name: "0589386b-7fda-46a0-9c90-e1a2e47b24ac".to_string(),
+        calendar_type: "private".to_string(),
+        description: None,
+        owner_id: Some("0589386b-7fda-46a0-9c90-e1a2e47b24ac".to_string()),
+        group_id: None,
+        created_at: "2026-02-07 11:51:56.54365+00".to_string(),
+        created_by: "0589386b-7fda-46a0-9c90-e1a2e47b24ac".to_string(),
+        last_mod: "2026-02-07 11:51:56.54365+00".to_string(),
+    };
+    calendars.push(testcalendar);
+    // --------------------------------------------
+
     let initial_event = match &mode {
         EventFormMode::Edit(e) => e.clone(),
         EventFormMode::Create => CalendarEventLight {
@@ -57,53 +81,42 @@ pub fn EventForm(
             overrides_datetime: None,
             skipped: false,
             // Ignore: following fields are not needed for this function and/or should only be handled by supabase, but there to complete this struct
-            id: String::new(),
-            created_at: String::new(),
-            created_by: String::new(),
-            last_mod: String::new(),
+            id: Uuid::nil().to_string(),
+            created_by: Uuid::nil().to_string(),
+            created_at: Utc::now().to_string(),
+            last_mod: Utc::now().to_string(),
         },
     };
 
-    // category implementen
-    // CalendarEvent signals
+    // needed event signals
     let mut summary = use_signal(|| initial_event.summary);
     let mut description = use_signal(|| initial_event.description.unwrap_or_default());
     let mut selected_calendar_id = use_signal(|| initial_event.calendar_id);
     let mut from_date = use_signal(|| initial_event.from_date_time);
     let mut to_date = use_signal(|| initial_event.to_date_time);
+    let mut attachment = use_signal(|| initial_event.attachment);
     let mut location = use_signal(|| initial_event.location.unwrap_or_default());
     let mut categories = use_signal(|| initial_event.category.unwrap_or_default());
     let mut is_all_day = use_signal(|| initial_event.is_all_day);
+    // not needed event signals
+    let mut id = use_signal(|| initial_event.id);
+    let mut created_at = use_signal(|| initial_event.created_at);
+    let mut created_by = use_signal(|| initial_event.created_by);
+    let mut last_mod = use_signal(|| initial_event.last_mod);
     // Recurrence signals
     let mut rrule = use_signal(|| initial_event.rrule);
     let mut recurrence_until = use_signal(|| initial_event.recurrence_until);
+    let mut recurrence_id = use_signal(|| initial_event.recurrence_id);
+    let mut overrides_datetime = use_signal(|| initial_event.overrides_datetime);
+    let mut skipped = use_signal(|| initial_event.skipped);
     let is_recurrent = rrule().is_some();
-    let is_recurrence_exception = initial_event.overrides_datetime.is_some();
+    let is_recurrence_exception = overrides_datetime().is_some();
     // other signals
     let mut show_recurrent_scope_dialog = use_signal(|| false);
     let mut recurrent_scope: Signal<Option<RecurrentEditScope>> = use_signal(|| None);
     let is_edit = matches!(mode, EventFormMode::Edit(_));
     let mut is_loading = use_signal(|| false);
     let mut error_msg: Signal<Option<String>> = use_signal(|| None);
-
-    // ----------Debugging and developing----------
-    use_effect(move || {
-        println!("rrule: {:?}", rrule());
-        println!("recurrence_until: {:?}", recurrence_until());
-    });
-    let testcalendar = CalendarLight {
-        id: "0000000000000000".to_string(),
-        name: "Testkalender".to_string(),
-        calendar_type: "private".to_string(),
-        description: None,
-        owner_id: Some("111111111111111".to_string()),
-        group_id: Some("2222222222222222".to_string()),
-        created_at: "2026-07-19T10:45".to_string(),
-        created_by: "111111111111111".to_string(),
-        last_mod: "2026-07-19T10:47".to_string(),
-    };
-    calendars.push(testcalendar);
-    // --------------------------------------------
 
     rsx! {
         // Dimmed backdrop — clicking it closes the form
@@ -269,35 +282,101 @@ pub fn EventForm(
                             show_recurrent_scope_dialog.set(true);
                         } else {
                             // TODO: Call create_calendar_event or edit_single_calendar_event
+                            // create new CalendarEventLight to be able to use parse_calendar_event_light_to_calendar_event, because this function already has all the parsing in it
+                            let new_light_event = CalendarEventLight {
+                                id: id(),
+                                calendar_id: selected_calendar_id(),
+                                summary: summary(),
+                                description: Some(description()),
+                                from_date_time: format!("{}:00{}", from_date(), Local::now().format("%:z")), // add local timezone info; expects correct local datetime
+                                to_date_time: match to_date() {
+                                    Some(date) => Some(format!("{}:00{}", date, Local::now().format("%:z"))), // add local timezone info; expects correct local datetime
+                                    None => None,
+                                },
+                                attachment: attachment(),
+                                rrule: rrule(),
+                                recurrence_until: recurrence_until(), // timezones
+                                location: Some(location()),
+                                category: Some(categories()),
+                                is_all_day: is_all_day(),
+                                recurrence_id: recurrence_id(),
+                                overrides_datetime: overrides_datetime(), // timezones
+                                skipped: skipped(),
+                                created_at: created_at(), // timezones
+                                created_by: created_by(),
+                                last_mod: last_mod(), // timezones
+                            };
                             println!(
                                 "
-                                summary: {}\n
-                                description: {}\n
+                                new_light_event
+                                id: {}\n
                                 calendar_id: {}\n
+                                summary: {}\n
+                                description: {:?}\n
                                 from_date_time: {}\n
                                 to_date_time: {:?}\n
+                                attachment: {:?}\n
                                 rrule: {:?}\n
                                 recurrence_until: {:?}\n
-                                recurrence_id: {:?}\n
-                                overrides_exception: {:?}\n
                                 location: {:?}\n
-                                categories: {:?}\n
+                                category: {:?}\n
                                 is_all_day: {}\n
+                                recurrence_id: {:?}\n
+                                overrides_datetime: {:?}\n
+                                skipped: {}\n
+                                created_at: {}\n
+                                created_by: {}\n
+                                last_mod: {}\n
                                 ",
-                                summary(),
-                                description(),
-                                selected_calendar_id(),
-                                from_date(),
-                                to_date(),
-                                rrule(),
-                                recurrence_until(),
-                                "None", // recurrence_id not yet implemented
-                                "None", // overrides_exception not yet implemented
-                                location(),
-                                categories(),
-                                is_all_day(),
+                                new_light_event.id,
+                                new_light_event.calendar_id,
+                                new_light_event.summary,
+                                new_light_event.description,
+                                new_light_event.from_date_time,
+                                new_light_event.to_date_time,
+                                new_light_event.attachment,
+                                new_light_event.rrule,
+                                new_light_event.recurrence_until,
+                                new_light_event.location,
+                                new_light_event.category,
+                                new_light_event.is_all_day,
+                                new_light_event.recurrence_id,
+                                new_light_event.overrides_datetime,
+                                new_light_event.skipped,
+                                new_light_event.created_at,
+                                new_light_event.created_by,
+                                new_light_event.last_mod,
 
                             );
+                            // put further control flow directly in correlation of result of parsing; i know it's shit but time's running out
+                            match parse_calendar_event_light_to_calendar_event(new_light_event) {
+                                Ok(event) => {
+                                    // distinguish between creating and editing event and call function
+                                    match &mode {
+                                        EventFormMode::Create => {
+                                            spawn(async move {
+                                                match create_calendar_event(event.summary, event.description, event.calendar_id, event.from_date_time, event.to_date_time, event.attachment, event.recurrence, event.recurrence_exception, event.location, event.categories, event.is_all_day).await {
+                                                Ok(()) => {
+                                                    println!("Event erstellt");
+                                                    on_close.call(());
+                                                },
+                                                Err(err) => {
+                                                    error_msg.set(Some(err.to_string()));
+                                                },
+                                            }
+                                            });
+                                        },
+                                        EventFormMode::Edit(e) => {
+                                            todo!()
+                                        },
+                                    }
+                                },
+                                Err(err) => {
+                                    error_msg.set(Some(err.to_string()));
+
+                                }
+                            };
+
                         }
                     },
                     if is_loading() { "Saving…" } else { "Save" }
