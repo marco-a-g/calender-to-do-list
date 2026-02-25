@@ -518,11 +518,20 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                                                                         let mut files_res = files_res.clone();
 
                                                                                                         spawn(async move {
-                                                                                                            if let Ok((_, token)) = get_user_id_and_session_token().await {
-                                                                                                                let _ = delete_file(gid_delete, filename, token).await;
+                                                                                                        println!("[Files] Delete gestartet");
+                                                                                                        match get_user_id_and_session_token().await {
+                                                                                                            Ok((_, token)) => {
+                                                                                                                println!("[Files] Token OK, rufe delete_file auf");
+                                                                                                                match delete_file(gid_delete, filename, token).await {
+                                                                                                                    Ok(_) => println!("[Files] Delete erfolgreich"),
+                                                                                                                    Err(e) => println!("[Files] Delete fehler: {}", e),
+                                                                                                                }
                                                                                                             }
-                                                                                                            files_res.restart();
-                                                                                                        });
+                                                                                                            Err(e) => println!("[Files] Token fehler: {}", e),
+                                                                                                        }
+                                                                                                        println!("[Files] Restart files_res");
+                                                                                                        files_res.restart();
+                                                                                                    });
                                                                                                     }
                                                                                                 },
                                                                                                 "Delete"

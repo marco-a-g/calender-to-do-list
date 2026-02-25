@@ -1,14 +1,21 @@
 /*
 Supabase Storage backend for group files.
+
+Bucket: `group-files`
+Layout (matches storage policy): `private/{group_id}/{filename}`
+
 This module provides server functions to:
- - List files in the `group-files` bucket under a `group_id/` prefix
- - Upload a file to `group-files/{group_id}/{filename}`
+ - List files in the bucket under `private/{group_id}/`
+ - Upload a file to `group-files/private/{group_id}/{filename}`
  - Delete a file from the same path
  - Create a signed, time-limited download URL
  */
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use serde::Deserialize;
+
+const BUCKET: &str = "group-files";
+const ROOT_PREFIX: &str = "private";
 
 // (group_id, object_id, filename, uploaded_at_date)
 pub type FileTransfer = (String, String, String, String);
@@ -27,11 +34,11 @@ pub async fn fetch_files(
 ) -> Result<Vec<FileTransfer>, String> {
     let url = SUPABASE_URL;
 
-    let endpoint = format!("{}/storage/v1/object/list/group-files", url);
+    let endpoint = format!("{}/storage/v1/object/list/{}", url, BUCKET);
     let client = reqwest::Client::new();
 
     let body = serde_json::json!({
-        "prefix": format!("{}/", group_id),
+        "prefix": format!("{}/{}/", ROOT_PREFIX, group_id),
         "limit": 100
     });
 
@@ -79,8 +86,8 @@ pub async fn upload_file(
 ) -> Result<(), String> {
     let url = SUPABASE_URL;
 
-    let file_path = format!("{}/{}", group_id, filename);
-    let endpoint = format!("{}/storage/v1/object/group-files/{}", url, file_path);
+    let file_path = format!("{}/{}/{}", ROOT_PREFIX, group_id, filename);
+    let endpoint = format!("{}/storage/v1/object/{}/{}", url, BUCKET, file_path);
 
     let client = reqwest::Client::new();
 
@@ -110,8 +117,8 @@ pub async fn delete_file(
 ) -> Result<(), String> {
     let url = SUPABASE_URL;
 
-    let file_path = format!("{}/{}", group_id, filename);
-    let endpoint = format!("{}/storage/v1/object/group-files/{}", url, file_path);
+    let file_path = format!("{}/{}/{}", ROOT_PREFIX, group_id, filename);
+    let endpoint = format!("{}/storage/v1/object/{}/{}", url, BUCKET, file_path);
 
     let client = reqwest::Client::new();
 
@@ -139,10 +146,8 @@ pub async fn get_file_url(
     let url = SUPABASE_URL;
 
     let encoded_filename = urlencoding::encode(&filename);
-    let endpoint = format!(
-        "{}/storage/v1/object/sign/group-files/{}/{}",
-        url, group_id, encoded_filename
-    );
+    let file_path = format!("{}/{}/{}", ROOT_PREFIX, group_id, encoded_filename);
+    let endpoint = format!("{}/storage/v1/object/sign/{}/{}", url, BUCKET, file_path);
 
     let client = reqwest::Client::new();
 
