@@ -6,6 +6,24 @@ use crate::utils::structs::{
 use chrono::{Duration, Local, NaiveDate};
 use dioxus::prelude::*;
 
+/// UI-Element that renders the main task list view based on active sidebar filters.
+///
+/// Uses the user's selected `GroupFilter` and `ListFilter` to dynamically narrow down the rendered tasks.
+/// After filtering, it uses the `categorize_todos` helper to sort tasks into three brackets: "Due Today / Overdue","Due in the next 7 days", and "Due Later or no Due-Date".
+/// Builds a contextual header that displays metadata (description, priority, due date) specific to the currently selected list.
+///
+/// # Arguments
+///
+/// * `todos` - A vector of all active `TodoEventLight`.
+/// * `all_lists` - A vector of all available `TodoListLight`.
+/// * `groups` - A vector of all available `GroupLight`.
+/// * `all_profiles` - A vector of user `ProfileLight` for assignee handling.
+/// * `all_events` - A vector of `CalendarEventLight` for calendarevent linking.
+/// * `selected_category` - Currently active `GroupFilter`.
+/// * `selected_list_filter` - Currently active `ListFilter`.
+/// * `on_complete` - Event handler triggered when a task is marked as completed.
+/// * `on_select_todo` - Event handler triggered when a task is clicked for details.
+/// * `on_edit_list` - Event handler triggered when the user edits the current list.
 #[component]
 pub fn OpenToDoView(
     todos: Vec<TodoEventLight>,
@@ -286,6 +304,20 @@ pub fn OpenToDoView(
     }
 }
 
+/// UI-ELement that renders a single, todo-item row within the OpenToDoView.
+///
+/// Displays metadata for the specific task like title, dynamic due date styling, priority, assigned user, and badges (group, list, or linked calendar event).
+/// Flags master recurring tasks with specific icon.
+///
+/// # Arguments
+///
+/// * `task` - The specific `TodoEventLight` to render.
+/// * `parent_list` - The list containing the task.
+/// * `parent_group` - The group containing the parent list.
+/// * `all_profiles` - Vector of profiles to resolve the assignee's username.
+/// * `all_events` - Vector of calendar events to resolve linked event names.
+/// * `on_complete` - Event handler triggered by clicking the checkbox.
+/// * `on_click` - Event handler triggered by clicking the row body.
 #[component]
 fn ToDoItem(
     task: TodoEventLight,
@@ -497,6 +529,19 @@ fn ToDoItem(
     }
 }
 
+/// Categorizes a Vector of todos into three brackets: Today/Overdue, Next 7 Days, Later/None.
+///
+/// Matches `due_datetime` of each task against the current local date to categorize them.
+/// Tasks with missing dates, invalid date strings, or parsing failures are assigned to the "Due Later" bracket.
+/// Each bucket is then sorted.
+///
+/// # Arguments
+///
+/// * `list` - A reference to a vector of `TodoEventLight`.
+///
+/// # Returns
+///
+/// Returns a tuple containing three vectors of tasks: `(Today/Overdue, Next 7 Days, Later/None)`.
 fn categorize_todos(
     list: &Vec<TodoEventLight>,
 ) -> (

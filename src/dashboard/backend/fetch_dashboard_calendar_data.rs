@@ -7,6 +7,15 @@ use crate::utils::structs::CalendarEventLight;
 use chrono::{DateTime, Datelike, Duration, Local};
 use tokio::join;
 
+/// Fetches, filters, and formats calendar events for the dashboard.
+///
+/// Retrieves all calendar events, calendars, and groups from the local database, expands recurring calendar events to generate "fake"" instances and filters them to include only events that are scheduled this week.
+///
+/// Events are mapped into a tuple of  `(event, group_name, group_color)` to provide the necessary metadata for rendering for the dashboard UI.
+///
+/// # Errors
+///
+/// Returns a boxed dynamic error if the database queries fail or the recurrence expansion fails.
 pub async fn fetch_calendar_dashboard_tuples()
 -> Result<Vec<(CalendarEventLight, String, String)>, Box<dyn std::error::Error>> {
     //Daten holen

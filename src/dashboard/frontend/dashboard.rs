@@ -8,6 +8,11 @@ use chrono::Local;
 use dioxus::prelude::*;
 use tokio::time::{Duration, sleep};
 
+/// UI-Element that renders the primary dashboard view
+///
+/// Root container for the dashboard. Fetches the user's to-do items and calendar events and passes them on to the corresponding Subcomponents.
+/// Contains a spinner-animatino until the data is ready.
+//  Subcomponents are: DashboardDateTimeWidget, DashboardNewsWidget, DashboardCalendar, DashboardChat
 #[component]
 pub fn DashboardView() -> Element {
     //Daten holen

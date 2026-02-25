@@ -3,7 +3,22 @@ use crate::utils::structs::TodoEventLight;
 use chrono::{DateTime, Timelike, Utc};
 use std::collections::HashMap;
 use uuid::Uuid;
+
 //nimmt eingabe vector von todos und erstellt anhand der Rrules einen Vector mit den Wiederholenden Todos, beachtet auch übersprungene und verschobene Todo wiederholungen
+/// Expands a list of to-dos by generating individual instances for recurring tasks.
+///
+/// Separates master recurring events from their exceptions. Then iterates over the master events and generates "fake" instances for future occurrences based on their recurrence rule.
+/// Expansion currently capped at 2 years (730 days).
+///
+/// Exceptions are mapped back to their respective dates, overriding or "hiding" the generated virtual instances.
+///
+/// # Arguments
+///
+/// * `todos` - Vector of `TodoEventLight`.
+///
+/// # Errors
+///
+/// Returns a boxed dynamic error if datetime parsing fails or the recurrence rule calculation (`calculate_next_date`) encounters an invalid pattern.
 pub fn expand_recurring_todos(
     todos: Vec<TodoEventLight>,
 ) -> Result<Vec<TodoEventLight>, Box<dyn std::error::Error>> {

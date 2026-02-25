@@ -5,6 +5,23 @@ use server_fn::error::ServerFnError;
 use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
 
+/// Synchronizes profiles from remote database to local database within the provided transaction-queue. Is called by `sync_local_to_remote_db()` function, where the transaction-queue is created.
+///
+/// Fetches all profiles from Supabase through REST API GET request.
+/// Insers new profiles or updates existing ones based on UUID.
+/// Deletes local profiles events that no longer exist in the remote database
+///
+/// # Arguments
+///
+/// * `tx` - Reference to active SQLite transaction.
+/// * `token` - Access token of the authenticated user.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - The HTTP request to Supabase fails.
+/// - Parseing into a Vec of ProfileLight fails.
+/// - Any Part of the SQL execution fails.
 pub async fn sync_profiles(
     tx: &mut Transaction<'_, Sqlite>,
     token: &str,

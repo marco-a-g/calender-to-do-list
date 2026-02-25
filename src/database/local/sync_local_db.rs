@@ -18,7 +18,19 @@ use sqlx::{
 use std::str::FromStr;
 use supabase::Client;
 
-//#[server] -> funktioniert vorerst noch nicht mit #server // soll ja auch nicht auf server sondern db localer rechner speichern!
+/// Synchronizes data between remote and local databases.
+///
+/// Checks authentication status of current user and blocks execution if not authenticated.
+/// Synchronization is done through a transaction-queue, so that the transaction is atomic.
+/// Sequentially synchronizes profiles, groups, members, calendars, events, todos, and lists.
+/// If any of the sub-functions fail, function aborts therefore no transaction happens
+/// Sets Signal for SyncIndicator UI-Component
+/// # Errors
+///
+/// Returns a `ServerFnError` in the following cases:
+/// Client retrieval fails or sessiontoken is invalid
+/// Connection to local database failed.
+/// An Error occurred during starting, executing, or committing steps in SQL_transaction.
 pub async fn sync_local_to_remote_db() -> Result<(), ServerFnError> {
     let is_syncing = try_consume_context::<Signal<bool>>();
 
@@ -94,6 +106,7 @@ pub async fn sync_local_to_remote_db() -> Result<(), ServerFnError> {
     Ok(())
 }
 
+/// UI-Element to indicate database-sync is running in the Background
 #[component]
 pub fn SyncIndicator() -> Element {
     let is_syncing = use_context::<Signal<bool>>();

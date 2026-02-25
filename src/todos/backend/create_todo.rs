@@ -52,6 +52,29 @@ pub struct TodoFrontendInput {
 }
 
 //Wandelt den Input aus Frontend in ein valides ToDoEvent struct um für Typesafety
+/// Transforms raw input into a `TodoEvent` object.
+///
+/// Acts as primary data validation regarding todos, to ensure typesafety during their creation process.
+///
+/// Manages the following parsing scenarios:
+/// - **UUIDs:** Parses the associated list and assignee IDs. If the assignee ID fails to parse, logs a warning but allows task to remain unassigned (`None`). If no list ID is provided, it defaults to a `nil` UUID.
+/// - **Dates:** Converts HTML input strings into UTC `DateTime` objects. Failures are logged and fall back to `None`.
+/// - **Recurrence:** Parses string-based recurrence rules and  end dates into the nested `Recurrent` struct, must both must be present and valid for the recurrence to be applied.
+///
+/// # Arguments
+///
+/// * `todo_list_id` - The raw UUID (String) of the parent to-do list.
+/// * `summary` - The title of the to-do task.
+/// * `description` - An optional string containing task details.
+/// * `due_datetime` - An optional HTML date input string for the task's deadline.
+/// * `priority` - An optional string representing the task's priority level.
+/// * `rrule` - An optional string defining the recurrance pattern.
+/// * `recurrence_until` - An optional HTML date input string defining the end of recurrence.
+/// * `assigned_to_user` - An optional UUID (String)of the user responsible for the task.
+///
+/// # Errors
+///
+/// Returns a boxed dynamic error if the required `todo_list_id` is provided but is an invalid UUID string that cannot be parsed.
 pub fn frontend_input_to_todo(
     input_todo: TodoFrontendInput,
 ) -> Result<TodoEvent, Box<dyn std::error::Error>> {
@@ -156,6 +179,20 @@ pub fn frontend_input_to_todo(
 }
 
 // ToDoEvent in ToDoTransfer Objekt wandeln
+/// Converts a `TodoEvent` into a `ToDoTransfer` payload.
+///
+/// Prepares the task data for JSON serialization and transfer to the remote database.
+///
+/// Extracts the values from the nested `recurrence` (converting the `Rrule` stuct into its string equivalent) and `recurrence_exception` (extracting `recurrence_id`,`overrides_datetime`, and `skipped`) structs.
+/// Formats the `Priority` enum into standard lowercase string and converts a `nil` list UUID into a `None` value.
+///
+/// # Arguments
+///
+/// * `todo` - The `TodoEvent` object to be transformed.
+///
+/// # Errors
+///
+/// Returns `Result<..., Box<dyn Error>>` to maintain consistency with other data mapping operations, but currently does not throw errors.
 pub fn todo_event_into_to_do_transfer(
     todo: TodoEvent,
 ) -> Result<ToDoTransfer, Box<dyn std::error::Error>> {
@@ -214,6 +251,23 @@ pub fn todo_event_into_to_do_transfer(
 }
 
 //Zu erstellendes ToDo-Transferobjekt an Supabase senden
+/// Creates a new to-do in the remote database.
+///
+/// Manages final preparation of Transferobject and network transmission of a new todo, therefore it completes following steps:
+/// 1. **List Resolution:** It fetches the local database lists and uses `map_id_to_shadow_list` to resolve unclear list assignments (ensuring todos without a specified todolist are correctly routed to the user's/group's "shadow list").
+/// 2. **Auto-Assignment:** If the resolved list is private (has no `group_id`) or no user was explicitly assigned, it automatically assigns the task to the current user.
+///
+/// After modifying the payload, it creates the new todo by sending a `POST` request to the remote database.
+///
+/// Triggers `sync_local_to_remote_db()` after succesfull creation.
+///
+/// # Arguments
+///
+/// * `todo` - The `ToDoTransfer` containing the todos data.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if user authentication fails, list fetching or shadow-list mapping fails or if the Supabase request fails or returns an error status.
 // #[server]
 pub async fn create_todo_event(mut todo: ToDoTransfer) -> Result<StatusCode, ServerFnError> {
     println!("Startin create_todo function with: '{:#?}'", todo);
@@ -291,6 +345,24 @@ pub async fn create_todo_event(mut todo: ToDoTransfer) -> Result<StatusCode, Ser
 }
 
 // Checkt ob die übergebene id eine Gruppen ID ist -> ShadowListe und gibt dann die richtige ID aus
+/// Resolves an unclear identifier into a concrete to-do list UUID, handling "shadow lists".
+///
+/// "Shadow lists": The List per User/Group that inhabits all Todos, that are not assigned to a specific ToDoList. identifiable by their `name` field, which matches the UUID of the owning user/group.
+///
+/// Uses following logic to assign the final id:
+/// 1. **No ID Provided (`None`):** Assumes the task is personal, searching for the user's shadow list.
+/// 2. **Explicit List ID:** Checks if the provided ID matches an existing to-do list.
+/// 3. **Group ID:** If the ID isn't a direct list ID, assumes it is a group ID and searches for the corresponding group's shadow list.
+///
+/// # Arguments
+///
+/// * `id_to_check` - An optional `Uuid` that could represent specific list, a group, or be empty (`None`).
+/// * `user_uuid` - The `Uuid` of the current user, used to resolve personal shadow lists.
+/// * `all_lists` - A slice containing all available `TodoListLight` to search against.
+///
+/// # Errors
+///
+/// Returns a boxed dynamic error if a matching real list or required shadow list cannot be found or if UUID string parsing fails.
 fn map_id_to_shadow_list(
     id_to_check: Option<Uuid>,
     user_uuid: Uuid,

@@ -5,6 +5,23 @@ use server_fn::error::ServerFnError;
 use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
 
+/// Synchronizes to-do-lists from remote database to local database within the provided transaction-queue. Is called by `sync_local_to_remote_db()` function, where the transaction-queue is created.
+///
+/// Fetches all to-do-lists from Supabase through REST API GET request.
+/// Insers new to-do-lists or updates existing ones based on UUID.
+/// Deletes local to-do-lists events that no longer exist in the remote database
+///
+/// # Arguments
+///
+/// * `tx` - Reference to active SQLite transaction.
+/// * `token` - Access token of the authenticated user.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - The HTTP request to Supabase fails.
+/// - Parseing into a Vec of TodoListLight fails.
+/// - Any Part of the SQL execution fails.
 pub async fn sync_todolists(
     tx: &mut Transaction<'_, Sqlite>,
     token: &str,

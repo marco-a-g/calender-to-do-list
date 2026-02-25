@@ -1,5 +1,9 @@
 use dioxus::prelude::*;
 
+//Mit LLM generierter Newsfeed mit Artikeln von dev.to die #Rust als Tag haben, um leeren Platz im Dashboard vorübergehend zu füllen
+/// UI-Element that renders a Placeholder for a Chat feature in the future
+///
+/// Completely generated with LLM to temporarily cover empty space in Dasboard.
 #[component]
 pub fn DashboardChat() -> Element {
     rsx! {

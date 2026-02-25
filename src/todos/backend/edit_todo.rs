@@ -34,6 +34,19 @@ struct UpdateTodoTransfer {
 }
 
 // LightToDo in UpdateTodoTransfer Objekt
+/// Converts a frontend to-do event into an update payload.
+///
+/// Parses string-based UUIDs (list ID, assignee ID, recurrence ID) and HTML date inputs (due dates, recurrence limits, overrides) into backend types.
+///
+/// If an individual field fails to parse, logs a warning falls back to `None` for that attribute, ensures update process does not crash.
+///
+/// # Arguments
+///
+/// * `light` - The `TodoEventLight` instance containing the modified data to transform.
+///
+/// # Errors
+///
+/// Returns `Result<..., Box<dyn Error>>` strictly to maintain consistency with other data mapping operations, but currently falls back to `None` on internal parsing errors, logging them.
 fn light_todo_into_update(
     light: TodoEventLight,
 ) -> Result<UpdateTodoTransfer, Box<dyn std::error::Error>> {
@@ -131,6 +144,24 @@ fn light_todo_into_update(
 }
 
 // #[server]
+/// Modifies an existing to-do event or generates an exception for a recurring instance.
+///
+/// Manages editing process to handle different scenarios.
+/// Depending on the task, it routes the network request into one of three operatinos:
+///
+/// 1. **Existing Exception of recurring series:** If the task is already a defined exception (has a `recurrence_id` and `overrides_datetime`, and its ID differs from the master), it sends a `PATCH` request to update that exception.
+/// 2. **New Exception Creation:** If a fake instance of a recurring task, that is not an exception already, is edited, it creates a new exception `POST` request, linking it to the master ID.
+/// 3. **Master or Standard Updates:** If the task is a standard to-do or the user explicitly choses to edit the "Whole Series" of a master task via the corresponding modal, it sends standard a `PATCH` request to modify the target directly.
+///
+/// Triggers `sync_local_to_remote_db()` after succesfull edit.
+///
+/// # Arguments
+///
+/// * `todo` - The modified `TodoEventLight` object containing the updated fields.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if user authentication fails, if mapping into transfer object fails or if the Supabase request fails or returns an error status.
 pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerFnError> {
     println!(
         "Starting edit_todo_event für '{}' (ID: {})",

@@ -10,6 +10,14 @@ use crate::utils::structs::{CalendarEventLight, CalendarLight, GroupLight, TodoL
 use chrono::Local;
 use dioxus::prelude::*;
 use uuid::Uuid;
+
+/// UI-Element that renders a button for creating new to-do lists.
+///
+/// Forwards interaction events to the parent ToDoDashboard component (sets show_create_edit_list_modal on true).
+///
+/// # Arguments
+///
+/// * `onclick` - An `EventHandler` that catches and passes the `MouseEvent` when button is clicked.
 #[component]
 pub fn CreateListButton(onclick: EventHandler<MouseEvent>) -> Element {
     rsx! {
@@ -34,6 +42,24 @@ pub fn CreateListButton(onclick: EventHandler<MouseEvent>) -> Element {
     }
 }
 
+/// UI-Element that renders a modal for creating new to-do lists or editing existing lists.
+///
+/// Manages local form state for list attributes like, title, description, due date, priority, and associations (groups and calendar events).
+/// Automatically fills the form fields if a `list_to_edit` is provided (Edit Mode).
+///
+/// Filters available calendar events based on the currently selected group.
+/// Handles backend submissions for creation, updates and deletion of todo-lists.
+///
+/// # Arguments
+///
+/// * `groups` - A vector of available `GroupLight` for assignment.
+/// * `all_events` - A vector of available `CalendarEventLight` for event linking.
+/// * `all_calendars` - A vector of `CalendarLight` entities used to filter events by group.
+/// * `show_modal` - A Signal managing the modal's visibility.
+/// * `on_refresh` - An `EventHandler` triggered upon successful creation, edit, or deletion.
+/// * `list_to_edit` - A Signal containing the list to edit (if None, the modal acts as a creator).
+/// * `selected_category` - A Signal to reset the sidebar view to `AllGroups` upon deletion.
+/// * `selected_list` - A Signal to reset the list view filter upon deletion.
 #[component]
 pub fn CreateEditListModal(
     groups: Vec<GroupLight>,

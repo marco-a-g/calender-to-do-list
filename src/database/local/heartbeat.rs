@@ -3,8 +3,12 @@ use dioxus::prelude::*;
 use std::time::Duration;
 use tokio::time::sleep;
 
+/// Starts background task that synchronizes the databases periodically.
+///
+/// Triggers the `sync_local_to_remote_db` upon starting and then pauses for (a given timeframe) between each execution.
+///
+/// Errors encountered during sync are caught and printed, so that a single failed sync attempt does not crash the App or stop the heartbeat mechanism.
 pub async fn start_heartbeat() {
-    //startet neuen parallelen Task für heartbeat
     spawn(async move {
         loop {
             println!("Heartbeat triggered: starting sync of local DB");

@@ -45,6 +45,23 @@ pub struct ToDoListTransfer {
 }
 
 //Wandelt den Input aus Frontend in ein valides ToDoList struct um für Typesafety
+/// Translates raw input from the UI into a `ToDoList` Object.
+///
+/// Parses user-provided strings for dates, priorities and UUIDs. Resolves the lists ownership: if `group_id` is provided, the list belongs to the group; otherwise it defaults to a private list owned by the `current_user`.
+///
+/// # Arguments
+///
+/// * `name` - The title of the to-do list.
+/// * `description` - An optional string containing list details.
+/// * `group_id` - The UUID (String) of the associated group, or an empty string for private lists.
+/// * `current_user` - The UUID (String) of the current user.
+/// * `due_datetime` - An optional HTML date input string representing the list's deadline.
+/// * `priority` - An optional string defining the list's priority.
+/// * `attatched_to_cal_evt` - An optional UUID (String) of an associated calendar event.
+///
+/// # Errors
+///
+/// Returns a boxed dynamic error if the UUID parsing fails.
 pub fn frontend_input_to_todo_list(
     name: String,
     description: Option<String>,
@@ -127,6 +144,17 @@ pub fn frontend_input_to_todo_list(
 }
 
 // ToDoEvent in ToDoTransfer Objekt wandeln
+/// Maps a `ToDoList` into a  `ToDoListTransfer` object for transfer to remote database.
+///
+/// Resolves `OwnedBy` enum structure by `ToDoList` into  `type`, `owner_id`, and `group_id` fields of `TodoListLight` required by the remote database.
+///
+/// # Arguments
+///
+/// * `todo_list` - The `ToDoList` to be transformed.
+///
+/// # Errors
+///
+/// Returns `Result<ToDoListTransfer, Box<dyn Error>>` to be consistent in signature with the other data mapping functions, but currently does not return Errors.
 pub fn todo_list_into_todo_list_transfer(
     todo_list: ToDoList,
 ) -> Result<ToDoListTransfer, Box<dyn std::error::Error>> {
@@ -177,6 +205,18 @@ pub fn todo_list_into_todo_list_transfer(
 
 //Zu erstellendes ToDo-List-Transferobjekt an Supabase senden
 // #[server]
+/// Creates a new to-do list in the remote database.
+///
+/// Manages the creation process by authenticating the current user and dispatching a POST request to the API of the remote database.
+/// Triggers `sync_local_to_remote_db()` after succesfull creation.
+///
+/// # Arguments
+///
+/// * `todo_list` - The data transfer object for the list to be created.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if the user session authentication fails, if the network request fails or if the Supabase API responds with a non-success HTTP status code.
 pub async fn create_todo_list(todo_list: ToDoListTransfer) -> Result<StatusCode, ServerFnError> {
     println!("Startin create_todo_list function with: '{:#?}'", todo_list);
 

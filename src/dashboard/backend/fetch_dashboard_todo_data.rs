@@ -6,6 +6,16 @@ use crate::utils::functions::get_user_id_and_session_token;
 use crate::utils::structs::TodoEventLight;
 use chrono::{DateTime, Datelike, Duration, Local};
 use tokio::join;
+
+/// Fetches, expands and filters to-do events for the dashboard view.
+///
+/// Retrieves all to-do events, lists, and groups from the local database, expands recurring tasks to generate "fake"" instances and filters them to include only incomplete todos that are due this week and are assigned to the current User.
+///
+/// Todos get sorted and mapped into a tuple of Strings (task_name, due_date, group_name, group_color)` for read-only rendering in dashboard.
+///
+/// # Errors
+///
+/// Returns a boxed dynamic error if the user session cannot be validated, if the database queries fail or the recurrence expansion fails.
 pub async fn fetch_todos_dashboard_tuples()
 -> Result<Vec<(String, Option<String>, String, String)>, Box<dyn std::error::Error>> {
     // Id Holen für filterung nach ID der Users

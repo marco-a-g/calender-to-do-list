@@ -15,6 +15,19 @@ pub enum ListFilter {
     SpecificList(String),
 }
 
+/// UI-Element that renders a sidebar navigation component for filtering to-do tasks.
+///
+/// Visualizes hierarchy of Todos by categorizing them into "All", "Personal", and group-specific lists.
+/// Actively filters out "shadow lists" (The List per User/Group that inhabits all Todos, that are not assigned to a specific ToDoList).
+/// Distinguishes between standard Todo-Lists and event-linked to-do lists within each Group.
+/// Uses signals to pass the user's selected category and list filters back to the "Master" Tododashboard.
+///
+/// # Arguments
+///
+/// * `groups` - A vector of all available `GroupLight` Groups.
+/// * `all_lists` - A vector of all available `TodoListLight` ToDoLists.
+/// * `selected_category` - A Signal defining the currently active `GroupFilter`.
+/// * `selected_list` - A  Signal defining the currently active `ListFilter`.
 #[component]
 pub fn FilterSidebar(
     groups: Vec<GroupLight>,
@@ -212,6 +225,9 @@ pub fn FilterSidebar(
     }
 }
 
+/// UI-Element that renders a divider and label to categorize list types in the sidebar.
+///
+/// Helper component within the `FilterSidebar` that creates a visual separator (e.g., "Event-linked To-Do-Lists")
 #[component]
 fn SectionHeader(label: String) -> Element {
     rsx! {
@@ -228,6 +244,10 @@ fn SectionHeader(label: String) -> Element {
     }
 }
 
+/// UI-Element that renders an interactive, selectable row item within the sidebar.
+///
+/// Helper component within the `FilterSidebar` that formats a single list or category name.
+/// Dynamically adjusts background color, font weight, text color, and indentation based on its `is_active`, `is_header`, and `indent` traits. It emits a click event when selected, to manage rendering Todos based on selected Item.
 #[component]
 fn SidebarItem(
     label: String,

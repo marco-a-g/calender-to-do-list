@@ -4,6 +4,21 @@ use crate::utils::structs::{GroupLight, ProfileLight, TodoEventLight, TodoListLi
 use dioxus::prelude::*;
 use uuid::Uuid;
 
+/// UI-Element that renders a modal displaying the full details of a selected to-do event.
+///
+/// Conditionally rendered based on the selected TodoEventLight in the `selected_todo` signal.
+/// Maps database IDs for the associated list, group, and assigned user to their "readable" names and formats metadata like priority, due date and recurrence rules for display.
+///
+/// Provides Buttons to delete the task directly from the database or to trigger the edit process via `on_edit`.
+///
+/// # Arguments
+///
+/// * `selected_todo` - A Dioxus `Signal` containing the `Option<TodoEventLight>` to display.
+/// * `groups` - A vector of all `GroupLight` entities for contextual mapping.
+/// * `all_lists` - A vector of all `TodoListLight` entities for contextual mapping.
+/// * `all_profiles` - A vector of all user `ProfileLight` entities to resolve the assignee.
+/// * `on_refresh` - An `EventHandler` called to trigger a data refresh after a successful deletion.
+/// * `on_edit` - An `EventHandler` called with the current task when the edit button is clicked.
 #[component]
 pub fn ToDoDetailModal(
     selected_todo: Signal<Option<TodoEventLight>>,
