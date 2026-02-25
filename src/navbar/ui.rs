@@ -1,10 +1,16 @@
 use crate::Route;
 use crate::auth::backend::{AuthStatus, logout};
+use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use dioxus::prelude::*;
 use dioxus_router::{Link, Outlet, use_route};
 
 #[component]
 pub fn Navbar() -> Element {
+    
+    let mut auth_status = use_context::<Signal<AuthStatus>>();
+
+    let mut syncing = use_signal(|| false);
+    let mut sync_feedback = use_signal(|| Option::<String>::None);
     rsx! {
         div {
             style: "
@@ -80,6 +86,39 @@ pub fn Navbar() -> Element {
                 NavButton {
                     to: Route::ProfileView,
                     icon: "⚙️",
+                }
+
+                button {
+                    style: "
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 14px;
+                        background: rgba(107, 139, 255, 0.12);
+                        border: 1px solid rgba(107,139,255,0.25);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 18px;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                        opacity: 1;
+                    ",
+                    disabled: syncing(),
+                    onclick: move |_| {
+                        let mut syncing = syncing.clone();
+                        let mut sync_feedback = sync_feedback.clone();
+
+                        spawn(async move {
+                            syncing.set(true);
+                            sync_feedback.set(Some("syncing".to_string()));
+
+                            sync_local_to_remote_db().await;
+
+                            sync_feedback.set(Some("done".to_string()));
+                            syncing.set(false);
+                        });
+                    },
+                    if syncing() { "🔄" } else { "🔃" }
                 }
 
                 button {
