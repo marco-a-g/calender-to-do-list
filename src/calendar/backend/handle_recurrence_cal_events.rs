@@ -1,4 +1,3 @@
-use crate::utils::structs::TodoEventLight;
 use crate::utils::{date_handling::calculate_next_date, structs::CalendarEventLight};
 use chrono::{DateTime, Duration, Timelike, Utc};
 use std::collections::HashMap;
@@ -11,7 +10,7 @@ pub fn expand_recurring_events(
 ) -> Result<Vec<CalendarEventLight>, Box<dyn std::error::Error>> {
     let mut result = Vec::new();
     let mut masters: Vec<CalendarEventLight> = Vec::new();
-    // Set aus Key, value pairs mit RecId und overridesDatetime, und todo selbst soll performanter sein, laut LLM
+    // Set aus Key, value pairs mit RecId und overridesDatetime, und event selbst soll performanter sein, laut LLM
     let mut exceptions: HashMap<(String, String), CalendarEventLight> = HashMap::new();
 
     //Betrachtungszeitpunkt setzen:
@@ -45,7 +44,7 @@ pub fn expand_recurring_events(
     }
 
     for master in masters {
-        //ist es master ohne rrule (:= nicht wiederholendes ToDo) einfach in Ausgabevektor rein
+        //ist es master ohne rrule (:= nicht wiederholendes event) einfach in Ausgabevektor rein
         if master.rrule.is_none() {
             result.push(master);
             continue;
@@ -113,7 +112,7 @@ pub fn expand_recurring_events(
 
             //Gibt es für dieses Event eine exception in K-V-Store => exception behandeln
             if let Some(exception) = exceptions.get(&lookup_key) {
-                // ist geskipped => keine Fake instzanz von dem Todo pushen
+                // ist geskipped => keine Fake instzanz von dem event pushen
                 //ist es nicht geskipped => pushen in result
                 if !exception.skipped {
                     result.push(exception.clone());
@@ -144,6 +143,6 @@ pub fn expand_recurring_events(
                 .and_then(|ce| Some(calculate_next_date(ce, &rrule, to_dt.unwrap()).ok()?));
         }
     }
-    //Ergebnisvektor aus Mastern und "Fake"-Todos ausgeben
+    //Ergebnisvektor aus Mastern und "Fake"-events ausgeben
     Ok(result)
 }
