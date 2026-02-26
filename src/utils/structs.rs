@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Local, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::fmt;
@@ -147,6 +147,14 @@ impl fmt::Display for Recurrent {
             "rrule: {}, recurrence_until: {}",
             self.rrule, self.recurrence_until
         )
+    }
+}
+impl Default for Recurrent {
+    fn default() -> Self {
+        Recurrent {
+            rrule: Rrule::Daily,
+            recurrence_until: (Utc::now() + Duration::days(30)).with_timezone(&Utc), // switch to Local::now() later
+        }
     }
 }
 

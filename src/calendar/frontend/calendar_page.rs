@@ -23,7 +23,7 @@ pub fn CalendarPage() -> Element {
     let displayed_date = use_signal(|| Utc::now());
     let view_mode = use_signal(|| ViewMode::Month);
 
-    let mut selected_event: Signal<Option<CalendarEventLight>> = use_signal(|| None);
+    let mut selected_event: Signal<Option<CalendarEvent>> = use_signal(|| None);
     let mut show_form = use_signal(|| false);
     let mut prefilled_date = use_signal(|| None);
 
