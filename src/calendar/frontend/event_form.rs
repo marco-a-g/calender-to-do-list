@@ -3,7 +3,12 @@ use dioxus::prelude::*;
 use uuid::Uuid;
 
 use crate::{
-    calendar::backend::create_calendar_event::create_calendar_event,
+    calendar::backend::{
+        change_calendar_event::{
+            edit_calendar_event, edit_instance_of_recurrent_event, edit_single_calendar_event,
+        },
+        create_calendar_event::create_calendar_event,
+    },
     user::backend::get_own_username,
     utils::{
         functions::parse_calendar_event_light_to_calendar_event,
@@ -289,7 +294,33 @@ pub fn EventForm(
                                     });
                                 },
                                 EventFormMode::Edit(e) => {
-                                    todo!()
+                                    spawn(async move {
+                                        match edit_single_calendar_event(CalendarEvent{
+                                            id: id(),
+                                            summary: summary(),
+                                            description: description(),
+                                            calendar_id: selected_calendar_id(),
+                                            created_at: created_at(),
+                                            created_by: created_by(),
+                                            from_date_time: from_date(),
+                                            to_date_time: to_date(),
+                                            attachment: attachment(),
+                                            recurrence: recurrence(),
+                                            recurrence_exception: recurrence_exception(),
+                                            location: location(),
+                                            categories: categories(),
+                                            is_all_day: is_all_day(),
+                                            last_mod: last_mod(),
+                                        }).await {
+                                        Ok(()) => {
+                                            println!("Event bearbeitet");
+                                            on_close.call(());
+                                        },
+                                        Err(err) => {
+                                            error_msg.set(Some(err.to_string()));
+                                        },
+                                    }
+                                    });
                                 },
                             }
 
@@ -322,12 +353,67 @@ pub fn EventForm(
                 on_only_this: move |_| {
                     show_recurrent_scope_dialog.set(false);
                     recurrent_scope.set(Some(RecurrentEditScope::OnlyThis));
-                    // TODO: Call edit_instance_of_recurrent_event
+                    spawn(async move {
+                        match edit_instance_of_recurrent_event(CalendarEvent{
+                            id: id(),
+                            summary: summary(),
+                            description: description(),
+                            calendar_id: selected_calendar_id(),
+                            created_at: created_at(),
+                            created_by: created_by(),
+                            from_date_time: from_date(),
+                            to_date_time: to_date(),
+                            attachment: attachment(),
+                            recurrence: recurrence(),
+                            recurrence_exception: recurrence_exception(),
+                            location: location(),
+                            categories: categories(),
+                            is_all_day: is_all_day(),
+                            last_mod: last_mod(),
+                        }).await {
+                        Ok(()) => {
+                            println!("Event bearbeitet");
+                            on_close.call(());
+                        },
+                        Err(err) => {
+                            error_msg.set(Some(err.to_string()));
+                        },
+                        }
+                    });
                 },
                 on_all: move |_| {
                     show_recurrent_scope_dialog.set(false);
                     recurrent_scope.set(Some(RecurrentEditScope::All));
                     // TODO: Call edit_calendar_event with keep_overridings / keep_orphans flags
+                    spawn(async move {
+                        match edit_calendar_event(CalendarEvent{
+                            id: id(),
+                            summary: summary(),
+                            description: description(),
+                            calendar_id: selected_calendar_id(),
+                            created_at: created_at(),
+                            created_by: created_by(),
+                            from_date_time: from_date(),
+                            to_date_time: to_date(),
+                            attachment: attachment(),
+                            recurrence: recurrence(),
+                            recurrence_exception: recurrence_exception(),
+                            location: location(),
+                            categories: categories(),
+                            is_all_day: is_all_day(),
+                            last_mod: last_mod(),
+                        },
+                        None,
+                        None).await {
+                        Ok(()) => {
+                            println!("Event bearbeitet");
+                            on_close.call(());
+                        },
+                        Err(err) => {
+                            error_msg.set(Some(err.to_string()));
+                        },
+                        }
+                    });
                 },
                 on_cancel: move |_| show_recurrent_scope_dialog.set(false),
             }
