@@ -5,6 +5,7 @@ use uuid::Uuid;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::calendar::backend::handle_recurrence_cal_events::expand_recurring_events;
 use crate::calendar::frontend::calendar_grid::{CalendarGrid, ViewMode};
 use crate::calendar::frontend::event_form::{EventForm, EventFormMode};
 use crate::database::local::init_fetch::init_fetch_local_db::{
@@ -38,12 +39,18 @@ pub fn CalendarPage() -> Element {
     });
 
     let (calendars_light, all_events_light, groups, profiles) = match &*db_resource.read() {
-        Some((Ok(cals), Ok(evts), Ok(grps), Ok(profs))) => {
-            (cals.clone(), evts.clone(), grps.clone(), profs.clone())
-        }
-        Some((Ok(cals), Ok(evts), _, _)) => (cals.clone(), evts.clone(), vec![], vec![]),
-        Some((Ok(cals), _, _, _)) => (cals.clone(), vec![], vec![], vec![]),
-        _ => (vec![], vec![], vec![], vec![]),
+    Some((Ok(cals), Ok(evts), Ok(grps), Ok(profs))) => {
+        let expanded = expand_recurring_events(evts.clone(), Some(Utc::now()))
+            .unwrap_or_else(|_| evts.clone());
+        (cals.clone(), expanded, grps.clone(), profs.clone())
+    }
+    Some((Ok(cals), Ok(evts), _, _)) => {
+        let expanded = expand_recurring_events(evts.clone(), Some(Utc::now()))
+            .unwrap_or_else(|_| evts.clone());
+        (cals.clone(), expanded, vec![], vec![])
+    }
+    Some((Ok(cals), _, _, _)) => (cals.clone(), vec![], vec![], vec![]),
+    _ => (vec![], vec![], vec![], vec![]),
     };
 
     let calendar_color_by_id = Arc::new(build_calendar_color_map(&calendars_light, &groups));
