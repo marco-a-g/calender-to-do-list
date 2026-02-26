@@ -54,7 +54,7 @@ pub fn EventForm(
             description: None,
             from_date_time: prefilled_date
                 .unwrap_or_else(Utc::now)
-                .with_nanosecond(0) // cut nanoseconds of, else input field can't display it
+                .with_nanosecond(0) // cut nanoseconds off, else input field can't display it
                 .unwrap(), // with_nanosecond(0) is unfailable
             to_date_time: Some(prefilled_date.unwrap_or_else(Utc::now) + Duration::hours(1)),
             attachment: None,
@@ -231,7 +231,7 @@ pub fn EventForm(
                     label: "Categories (optional)",
                     input {
                         class: field_input_class(),
-                        placeholder: "Categories (seperated by comma)",
+                        placeholder: "Categories (separated by comma)",
                         value: "{categories().unwrap_or_default().join(\", \")}",
                         onchange: move |e| categories.set(Some(e.value().split(",").map(|s| s.trim().to_string()).collect())),
                     }
