@@ -8,6 +8,10 @@ use crate::{
             edit_calendar_event, edit_instance_of_recurrent_event, edit_single_calendar_event,
         },
         create_calendar_event::create_calendar_event,
+        delete_calendar_event::{
+            delete_calendar_event_with_all_instances, delete_instance_of_recurrent_event,
+            delete_single_calendar_event,
+        },
     },
     user::backend::get_own_username,
     utils::{
@@ -94,6 +98,14 @@ pub fn EventForm(
     let is_edit = matches!(mode, EventFormMode::Edit(_));
     let is_loading = use_signal(|| false);
     let mut error_msg: Signal<Option<String>> = use_signal(|| None);
+
+    let from_date_formatted = use_memo(move || {
+        if is_all_day() {
+            from_date().date_naive().to_string()
+        } else {
+            from_date().naive_utc().format("%Y-%m-%dT%H:%M").to_string()
+        }
+    });
 
     // ----------Debugging and developing----------
     let cal_clone = calendars.clone();
@@ -183,7 +195,7 @@ pub fn EventForm(
                     input {
                         class: field_input_class(),
                         r#type: if is_all_day() { "date" } else { "datetime-local" },
-                        value: if is_all_day() {"{from_date().date_naive()}"} else {"{from_date().naive_utc()}"},
+                        value: "{from_date_formatted}",
                         onchange: move |e| from_date.set(
                             NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
                             .map(|d| d.and_utc())
@@ -334,13 +346,43 @@ pub fn EventForm(
                         is_recurrent,
                         is_loading,
                         on_delete_instance: move |_| {
-                            // TODO: Call delete_instance_of_recurrent_event
+                            spawn(async move {
+                                match delete_instance_of_recurrent_event(id(), from_date(), None, Some(true)).await {
+                                    Ok(()) => {
+                                        println!("Instanz gelöscht");
+                                        on_close.call(());
+                                    },
+                                    Err(err) => {
+                                        error_msg.set(Some(err.to_string()));
+                                    },
+                                }
+                            });
                         },
                         on_delete_all: move |_| {
-                            // TODO: Call delete_calendar_event_with_all_instances
+                            spawn(async move {
+                                match delete_calendar_event_with_all_instances(id()).await {
+                                    Ok(()) => {
+                                        println!("Event gelöscht");
+                                        on_close.call(());
+                                    },
+                                    Err(err) => {
+                                        error_msg.set(Some(err.to_string()));
+                                    },
+                                }
+                            });
                         },
                         on_delete_single: move |_| {
-                            // TODO: Call delete_single_calendar_event
+                            spawn(async move {
+                                match delete_single_calendar_event(id()).await {
+                                    Ok(()) => {
+                                        println!("Event gelöscht");
+                                        on_close.call(());
+                                    },
+                                    Err(err) => {
+                                        error_msg.set(Some(err.to_string()));
+                                    },
+                                }
+                            });
                         },
                     }
                 }
