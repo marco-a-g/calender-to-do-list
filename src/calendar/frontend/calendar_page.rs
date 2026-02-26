@@ -2,6 +2,8 @@ use chrono::Utc;
 use dioxus::prelude::*;
 use tokio::join;
 use uuid::Uuid;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::calendar::frontend::calendar_grid::{CalendarGrid, ViewMode};
 use crate::calendar::frontend::event_form::{EventForm, EventFormMode};
@@ -43,6 +45,8 @@ pub fn CalendarPage() -> Element {
         Some((Ok(cals), _, _, _)) => (cals.clone(), vec![], vec![], vec![]),
         _ => (vec![], vec![], vec![], vec![]),
     };
+
+    let calendar_color_by_id = Arc::new(build_calendar_color_map(&calendars_light, &groups));
 
     let calendars_full: Vec<Calendar> = calendars_light
         .iter()
@@ -101,6 +105,7 @@ pub fn CalendarPage() -> Element {
                 CalendarGrid {
                     events: visible_events,
                     calendars: calendars_full.clone(),
+                    calendar_color_by_id: calendar_color_by_id.clone(),
                     displayed_date,
                     view_mode,
                     active_calendar_ids,
@@ -193,5 +198,26 @@ fn light_to_calendar(
         created_by: Uuid::parse_str(&c.created_by).unwrap_or(Uuid::nil()),
         last_mod: c.last_mod.parse().unwrap_or_else(|_| Utc::now()),
     }
+}
+
+fn build_calendar_color_map(
+    calendars: &[CalendarLight],
+    groups: &[GroupLight],
+) -> HashMap<String, String> {
+    calendars
+        .iter()
+        .map(|cal| {
+            let fallback = "#9ca3af".to_string();
+
+            let color = cal
+                .group_id
+                .as_ref()
+                .and_then(|gid| groups.iter().find(|g| g.id == *gid))
+                .map(|g| g.color.clone())
+                .unwrap_or(fallback);
+
+            (cal.id.clone(), color)
+        })
+        .collect()
 }
 

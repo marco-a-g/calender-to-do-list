@@ -21,6 +21,7 @@ pub fn CalendarGrid(
     active_calendar_ids: Signal<Vec<String>>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
+    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
     rsx! {
         div {
@@ -40,6 +41,7 @@ pub fn CalendarGrid(
                         displayed_date: displayed_date(),
                         on_day_click: on_day_click.clone(),
                         on_event_click: on_event_click.clone(),
+                        calendar_color_by_id: calendar_color_by_id.clone(),
                     }
                 } else if view_mode() == ViewMode::Week {
                     WeekGrid {
@@ -48,6 +50,7 @@ pub fn CalendarGrid(
                         displayed_date: displayed_date(),
                         on_day_click: on_day_click.clone(),
                         on_event_click: on_event_click.clone(),
+                        calendar_color_by_id: calendar_color_by_id.clone(),
                     }
                 } else {
                     DayGrid {
@@ -56,6 +59,7 @@ pub fn CalendarGrid(
                         displayed_date: displayed_date(),
                         on_day_click,
                         on_event_click,
+                        calendar_color_by_id: calendar_color_by_id.clone(),
                     }
                 }
             }
@@ -263,6 +267,7 @@ fn MonthGrid(
     displayed_date: DateTime<Utc>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
+    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
     let first_day = displayed_date.with_day(1).unwrap();
     let offset = first_day.weekday().num_days_from_monday() as usize;
@@ -331,19 +336,20 @@ fn DayCell(
     is_current_month: bool,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
+    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
     let mut hovered = use_signal(|| false);
 
     let cell_style = if is_today {
         if hovered() {
-            "padding: 6px 8px; background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.35); cursor: pointer; overflow: hidden;"
+            "padding: 6px 8px; background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.35); cursor: pointer; overflow-y: auto;"
         } else {
-            "padding: 6px 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25); cursor: pointer; overflow: hidden;"
+            "padding: 6px 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25); cursor: pointer; overflow-y: auto;"
         }
     } else if hovered() {
-        "padding: 6px 8px; background: rgba(255,255,255,0.05); cursor: pointer; overflow: hidden;"
+        "padding: 6px 8px; background: rgba(255,255,255,0.05); cursor: pointer; overflow-y: auto;"
     } else {
-        "padding: 6px 8px; background: rgba(255,255,255,0.015); cursor: pointer; overflow: hidden;"
+        "padding: 6px 8px; background: rgba(255,255,255,0.015); cursor: pointer; overflow-y: auto;"
     };
 
     let number_style = if is_today {
@@ -380,31 +386,74 @@ fn DayCell(
 #[component]
 fn EventChip(
     event: CalendarEventLight,
-    calendars: Vec<Calendar>,
     on_click: EventHandler<CalendarEventLight>,
+    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
-    // TODO: add a color field to Calendar and derive it here per calendar
-    let color = "#3A6BFF";
-    let time_str = event
-        .from_date_time
-        .parse::<DateTime<Utc>>()
-        .map(|dt| dt.format("%H:%M").to_string())
-        .unwrap_or_default();
-    let to_str = event
-        .to_date_time
-        .as_deref()
-        .and_then(|s| s.parse::<DateTime<Utc>>().ok())
-        .map(|dt| format!(" – {}", dt.format("%H:%M")))
-        .unwrap_or_default();
+    let color = calendar_color_by_id
+        .get(&event.calendar_id)
+        .map(|s| s.as_str())
+        .unwrap_or("#9ca3af");
+
+    let time_str = if event.is_all_day {
+        String::new()
+    } else {
+        event
+            .from_date_time
+            .parse::<DateTime<Utc>>()
+            .map(|dt| dt.format("%H:%M").to_string())
+            .unwrap_or_default()
+    };
+
+    let to_str = if event.is_all_day {
+        String::new()
+    } else {
+        event
+            .to_date_time
+            .as_deref()
+            .and_then(|s| s.parse::<DateTime<Utc>>().ok())
+            .map(|dt| format!(" – {}", dt.format("%H:%M")))
+            .unwrap_or_default()
+    };
+
+    let prefix = if event.is_all_day {
+        String::new()
+    } else if time_str.is_empty() {
+        String::new()
+    } else {
+        format!("{time_str}{to_str} ")
+    };
 
     rsx! {
         div {
-            style: "font-size: 10px; padding: 2px 5px; border-radius: 4px; color: rgba(255,255,255,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; background: {color}2a; border-left: 2px solid {color}; font-weight: 500;",
+            style: if event.is_all_day {
+                format!(
+                    "font-size: 10px; padding: 3px 6px; border-radius: 6px; color: rgba(255,255,255,0.92); \
+                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; \
+                     background: {color}; font-weight: 650; display: flex; align-items: center; gap: 6px;"
+                )
+            } else {
+                format!(
+                    "font-size: 10px; padding: 2px 5px; border-radius: 4px; color: rgba(255,255,255,0.85); \
+                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; \
+                     background: {color}2a; border-left: 2px solid {color}; font-weight: 500;"
+                )
+            },
             onclick: move |e| {
                 e.stop_propagation();
                 on_click.call(event.clone());
             },
-            "{time_str}{to_str} {event.summary}"
+
+            if event.is_all_day {
+                span {
+                    style: "font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.95;",
+                    "All Day"
+                }
+            }
+
+            span {
+                style: "overflow: hidden; text-overflow: ellipsis; white-space: nowrap;",
+                "{prefix}{event.summary}"
+            }
         }
     }
 }
@@ -416,6 +465,7 @@ fn WeekGrid(
     displayed_date: DateTime<Utc>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
+    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
     // TODO: Render 7 columns (Mon–Sun) with 24 hour rows, events as positioned blocks
     rsx! {
@@ -433,6 +483,7 @@ fn DayGrid(
     displayed_date: DateTime<Utc>,
     on_day_click: EventHandler<DateTime<Utc>>,
     on_event_click: EventHandler<CalendarEventLight>,
+    calendar_color_by_id: Arc<HashMap<String, String>>,
 ) -> Element {
     // TODO: Render 24 hour rows, events as blocks positioned by start/end time
     rsx! {
