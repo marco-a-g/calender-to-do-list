@@ -347,7 +347,7 @@ pub fn EventForm(
                         is_loading,
                         on_delete_instance: move |_| {
                             spawn(async move {
-                                match delete_instance_of_recurrent_event(id(), from_date(), None, Some(true)).await {
+                                match delete_instance_of_recurrent_event(recurrence_exception().map(|e| e.recurrence_id).unwrap_or_else(|| id()), from_date(), None, Some(true)).await {
                                     Ok(()) => {
                                         println!("Instanz gelöscht");
                                         on_close.call(());
