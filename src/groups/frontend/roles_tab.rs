@@ -1,33 +1,51 @@
 /*
 Roles management tab for group detail page
-Allows owners to manage member permissions:
-- Promote members to admin
-- Demote admins to member
-- Transfer group ownership
-- Kick members from the group
-Admins can only kick regular members, not other admins or the owner
 */
 
+use crate::database::local::init_fetch::init_fetch_local_db::{
+    fetch_group_members_lokal_db, fetch_profiles_lokal_db,
+};
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use dioxus::prelude::*;
 use server_fn::error::ServerFnError;
 
-// Roles tab showing all members with role management actions
+type MemberWithRole = (String, String, String);
+type MembersRes = Resource<Result<Vec<MemberWithRole>, ServerFnError>>;
+
+// Pending action: (target_user_id, action_name, label)
+type PendingAction = (String, String, String);
+
 #[component]
 pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
     let group_id_for_fetch = group_id.clone();
 
-    let mut members_res = use_resource(move || {
+    let mut members_res: MembersRes = use_resource(move || {
         let gid = group_id_for_fetch.clone();
         async move {
-            let (_, token) = crate::utils::functions::get_user_id_and_session_token()
-                .await
-                .map_err(|e| ServerFnError::new(e.to_string()))?;
-            crate::groups::backend::roles::fetch_members_with_roles(gid, token).await
+            let all_members = fetch_group_members_lokal_db().await?;
+            let all_profiles = fetch_profiles_lokal_db().await?;
+
+            let username_map: std::collections::HashMap<String, String> = all_profiles
+                .into_iter()
+                .map(|p| (p.id, p.username))
+                .collect();
+
+            let result: Vec<MemberWithRole> = all_members
+                .into_iter()
+                .filter(|m| m.group_id == gid)
+                .map(|m| {
+                    let username = username_map
+                        .get(&m.user_id)
+                        .cloned()
+                        .unwrap_or_else(|| "<unknown>".to_string());
+                    (m.user_id, username, m.role)
+                })
+                .collect();
+
+            Ok(result)
         }
     });
 
-    // Determine current user's role for permission checks
     let current_user_role = members_res
         .read()
         .as_ref()
@@ -44,10 +62,92 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
     let is_admin = current_user_role == "admin";
 
     let mut action_status = use_signal(|| Option::<String>::None);
-    let mut dropdown_open = use_signal(|| Option::<String>::None);
+    let mut expanded_user = use_signal(|| Option::<String>::None);
+
+    // Signal das eine Action triggert – spawn passiert HIER im Parent
+    let mut pending_action = use_signal(|| Option::<PendingAction>::None);
+
+    // Effect: wenn pending_action gesetzt wird, fuehre den spawn im Parent-Scope aus
+    let gid_for_action = group_id.clone();
+    let uid_for_action = current_user_id.clone();
+    use_effect(move || {
+        let action_opt: Option<PendingAction> = { pending_action.read().clone() };
+        if let Some((target, action, label)) = action_opt {
+            let gid = gid_for_action.clone();
+            let actor = uid_for_action.clone();
+            let mut action_status = action_status.clone();
+            let mut members_res = members_res.clone();
+
+            // Sofort clearen damit der Effect nicht nochmal feuert
+            pending_action.set(None);
+
+            spawn(async move {
+                println!(
+                    "[RolesTab] Action gestartet: {} auf user {}",
+                    action, target
+                );
+
+                let (_, token) =
+                    match crate::utils::functions::get_user_id_and_session_token().await {
+                        Ok(t) => t,
+                        Err(e) => {
+                            println!("[RolesTab] Token-Fehler: {}", e);
+                            action_status.set(Some(format!("Error: {}", e)));
+                            return;
+                        }
+                    };
+
+                println!("[RolesTab] Backend-Call: action={}", action);
+
+                let result = match action.as_str() {
+                    "promote" => {
+                        crate::groups::backend::roles::change_member_role(
+                            gid,
+                            target,
+                            "admin".to_string(),
+                            actor,
+                            token,
+                        )
+                        .await
+                    }
+                    "demote" => {
+                        crate::groups::backend::roles::change_member_role(
+                            gid,
+                            target,
+                            "member".to_string(),
+                            actor,
+                            token,
+                        )
+                        .await
+                    }
+                    "transfer" => {
+                        crate::groups::backend::roles::transfer_ownership(gid, target, actor, token)
+                            .await
+                    }
+                    "kick" => {
+                        crate::groups::backend::roles::kick_member(gid, target, actor, token).await
+                    }
+                    _ => Err(ServerFnError::new("Unknown action")),
+                };
+
+                match result {
+                    Ok(_) => {
+                        println!("[RolesTab] Erfolgreich, starte sync...");
+                        let _ = sync_local_to_remote_db().await;
+                        action_status.set(Some(format!("✓ {}", label)));
+                        members_res.restart();
+                    }
+                    Err(e) => {
+                        println!("[RolesTab] Fehler: {}", e);
+                        action_status.set(Some(format!("Error: {}", e)));
+                    }
+                }
+            });
+        }
+    });
 
     rsx! {
-        div { class: "flex flex-col h-full",
+        div { class: "flex flex-col",
             div { class: "flex items-center justify-between mb-4",
                 div {
                     div { class: "text-white/60 text-xs tracking-[0.18em]", "ROLES" }
@@ -55,7 +155,6 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
                 }
             }
 
-            // Action feedback message
             if let Some(status) = action_status.read().as_ref() {
                 div {
                     class: if status.starts_with("✓") {
@@ -69,62 +168,54 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
                 }
             }
 
-            // Members list
-            div { class: "flex-1 overflow-auto",
-                match members_res.read().as_ref() {
-                    Some(Ok(members)) => rsx!(
-                        div { class: "flex flex-col gap-2",
-                            for (user_id, username, role) in members.iter() {
-                                MemberRoleRow {
-                                    key: "{user_id}",
-                                    user_id: user_id.clone(),
-                                    username: username.clone(),
-                                    role: role.clone(),
-                                    group_id: group_id.clone(),
-                                    current_user_id: current_user_id.clone(),
-                                    current_user_role: current_user_role.clone(),
-                                    is_owner: is_owner,
-                                    is_admin: is_admin,
-                                    dropdown_open: dropdown_open.clone(),
-                                    action_status: action_status.clone(),
-                                    on_refresh: move |_| members_res.restart(),
-                                }
+            match members_res.read().as_ref() {
+                Some(Ok(members)) => rsx!(
+                    div { class: "flex flex-col gap-2",
+                        for (user_id, username, role) in members.iter() {
+                            MemberRoleRow {
+                                key: "{user_id}",
+                                user_id: user_id.clone(),
+                                username: username.clone(),
+                                role: role.clone(),
+                                current_user_id: current_user_id.clone(),
+                                is_owner: is_owner,
+                                is_admin: is_admin,
+                                expanded_user: expanded_user.clone(),
+                                on_action: move |(target, action, label): (String, String, String)| {
+                                    expanded_user.set(None);
+                                    action_status.set(Some(format!("{}...", label)));
+                                    pending_action.set(Some((target, action, label)));
+                                },
                             }
                         }
-                    ),
-                    Some(Err(e)) => rsx!(div { class: "text-red-400 text-sm", "{e}" }),
-                    None => rsx!(div { class: "text-white/40", "Loading members..." }),
-                }
+                    }
+                ),
+                Some(Err(e)) => rsx!(div { class: "text-red-400 text-sm", "{e}" }),
+                None => rsx!(div { class: "text-white/40", "Loading members..." }),
             }
         }
     }
 }
 
-// Single member row with role badge and action dropdown.
 #[component]
 fn MemberRoleRow(
     user_id: String,
     username: String,
     role: String,
-    group_id: String,
     current_user_id: String,
-    current_user_role: String,
     is_owner: bool,
     is_admin: bool,
-    dropdown_open: Signal<Option<String>>,
-    action_status: Signal<Option<String>>,
-    on_refresh: EventHandler<()>,
+    expanded_user: Signal<Option<String>>,
+    on_action: EventHandler<(String, String, String)>,
 ) -> Element {
     let is_self = user_id == current_user_id;
-    let is_dropdown_open = dropdown_open.read().as_ref() == Some(&user_id);
+    let is_expanded = expanded_user.read().as_ref() == Some(&user_id);
 
-    // Permission checks for available actions
     let can_change_role = is_owner && !is_self && role != "owner" && role != "invited";
     let can_kick = (is_owner || (is_admin && role == "member")) && !is_self && role != "owner";
     let can_transfer = is_owner && !is_self && role != "invited";
     let has_actions = can_change_role || can_kick || can_transfer;
 
-    // Role badge styling
     let role_color = match role.as_str() {
         "owner" => "bg-yellow-500/20 text-yellow-300 border-yellow-400/30",
         "admin" => "bg-purple-500/20 text-purple-300 border-purple-400/30",
@@ -135,42 +226,33 @@ fn MemberRoleRow(
 
     rsx! {
         div {
-            class: "
-                flex items-center justify-between
-                px-4 py-3 rounded-2xl
-                bg-white/5 border border-white/10
-                hover:bg-white/10 transition
-                relative
-            ",
+            class: "rounded-2xl bg-white/5 border border-white/10 hover:bg-white/[0.07] transition",
 
-            // User info
-            div { class: "flex items-center gap-3",
-                // Avatar placeholder
-                div {
-                    class: "w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 text-sm font-medium",
-                    "{username.chars().next().unwrap_or('?').to_uppercase()}"
-                }
+            div {
+                class: "flex items-center justify-between px-4 py-3",
 
-                div {
-                    div { class: "text-white font-medium flex items-center gap-2",
-                        "{username}"
-                        if is_self {
-                            span { class: "text-white/40 text-xs", "(you)" }
+                div { class: "flex items-center gap-3",
+                    div {
+                        class: "w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 text-sm font-medium",
+                        "{username.chars().next().unwrap_or('?').to_uppercase()}"
+                    }
+                    div {
+                        div { class: "text-white font-medium flex items-center gap-2",
+                            "{username}"
+                            if is_self {
+                                span { class: "text-white/40 text-xs", "(you)" }
+                            }
                         }
                     }
                 }
-            }
 
-            // Role badge and actions dropdown
-            div { class: "flex items-center gap-2",
-                div {
-                    class: format!("px-3 py-1 rounded-full text-xs font-semibold border {}", role_color),
-                    "{role}"
-                }
+                div { class: "flex items-center gap-2",
+                    div {
+                        class: format!("px-3 py-1 rounded-full text-xs font-semibold border {}", role_color),
+                        "{role}"
+                    }
 
-                // Dropdown button (only shown if user has available actions)
-                if has_actions {
-                    div { class: "relative",
+                    if has_actions {
                         button {
                             class: "
                                 w-8 h-8 rounded-lg
@@ -181,88 +263,64 @@ fn MemberRoleRow(
                             ",
                             onclick: {
                                 let uid = user_id.clone();
-                                let mut dropdown_open = dropdown_open.clone();
-                                move |e: MouseEvent| {
-                                    e.stop_propagation();
-                                    let current = dropdown_open.read().clone();
+                                let mut expanded_user = expanded_user.clone();
+                                move |_| {
+                                    let current = expanded_user.read().clone();
                                     if current.as_ref() == Some(&uid) {
-                                        dropdown_open.set(None);
+                                        expanded_user.set(None);
                                     } else {
-                                        dropdown_open.set(Some(uid.clone()));
+                                        expanded_user.set(Some(uid.clone()));
                                     }
                                 }
                             },
-                            "▼"
+                            if is_expanded { "▲" } else { "▼" }
                         }
+                    }
+                }
+            }
 
-                        // Dropdown menu
-                        if is_dropdown_open {
-                            div {
-                                class: "
-                                    absolute right-0 top-full mt-1
-                                    bg-[#0a0e1a] border border-white/10
-                                    rounded-xl overflow-hidden
-                                    min-w-[160px]
-                                    z-50
-                                    shadow-xl
-                                ",
+            if is_expanded && has_actions {
+                div {
+                    class: "flex flex-wrap gap-2 px-4 pb-3 pt-1 border-t border-white/5",
 
-                                // Promote/demote options (owner only)
-                                if can_change_role {
-                                    if role == "member" {
-                                        ActionButton {
-                                            label: "Make Admin",
-                                            group_id: group_id.clone(),
-                                            target_user_id: user_id.clone(),
-                                            current_user_id: current_user_id.clone(),
-                                            action: "promote".to_string(),
-                                            dropdown_open: dropdown_open.clone(),
-                                            action_status: action_status.clone(),
-                                            on_refresh: on_refresh.clone(),
-                                        }
-                                    }
-                                    if role == "admin" {
-                                        ActionButton {
-                                            label: "Make Member",
-                                            group_id: group_id.clone(),
-                                            target_user_id: user_id.clone(),
-                                            current_user_id: current_user_id.clone(),
-                                            action: "demote".to_string(),
-                                            dropdown_open: dropdown_open.clone(),
-                                            action_status: action_status.clone(),
-                                            on_refresh: on_refresh.clone(),
-                                        }
-                                    }
-                                }
-
-                                // Transfer ownership (owner only)
-                                if can_transfer {
-                                    ActionButton {
-                                        label: "Transfer Ownership",
-                                        group_id: group_id.clone(),
-                                        target_user_id: user_id.clone(),
-                                        current_user_id: current_user_id.clone(),
-                                        action: "transfer".to_string(),
-                                        dropdown_open: dropdown_open.clone(),
-                                        action_status: action_status.clone(),
-                                        on_refresh: on_refresh.clone(),
-                                    }
-                                }
-
-                                // Kick member
-                                if can_kick {
-                                    ActionButton {
-                                        label: "Kick",
-                                        group_id: group_id.clone(),
-                                        target_user_id: user_id.clone(),
-                                        current_user_id: current_user_id.clone(),
-                                        action: "kick".to_string(),
-                                        dropdown_open: dropdown_open.clone(),
-                                        action_status: action_status.clone(),
-                                        on_refresh: on_refresh.clone(),
-                                    }
-                                }
+                    if can_change_role {
+                        if role == "member" {
+                            ActionBtn {
+                                label: "Make Admin",
+                                user_id: user_id.clone(),
+                                action: "promote".to_string(),
+                                dangerous: false,
+                                on_action: on_action.clone(),
                             }
+                        }
+                        if role == "admin" {
+                            ActionBtn {
+                                label: "Make Member",
+                                user_id: user_id.clone(),
+                                action: "demote".to_string(),
+                                dangerous: false,
+                                on_action: on_action.clone(),
+                            }
+                        }
+                    }
+
+                    if can_transfer {
+                        ActionBtn {
+                            label: "Transfer Ownership",
+                            user_id: user_id.clone(),
+                            action: "transfer".to_string(),
+                            dangerous: true,
+                            on_action: on_action.clone(),
+                        }
+                    }
+
+                    if can_kick {
+                        ActionBtn {
+                            label: "Kick",
+                            user_id: user_id.clone(),
+                            action: "kick".to_string(),
+                            dangerous: true,
+                            on_action: on_action.clone(),
                         }
                     }
                 }
@@ -271,91 +329,31 @@ fn MemberRoleRow(
     }
 }
 
-// Button for a single role management action (promote, demote, transfer, kick)
+// Einfacher Button der nur den Callback nach oben feuert, kein spawn
 #[component]
-fn ActionButton(
+fn ActionBtn(
     label: String,
-    group_id: String,
-    target_user_id: String,
-    current_user_id: String,
+    user_id: String,
     action: String,
-    dropdown_open: Signal<Option<String>>,
-    action_status: Signal<Option<String>>,
-    on_refresh: EventHandler<()>,
+    dangerous: bool,
+    on_action: EventHandler<(String, String, String)>,
 ) -> Element {
-    let is_dangerous = action == "kick" || action == "transfer";
+    let btn_class = if dangerous {
+        "px-3 py-1.5 rounded-xl text-sm font-medium bg-red-500/10 border border-red-400/20 text-red-300 hover:bg-red-500/20 transition"
+    } else {
+        "px-3 py-1.5 rounded-xl text-sm font-medium bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 transition"
+    };
 
     rsx! {
         button {
-            class: if is_dangerous {
-                "w-full px-4 py-2 text-left text-sm text-red-300 hover:bg-red-500/20 transition"
-            } else {
-                "w-full px-4 py-2 text-left text-sm text-white/80 hover:bg-white/10 transition"
-            },
+            class: btn_class,
             onclick: {
-                let gid = group_id.clone();
-                let target = target_user_id.clone();
-                let actor = current_user_id.clone();
+                let uid = user_id.clone();
                 let action = action.clone();
                 let label = label.clone();
-                let mut dropdown_open = dropdown_open.clone();
-                let mut action_status = action_status.clone();
-                let on_refresh = on_refresh.clone();
-
+                let on_action = on_action.clone();
                 move |_| {
-                    let gid = gid.clone();
-                    let target = target.clone();
-                    let actor = actor.clone();
-                    let action = action.clone();
-                    let label = label.clone();
-                    let mut dropdown_open = dropdown_open.clone();
-                    let mut action_status = action_status.clone();
-                    let on_refresh = on_refresh.clone();
-
-                    dropdown_open.set(None);
-                    action_status.set(Some(format!("{}...", label)));
-
-                    spawn(async move {
-                        let result = match crate::utils::functions::get_user_id_and_session_token().await {
-                            Ok((_, token)) => {
-                                match action.as_str() {
-                                    "promote" => {
-                                        crate::groups::backend::roles::change_member_role(
-                                            gid, target, "admin".to_string(), actor, token
-                                        ).await
-                                    }
-                                    "demote" => {
-                                        crate::groups::backend::roles::change_member_role(
-                                            gid, target, "member".to_string(), actor, token
-                                        ).await
-                                    }
-                                    "transfer" => {
-                                        crate::groups::backend::roles::transfer_ownership(
-                                            gid, target, actor, token
-                                        ).await
-                                    }
-                                    "kick" => {
-                                        crate::groups::backend::roles::kick_member(
-                                            gid, target, actor, token
-                                        ).await
-                                    }
-                                    _ => Err(ServerFnError::new("Unknown action"))
-                                }
-                            }
-                            Err(e) => Err(ServerFnError::new(e.to_string()))
-                        };
-
-                        match result {
-                            Ok(_) => {
-                                sync_local_to_remote_db().await;
-                                action_status.set(Some(format!("✓ {}", label)));
-                                on_refresh.call(());
-                            }
-                            Err(e) => {
-                                action_status.set(Some(format!("Error: {}", e)));
-                            }
-                        }
-                    });
+                    on_action.call((uid.clone(), action.clone(), label.clone()));
                 }
             },
             "{label}"
