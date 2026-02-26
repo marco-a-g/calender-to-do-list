@@ -206,3 +206,24 @@ fn light_to_calendar(
         last_mod: c.last_mod.parse().unwrap_or_else(|_| Utc::now()),
     }
 }
+
+fn build_calendar_color_map(
+    calendars: &[CalendarLight],
+    groups: &[GroupLight],
+) -> HashMap<String, String> {
+    calendars
+        .iter()
+        .map(|cal| {
+            let fallback = "#9ca3af".to_string();
+
+            let color = cal
+                .group_id
+                .as_ref()
+                .and_then(|gid| groups.iter().find(|g| g.id == *gid))
+                .map(|g| g.color.clone())
+                .unwrap_or(fallback);
+
+            (cal.id.clone(), color)
+        })
+        .collect()
+}

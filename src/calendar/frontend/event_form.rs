@@ -13,7 +13,6 @@ use crate::{
             delete_single_calendar_event,
         },
     },
-    user::backend::get_own_username,
     utils::{
         functions::parse_calendar_event_light_to_calendar_event,
         structs::{
@@ -47,7 +46,6 @@ pub fn EventForm(
     on_saved: EventHandler<()>,
     on_deleted: EventHandler<()>,
 ) -> Element {
-    let mut own_username = use_signal(|| String::new());
     let initial_event = match &mode {
         EventFormMode::Edit(e) => e.clone(),
         EventFormMode::Create => CalendarEvent {
@@ -107,15 +105,17 @@ pub fn EventForm(
         }
     });
 
-    // ----------Debugging and developing----------
-    let cal_clone = calendars.clone();
-    use_effect(move || {
-        println!("prefilled_date: {:?}", prefilled_date);
-        println!("own_username: {:?}", own_username());
-        println!("selected_calendar_id: {:?}", selected_calendar_id());
-        println!("calendars: {:?}", cal_clone);
+    let to_date_formatted = use_memo(move || {
+        if is_all_day() {
+            to_date().unwrap_or_default().date_naive().to_string()
+        } else {
+            to_date()
+                .unwrap_or_default()
+                .naive_utc()
+                .format("%Y-%m-%dT%H:%M")
+                .to_string()
+        }
     });
-    // --------------------------------------------
 
     rsx! {
         // Dimmed backdrop — clicking it closes the form
@@ -209,8 +209,8 @@ pub fn EventForm(
                         label: "to (optional)",
                         input {
                             class: field_input_class(),
-                            r#type: "datetime-local",
-                            value: "{to_date().unwrap_or_default().naive_utc()}",
+                            r#type: if is_all_day() { "date" } else { "datetime-local" },
+                            value: "{to_date_formatted}",
                             onchange: move |e| {
                                 let value = e.value();
                                 if value.is_empty() {
