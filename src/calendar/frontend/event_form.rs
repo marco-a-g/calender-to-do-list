@@ -1,8 +1,26 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, FixedOffset, Local, NaiveDate, NaiveDateTime, Timelike, Utc};
 use dioxus::prelude::*;
 use uuid::Uuid;
 
-use crate::utils::structs::{Calendar, CalendarEvent, Recurrent, Rrule};
+use crate::{
+    calendar::backend::{
+        change_calendar_event::{
+            edit_calendar_event, edit_instance_of_recurrent_event, edit_single_calendar_event,
+        },
+        create_calendar_event::create_calendar_event,
+        delete_calendar_event::{
+            delete_calendar_event_with_all_instances, delete_instance_of_recurrent_event,
+            delete_single_calendar_event,
+        },
+    },
+    utils::{
+        functions::parse_calendar_event_light_to_calendar_event,
+        structs::{
+            Calendar, CalendarEvent, CalendarEventLight, CalendarLight, OwnedBy, OwnerType,
+            Recurrent, Rrule,
+        },
+    },
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EventFormMode {
@@ -23,7 +41,7 @@ pub fn EventForm(
     /// All user calendars — used to populate the calendar selector dropdown
     calendars: Vec<Calendar>,
     /// Pre-filled start date when form is opened via a day click
-    prefilled_date: Option<DateTime<Utc>>,
+    prefilled_date: Option<DateTime<Utc>>, // change to local
     on_close: EventHandler<()>,
     on_saved: EventHandler<()>,
     on_deleted: EventHandler<()>,
@@ -31,41 +49,73 @@ pub fn EventForm(
     let initial_event = match &mode {
         EventFormMode::Edit(e) => e.clone(),
         EventFormMode::Create => CalendarEvent {
-            id: Uuid::nil(),
+            calendar_id: calendars.first().map(|c| c.id).unwrap_or(Uuid::nil()),
             summary: String::new(),
             description: None,
-            calendar_id: calendars.first().map(|c| c.id).unwrap_or(Uuid::nil()),
-            created_at: Utc::now(),
-            created_by: Uuid::nil(),
-            from_date_time: prefilled_date.unwrap_or_else(Utc::now),
-            to_date_time: None,
+            from_date_time: prefilled_date
+                .unwrap_or_else(Utc::now)
+                .with_nanosecond(0) // cut nanoseconds off, else input field can't display it
+                .unwrap(), // with_nanosecond(0) is unfailable
+            to_date_time: Some(prefilled_date.unwrap_or_else(Utc::now) + Duration::hours(1)),
             attachment: None,
-            recurrence: None,
-            recurrence_exception: None,
             location: None,
             categories: None,
             is_all_day: false,
+            recurrence: None,
+            recurrence_exception: None,
+            // Ignore: following fields are not needed for this function and/or should only be handled by supabase, but there to complete this struct
+            id: Uuid::nil(),
+            created_by: Uuid::nil(),
+            created_at: Utc::now(),
             last_mod: Utc::now(),
         },
     };
-
-    let mut summary = use_signal(|| initial_event.summary.clone());
-    let mut description = use_signal(|| initial_event.description.clone().unwrap_or_default());
+    // needed event signals
+    let mut summary = use_signal(|| initial_event.summary);
+    let mut description = use_signal(|| initial_event.description);
     let mut selected_calendar_id = use_signal(|| initial_event.calendar_id);
     let mut from_date = use_signal(|| initial_event.from_date_time);
-    let mut to_date: Signal<Option<DateTime<Utc>>> = use_signal(|| initial_event.to_date_time);
-    let mut location = use_signal(|| initial_event.location.clone().unwrap_or_default());
+    let mut to_date = use_signal(|| initial_event.to_date_time);
+    let mut attachment = use_signal(|| initial_event.attachment);
+    let mut location = use_signal(|| initial_event.location);
+    let mut categories = use_signal(|| initial_event.categories);
     let mut is_all_day = use_signal(|| initial_event.is_all_day);
-    let mut recurrence: Signal<Option<Recurrent>> = use_signal(|| initial_event.recurrence.clone());
-
+    // only needed for information display later
+    let id = use_signal(|| initial_event.id);
+    let created_at = use_signal(|| initial_event.created_at);
+    let created_by = use_signal(|| initial_event.created_by);
+    let last_mod = use_signal(|| initial_event.last_mod);
+    // Recurrence signals
+    let recurrence = use_signal(|| initial_event.recurrence);
+    let recurrence_exception = use_signal(|| initial_event.recurrence_exception);
+    let is_recurrent = recurrence().is_some();
+    let is_recurrence_exception = recurrence_exception().is_some();
+    // other signals
     let mut show_recurrent_scope_dialog = use_signal(|| false);
     let mut recurrent_scope: Signal<Option<RecurrentEditScope>> = use_signal(|| None);
-    let mut error_msg: Signal<Option<String>> = use_signal(|| None);
-    let mut is_loading = use_signal(|| false);
-
     let is_edit = matches!(mode, EventFormMode::Edit(_));
-    let is_recurrent = initial_event.recurrence.is_some();
-    let is_recurrence_exception = initial_event.recurrence_exception.is_some();
+    let is_loading = use_signal(|| false);
+    let mut error_msg: Signal<Option<String>> = use_signal(|| None);
+
+    let from_date_formatted = use_memo(move || {
+        if is_all_day() {
+            from_date().date_naive().to_string()
+        } else {
+            from_date().naive_utc().format("%Y-%m-%dT%H:%M").to_string()
+        }
+    });
+
+    let to_date_formatted = use_memo(move || {
+        if is_all_day() {
+            to_date().unwrap_or_default().date_naive().to_string()
+        } else {
+            to_date()
+                .unwrap_or_default()
+                .naive_utc()
+                .format("%Y-%m-%dT%H:%M")
+                .to_string()
+        }
+    });
 
     rsx! {
         // Dimmed backdrop — clicking it closes the form
@@ -85,7 +135,7 @@ pub fn EventForm(
                 class: "flex items-center justify-between px-6 py-5 border-b border-white/10",
                 h2 {
                     class: "text-white font-semibold text-base",
-                    if is_edit { "edit event" } else { "New Event" }
+                    if is_edit { "Edit Event" } else { "New Event" }
                 }
                 button {
                     class: "text-white/40 hover:text-white transition text-xl",
@@ -105,7 +155,7 @@ pub fn EventForm(
                         placeholder: "Event-Title (max. 25 characters)",
                         maxlength: 25,
                         value: "{summary}",
-                        oninput: move |e| summary.set(e.value()),
+                        onchange: move |e| summary.set(e.value()),
                     }
                 }
 
@@ -115,13 +165,12 @@ pub fn EventForm(
                     select {
                         class: field_input_class(),
                         onchange: move |e| {
-                            if let Ok(id) = Uuid::parse_str(&e.value()) {
-                                selected_calendar_id.set(id);
-                            }
+                            selected_calendar_id.set(Uuid::try_parse(&e.value()).unwrap_or_else(|_| selected_calendar_id()));
                         },
                         for cal in &calendars {
                             option {
                                 value: "{cal.id}",
+                                style: "background: #1A1D2B",
                                 selected: cal.id == selected_calendar_id(),
                                 "{cal.name}"
                             }
@@ -137,7 +186,7 @@ pub fn EventForm(
                         checked: is_all_day(),
                         onchange: move |_| is_all_day.set(!is_all_day()),
                     }
-                    label { class: "text-sm text-white/70", "all-day" }
+                    label { class: "text-sm text-white/70", "All Day" }
                 }
 
                 FormField {
@@ -146,18 +195,45 @@ pub fn EventForm(
                     input {
                         class: field_input_class(),
                         r#type: if is_all_day() { "date" } else { "datetime-local" },
-                        // TODO: Bind value to `from_date` signal and parse on change
+                        value: "{from_date_formatted}",
+                        onchange: move |e| from_date.set(
+                            NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
+                            .map(|d| d.and_utc())
+                            .unwrap_or_else(|_| from_date())
+                        ),
                     }
                 }
 
                 if !is_all_day() {
                     FormField {
-                        label: "till (optional)",
+                        label: "to (optional)",
                         input {
                             class: field_input_class(),
-                            r#type: "datetime-local",
-                            // TODO: Bind value to `to_date` signal and parse on change
+                            r#type: if is_all_day() { "date" } else { "datetime-local" },
+                            value: "{to_date_formatted}",
+                            onchange: move |e| {
+                                let value = e.value();
+                                if value.is_empty() {
+                                    to_date.set(None);
+                                } else {
+                                    to_date.set(Some(
+                                        NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
+                                        .map(|d| d.and_utc())
+                                        .unwrap_or_else(|_| to_date().unwrap_or_default())
+                                    ));
+                                }
+                            },
                         }
+                    }
+                }
+
+                FormField {
+                    label: "Categories (optional)",
+                    input {
+                        class: field_input_class(),
+                        placeholder: "Categories (separated by comma)",
+                        value: "{categories().unwrap_or_default().join(\", \")}",
+                        onchange: move |e| categories.set(Some(e.value().split(",").map(|s| s.trim().to_string()).collect())),
                     }
                 }
 
@@ -166,8 +242,8 @@ pub fn EventForm(
                     input {
                         class: field_input_class(),
                         placeholder: "Location or Link",
-                        value: "{location}",
-                        oninput: move |e| location.set(e.value()),
+                        value: "{location().unwrap_or_default()}",
+                        onchange: move |e| location.set(Some(e.value())),
                     }
                 }
 
@@ -181,12 +257,12 @@ pub fn EventForm(
                             outline-none resize-none h-20
                         ",
                         placeholder: "Description…",
-                        value: "{description}",
-                        oninput: move |e| description.set(e.value()),
+                        value: "{description().unwrap_or_default()}",
+                        onchange: move |e| description.set(Some(e.value())),
                     }
                 }
 
-                RecurrencePicker { recurrence }
+                RecurrencePicker { recurrence,  from_date }
 
                 if let Some(msg) = error_msg() {
                     div {
@@ -214,6 +290,52 @@ pub fn EventForm(
                             show_recurrent_scope_dialog.set(true);
                         } else {
                             // TODO: Call create_calendar_event or edit_single_calendar_event
+                            // distinguish between creating and editing event and call function
+                            match &mode {
+                                EventFormMode::Create => {
+                                    spawn(async move {
+                                        match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
+                                        Ok(()) => {
+                                            println!("Event erstellt");
+                                            on_close.call(());
+                                        },
+                                        Err(err) => {
+                                            error_msg.set(Some(err.to_string()));
+                                        },
+                                    }
+                                    });
+                                },
+                                EventFormMode::Edit(e) => {
+                                    spawn(async move {
+                                        match edit_single_calendar_event(CalendarEvent{
+                                            id: id(),
+                                            summary: summary(),
+                                            description: description(),
+                                            calendar_id: selected_calendar_id(),
+                                            created_at: created_at(),
+                                            created_by: created_by(),
+                                            from_date_time: from_date(),
+                                            to_date_time: to_date(),
+                                            attachment: attachment(),
+                                            recurrence: recurrence(),
+                                            recurrence_exception: recurrence_exception(),
+                                            location: location(),
+                                            categories: categories(),
+                                            is_all_day: is_all_day(),
+                                            last_mod: last_mod(),
+                                        }).await {
+                                        Ok(()) => {
+                                            println!("Event bearbeitet");
+                                            on_close.call(());
+                                        },
+                                        Err(err) => {
+                                            error_msg.set(Some(err.to_string()));
+                                        },
+                                    }
+                                    });
+                                },
+                            }
+
                         }
                     },
                     if is_loading() { "Saving…" } else { "Save" }
@@ -224,13 +346,43 @@ pub fn EventForm(
                         is_recurrent,
                         is_loading,
                         on_delete_instance: move |_| {
-                            // TODO: Call delete_instance_of_recurrent_event
+                            spawn(async move {
+                                match delete_instance_of_recurrent_event(id(), from_date(), None, Some(true)).await {
+                                    Ok(()) => {
+                                        println!("Instanz gelöscht");
+                                        on_close.call(());
+                                    },
+                                    Err(err) => {
+                                        error_msg.set(Some(err.to_string()));
+                                    },
+                                }
+                            });
                         },
                         on_delete_all: move |_| {
-                            // TODO: Call delete_calendar_event_with_all_instances
+                            spawn(async move {
+                                match delete_calendar_event_with_all_instances(id()).await {
+                                    Ok(()) => {
+                                        println!("Event gelöscht");
+                                        on_close.call(());
+                                    },
+                                    Err(err) => {
+                                        error_msg.set(Some(err.to_string()));
+                                    },
+                                }
+                            });
                         },
                         on_delete_single: move |_| {
-                            // TODO: Call delete_single_calendar_event
+                            spawn(async move {
+                                match delete_single_calendar_event(id()).await {
+                                    Ok(()) => {
+                                        println!("Event gelöscht");
+                                        on_close.call(());
+                                    },
+                                    Err(err) => {
+                                        error_msg.set(Some(err.to_string()));
+                                    },
+                                }
+                            });
                         },
                     }
                 }
@@ -243,12 +395,67 @@ pub fn EventForm(
                 on_only_this: move |_| {
                     show_recurrent_scope_dialog.set(false);
                     recurrent_scope.set(Some(RecurrentEditScope::OnlyThis));
-                    // TODO: Call edit_instance_of_recurrent_event
+                    spawn(async move {
+                        match edit_instance_of_recurrent_event(CalendarEvent{
+                            id: id(),
+                            summary: summary(),
+                            description: description(),
+                            calendar_id: selected_calendar_id(),
+                            created_at: created_at(),
+                            created_by: created_by(),
+                            from_date_time: from_date(),
+                            to_date_time: to_date(),
+                            attachment: attachment(),
+                            recurrence: recurrence(),
+                            recurrence_exception: recurrence_exception(),
+                            location: location(),
+                            categories: categories(),
+                            is_all_day: is_all_day(),
+                            last_mod: last_mod(),
+                        }).await {
+                        Ok(()) => {
+                            println!("Event bearbeitet");
+                            on_close.call(());
+                        },
+                        Err(err) => {
+                            error_msg.set(Some(err.to_string()));
+                        },
+                        }
+                    });
                 },
                 on_all: move |_| {
                     show_recurrent_scope_dialog.set(false);
                     recurrent_scope.set(Some(RecurrentEditScope::All));
                     // TODO: Call edit_calendar_event with keep_overridings / keep_orphans flags
+                    spawn(async move {
+                        match edit_calendar_event(CalendarEvent{
+                            id: id(),
+                            summary: summary(),
+                            description: description(),
+                            calendar_id: selected_calendar_id(),
+                            created_at: created_at(),
+                            created_by: created_by(),
+                            from_date_time: from_date(),
+                            to_date_time: to_date(),
+                            attachment: attachment(),
+                            recurrence: recurrence(),
+                            recurrence_exception: recurrence_exception(),
+                            location: location(),
+                            categories: categories(),
+                            is_all_day: is_all_day(),
+                            last_mod: last_mod(),
+                        },
+                        None,
+                        None).await {
+                        Ok(()) => {
+                            println!("Event bearbeitet");
+                            on_close.call(());
+                        },
+                        Err(err) => {
+                            error_msg.set(Some(err.to_string()));
+                        },
+                        }
+                    });
                 },
                 on_cancel: move |_| show_recurrent_scope_dialog.set(false),
             }
@@ -257,7 +464,10 @@ pub fn EventForm(
 }
 
 #[component]
-pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
+pub fn RecurrencePicker(
+    recurrence: Signal<Option<Recurrent>>,
+    from_date: Signal<DateTime<Utc>>,
+) -> Element {
     let is_active = use_memo(move || recurrence().is_some());
 
     rsx! {
@@ -275,14 +485,12 @@ pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
                             recurrence.set(None);
                         } else {
                             // Default to daily, ending 30 days from now
-                            recurrence.set(Some(Recurrent {
-                                rrule: Rrule::Daily,
-                                recurrence_until: Utc::now() + chrono::Duration::days(30),
-                            }));
+                            recurrence.set(Some(Recurrent { rrule: Rrule::Daily, recurrence_until: from_date() + Duration::days(30) }
+                            ));
                         }
                     },
                 }
-                label { class: "text-sm text-white/70", "Recurrance" }
+                label { class: "text-sm text-white/70", "Recurrence" }
             }
 
             if is_active() {
@@ -293,16 +501,17 @@ pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
                         label: "Frequency",
                         select {
                             class: field_input_class(),
+                            value: "{recurrence().unwrap_or_default().rrule}",
                             onchange: move |e| {
-                                // TODO: Parse Rrule variant from string and update recurrence signal
+                                recurrence.set(Some(Recurrent { rrule: e.value().parse::<Rrule>().unwrap_or_else(|_| Rrule::Daily), ..recurrence().unwrap_or_default() }));
                             },
-                            option { value: "Daily", "Daily" }
-                            option { value: "Weekly", "Weekly" }
-                            option { value: "Fortnight", "Fortnight" }
-                            option { value: "OnWeekDays", "OnWeekDays" }
-                            option { value: "MonthlyOnDate", "MonthlyOnDate"}
-                            option { value: "MonthlyOnWeekday", "MonthlyOnWeekday"}
-                            option { value: "Annual", "Annual" }
+                            option { value: "Daily", style: "background: #1A1D2B", "Daily" }
+                            option { value: "Weekly", style: "background: #1A1D2B", "Weekly" }
+                            option { value: "Fortnight", style: "background: #1A1D2B", "Fortnight" }
+                            option { value: "OnWeekDays", style: "background: #1A1D2B", "On Week Days" }
+                            option { value: "MonthlyOnDate", style: "background: #1A1D2B", "Monthly On Date"}
+                            option { value: "MonthlyOnWeekday", style: "background: #1A1D2B", "Monthly On Weekday"}
+                            option { value: "Annual", style: "background: #1A1D2B", "Annual" }
                         }
                     }
 
@@ -311,7 +520,17 @@ pub fn RecurrencePicker(recurrence: Signal<Option<Recurrent>>) -> Element {
                         input {
                             class: field_input_class(),
                             r#type: "date",
-                            // TODO: Bind to recurrence_until and update recurrence signal on change
+                            value: "{recurrence().unwrap_or_default().recurrence_until.date_naive()}",
+                            onchange: move |e| {
+                                let current = recurrence().unwrap_or_default();
+                                recurrence.set(Some(Recurrent {
+                                recurrence_until: NaiveDate::parse_from_str(&e.value(), "%Y-%m-%d")
+                                    .unwrap_or_else(|_| current.recurrence_until.date_naive())
+                                    .and_hms_opt(0, 0, 0)
+                                    .unwrap() // safe because 0,0,0 is always some
+                                    .and_utc(),
+                                ..current }));
+                            },
                         }
                     }
                 }

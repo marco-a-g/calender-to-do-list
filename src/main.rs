@@ -65,7 +65,7 @@ enum Route {
 
 #[component]
 fn App() -> Element {
-    let auth_status = use_signal(|| AuthStatus::Unauthenticated);
+    let auth_status = use_signal(|| AuthStatus::Unauthenticated); // only mutable for auto-login while developing
     use_context_provider(|| auth_status);
     let sync_counter = use_signal(|| 0u32);
     use_context_provider(|| sync_counter);
