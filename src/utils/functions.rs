@@ -48,6 +48,7 @@ pub async fn get_calendar_event_from_remote(
     let url_events = format!("{}/rest/v1/calendar_events?id=eq.{}", SUPABASE_URL, id);
     let response_event = get_elements_from_remote_by_url_string_unchecked(url_events).await?;
     let mut events = parse_response_string_to_calendar_events(response_event).await?;
+    println!("called get_callendar_event_from_remote");
     match events.pop() {
         None => {
             return Err(ServerFnError::new(format!(

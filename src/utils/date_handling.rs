@@ -84,9 +84,9 @@ pub fn calculate_next_date(
     start_date_of_rec: DateTime<Utc>,
 ) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
     match rrule {
-        "daily" => Ok(current + Duration::days(1)),
-        "weekly" => Ok(current + Duration::weeks(1)),
-        "fortnight" => Ok(current + Duration::weeks(2)),
+        "Daily" | "daily" => Ok(current + Duration::days(1)),
+        "Weekly" | "weekly" => Ok(current + Duration::weeks(1)),
+        "Fortnight" | "fortnight" => Ok(current + Duration::weeks(2)),
         "weekdays" => {
             //wenn Freitag oder Samstag auf Monatag,
             let next_date = match current.weekday() {
@@ -98,7 +98,7 @@ pub fn calculate_next_date(
         }
         "monthly_on_date" => add_months_same_date(current, 1, start_date_of_rec.day()), //Start date mitgeben um Probleme um 31. des Monats zu handeln
         "monthly_on_weekday" => add_month_on_same_weekday(current),
-        "annual" => add_months_same_date(current, 12, start_date_of_rec.day()), //Start date mitgeben um Probleme um 31. des Monats zu handeln
+        "Annual" | "annual" => add_months_same_date(current, 12, start_date_of_rec.day()), //Start date mitgeben um Probleme um 31. des Monats zu handeln
         _ => Err(format!("No matching rrule").into()),
     }
 }

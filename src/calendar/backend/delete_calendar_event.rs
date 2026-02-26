@@ -146,6 +146,18 @@ pub async fn delete_instance_of_recurrent_event(
             )
             .map_err(|e| ServerFnError::new(e.to_string()))?;
 
+            let mut end = rec_event.to_date_time;
+            if let Some(to_dt) = rec_event.to_date_time {
+                end = Some(
+                    calculate_next_date(
+                        to_dt,
+                        &rec_event.recurrence.unwrap().rrule.to_string(),
+                        to_dt,
+                    )
+                    .map_err(|e| ServerFnError::new(e.to_string()))?,
+                );
+            }
+
             edit_calendar_event(
                 CalendarEvent {
                     id: recurrent_event_id,
@@ -155,7 +167,7 @@ pub async fn delete_instance_of_recurrent_event(
                     created_at: rec_event.created_at,
                     created_by: rec_event.created_by,
                     from_date_time: next_date,
-                    to_date_time: rec_event.to_date_time,
+                    to_date_time: end,
                     attachment: rec_event.attachment,
                     recurrence: rec_event.recurrence,
                     recurrence_exception: None,
