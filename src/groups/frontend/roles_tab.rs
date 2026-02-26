@@ -72,7 +72,7 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
     let uid_for_action = current_user_id.clone();
     use_effect(move || {
         let action_opt: Option<PendingAction> = { pending_action.read().clone() };
-            if let Some((target, action, label)) = action_opt {
+        if let Some((target, action, label)) = action_opt {
             let gid = gid_for_action.clone();
             let actor = uid_for_action.clone();
             let mut action_status = action_status.clone();
@@ -82,41 +82,50 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
             pending_action.set(None);
 
             spawn(async move {
-                println!("[RolesTab] Action gestartet: {} auf user {}", action, target);
+                println!(
+                    "[RolesTab] Action gestartet: {} auf user {}",
+                    action, target
+                );
 
-                let (_, token) = match crate::utils::functions::get_user_id_and_session_token().await {
-                    Ok(t) => t,
-                    Err(e) => {
-                        println!("[RolesTab] Token-Fehler: {}", e);
-                        action_status.set(Some(format!("Error: {}", e)));
-                        return;
-                    }
-                };
+                let (_, token) =
+                    match crate::utils::functions::get_user_id_and_session_token().await {
+                        Ok(t) => t,
+                        Err(e) => {
+                            println!("[RolesTab] Token-Fehler: {}", e);
+                            action_status.set(Some(format!("Error: {}", e)));
+                            return;
+                        }
+                    };
 
                 println!("[RolesTab] Backend-Call: action={}", action);
 
                 let result = match action.as_str() {
                     "promote" => {
                         crate::groups::backend::roles::change_member_role(
-                            gid, target, "admin".to_string(), actor, token,
+                            gid,
+                            target,
+                            "admin".to_string(),
+                            actor,
+                            token,
                         )
                         .await
                     }
                     "demote" => {
                         crate::groups::backend::roles::change_member_role(
-                            gid, target, "member".to_string(), actor, token,
+                            gid,
+                            target,
+                            "member".to_string(),
+                            actor,
+                            token,
                         )
                         .await
                     }
                     "transfer" => {
-                        crate::groups::backend::roles::transfer_ownership(
-                            gid, target, actor, token,
-                        )
-                        .await
+                        crate::groups::backend::roles::transfer_ownership(gid, target, actor, token)
+                            .await
                     }
                     "kick" => {
-                        crate::groups::backend::roles::kick_member(gid, target, actor, token)
-                            .await
+                        crate::groups::backend::roles::kick_member(gid, target, actor, token).await
                     }
                     _ => Err(ServerFnError::new("Unknown action")),
                 };
