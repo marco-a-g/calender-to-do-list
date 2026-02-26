@@ -67,6 +67,8 @@ enum Route {
 fn App() -> Element {
     let auth_status = use_signal(|| AuthStatus::Unauthenticated);
     use_context_provider(|| auth_status);
+    let sync_counter = use_signal(|| 0u32);
+    use_context_provider(|| sync_counter);
     let auth_view = use_signal(|| AuthView::Login);
     let mut initialized = use_signal(|| false); // use later to enable offline mode/view, maybe enum ClientState {Ready, Offline, Error(AuthError)}
     let mut db_is_ready = use_signal(|| false);
