@@ -7,6 +7,7 @@ use dioxus_router::{Link, Outlet, use_route};
 #[component]
 pub fn Navbar() -> Element {
     let mut auth_status = use_context::<Signal<AuthStatus>>();
+    let mut sync_counter = use_context::<Signal<u32>>();
 
     let mut syncing = use_signal(|| false);
     let mut sync_feedback = use_signal(|| Option::<String>::None);
@@ -104,15 +105,13 @@ pub fn Navbar() -> Element {
                     ",
                     disabled: syncing(),
                     onclick: move |_| {
-                        let mut syncing = syncing.clone();
-                        let mut sync_feedback = sync_feedback.clone();
-
                         spawn(async move {
                             syncing.set(true);
                             sync_feedback.set(Some("syncing".to_string()));
 
-                            sync_local_to_remote_db().await;
+                            let _ = sync_local_to_remote_db().await;
 
+                            sync_counter += 1;
                             sync_feedback.set(Some("done".to_string()));
                             syncing.set(false);
                         });
@@ -137,7 +136,6 @@ pub fn Navbar() -> Element {
                 onclick: move |_| {
                     spawn(async move{
                         if logout().await.is_ok() {
-                            let mut auth_status = use_context::<Signal<AuthStatus>>();
                             auth_status.set(AuthStatus::Unauthenticated);
                         }
                     });
@@ -158,7 +156,16 @@ pub fn Navbar() -> Element {
                     padding: 20px;
                     background: transparent;
                 ",
-                Outlet::<Route> {}
+                {
+                    let key = sync_counter();
+                    rsx! {
+                        div {
+                            key: "{key}",
+                            style: "height: 100%; width: 100%;",
+                            Outlet::<Route> {}
+                        }
+                    }
+                }
             }
         }
     }
