@@ -15,18 +15,15 @@ use crate::{auth::backend::*, utils::structs::*};
 pub async fn get_user_id_and_session_token() -> core::result::Result<(Uuid, String), ServerFnError>
 {
     //Client holen und Auth checken
-    // println!("get_user_zeug gestartet");
     let client = match get_client() {
         Ok(c) => c,
         Err(e) => return Err(ServerFnError::new(format!("get_client Error: {}", e))),
     };
-    // println!("client erhalten");
     if !client.auth().is_authenticated() {
         return Err(ServerFnError::new(
             "get_user_id_and_session_token Error: User not authenticated.",
         ));
     }
-    // println!("client authentifiziert");
     let user_id = client
         .current_user()
         .await
@@ -48,7 +45,6 @@ pub async fn get_calendar_event_from_remote(
     let url_events = format!("{}/rest/v1/calendar_events?id=eq.{}", SUPABASE_URL, id);
     let response_event = get_elements_from_remote_by_url_string_unchecked(url_events).await?;
     let mut events = parse_response_string_to_calendar_events(response_event).await?;
-    println!("called get_callendar_event_from_remote");
     match events.pop() {
         None => {
             return Err(ServerFnError::new(format!(
