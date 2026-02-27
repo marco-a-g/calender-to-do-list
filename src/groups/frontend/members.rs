@@ -1,14 +1,13 @@
-/*
-Members tab UI for group detail page
-Displays a list of group members with their roles. Data is fetched from
-the local SQLite cache (offline-first). The list updates reactively
-when the resource resolves
-*/
+/// Members tab UI for the group detail page.
+///
+/// Displays a list of group members with their roles. Data is fetched from
+/// the local SQLite cache (offline-first). The list updates reactively
+/// when the resource resolves.
 
 use crate::groups::backend::members::fetch_members;
 use dioxus::prelude::*;
 
-// Maps a role string to a display label and Tailwind badge classes
+/// Maps a role string to a display label and Tailwind badge classes.
 fn role_badge_classes(role: &str) -> (&'static str, &'static str) {
     match role {
         "owner" => (
@@ -20,7 +19,7 @@ fn role_badge_classes(role: &str) -> (&'static str, &'static str) {
     }
 }
 
-// Members tab content showing all members of a group
+/// Members tab content showing all members of a group.
 #[component]
 pub fn MembersTab(group_id: String, open_invite_from_right: Signal<bool>) -> Element {
     let group_id_for_fetch = group_id.clone();
@@ -66,7 +65,7 @@ pub fn MembersTab(group_id: String, open_invite_from_right: Signal<bool>) -> Ele
     }
 }
 
-// Single member row with avatar, username, and role badge
+/// Single member row with avatar initial, username, and role badge.
 #[component]
 fn MemberRow(username: String, user_id: String, role: String) -> Element {
     let (role_label, role_class) = role_badge_classes(&role);

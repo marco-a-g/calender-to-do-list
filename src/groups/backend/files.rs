@@ -63,7 +63,7 @@ pub async fn fetch_files(
         .into_iter()
         .filter(|o| !o.name.ends_with("/"))
         .map(|o| {
-            let filename = o.name.split('/').last().unwrap_or(&o.name).to_string();
+            let filename = o.name.split('/').next_back().unwrap_or(&o.name).to_string();
             let date = o
                 .created_at
                 .split('T')

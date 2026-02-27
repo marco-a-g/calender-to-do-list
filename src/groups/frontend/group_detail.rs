@@ -1,14 +1,11 @@
-use std::result;
+/// Groups UI module: list view and detail page.
+///
+/// Contains two main pages:
+/// - [`GroupsPage`]: Overview of user's groups with create-group functionality.
+/// - [`GroupDetailPage`]: Single group view with tabs for members, files, and roles.
 
-/*
-Groups UI module: list view and detail page
-Contains two main pages:
-- `GroupsPage`: Overview of user's groups with create group functionality
-- `GroupDetailPage`: Single group view with tabs for members, files, and roles
-*/
 use dioxus::prelude::*;
 use dioxus_router::use_navigator;
-use server_fn::error::ServerFnError;
 
 use crate::auth::backend::AuthStatus;
 use crate::database::local::init_fetch::init_fetch_local_db::{
@@ -20,15 +17,15 @@ use crate::groups::frontend::invite_widget::{InvitesWidget, UserSearchDropdown};
 use crate::groups::frontend::members::MembersTab;
 use crate::groups::frontend::overview::{GroupsOverview, GroupsRes};
 use crate::groups::frontend::roles_tab::RolesTab;
-use crate::groups::{create_group, delete_group};
+use crate::groups::{create_group, delete_group, fetch_group_by_id};
 use crate::utils::functions::get_user_id_and_session_token;
 
-// Color palette for group creation (hex values matching DB format)
+/// Color palette for group creation (hex values matching DB format).
 const GROUP_COLORS: [&str; 8] = [
     "#3A6BFF", "#A855F7", "#EC4899", "#10B981", "#F59E0B", "#06B6D4", "#EF4444", "#64748B",
 ];
 
-// Page wrapper providing consistent background styling
+/// Page wrapper providing consistent background styling.
 #[component]
 fn PageShell(children: Element) -> Element {
     rsx! {
@@ -44,7 +41,7 @@ fn PageShell(children: Element) -> Element {
     }
 }
 
-// Main groups page showing user's groups and create group form
+/// Main groups page showing the user's groups and a create-group form.
 #[component]
 pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
     let current_user_id = match auth_status.read().clone() {
@@ -74,7 +71,7 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
         Ok(result)
     });
 
-    // Create group form state
+    // Create-group form state
     let mut name = use_signal(String::new);
     let mut color = use_signal(|| "#3A6BFF".to_string());
     let mut create_error = use_signal(|| Option::<String>::None);
@@ -145,11 +142,6 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
                                         transition font-semibold
                                     ",
                                     onclick: move |_| {
-                                        let mut groups_res = groups_res.clone();
-                                        let mut name = name.clone();
-                                        let color = color.clone();
-                                        let mut create_error = create_error.clone();
-
                                         spawn(async move {
                                             create_error.set(None);
                                             let n = name.read().trim().to_string();
@@ -163,7 +155,7 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
                                                 Ok((user_id, token)) => {
                                                     match create_group(n.clone(), c, user_id.to_string(), token).await {
                                                         Ok(_) => {
-                                                            sync_local_to_remote_db().await;
+                                                            let _ = sync_local_to_remote_db().await;
                                                             name.set(String::new());
                                                             create_error.set(None);
                                                             groups_res.restart();
@@ -196,6 +188,7 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
     }
 }
 
+/// Available tabs on the group detail page.
 #[derive(Clone, Copy, PartialEq)]
 enum DetailTab {
     Members,
@@ -203,7 +196,7 @@ enum DetailTab {
     Roles,
 }
 
-// Detail page for a single group with tabs for members, files, and roles
+/// Detail page for a single group with tabs for members, files, and roles.
 #[component]
 pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
     let nav = use_navigator();
@@ -213,28 +206,25 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
         _ => None,
     };
 
-    let group_res: Resource<Result<Option<(String, String, String)>, ServerFnError>> =
-        use_resource({
+    // Fetch group metadata (returns None if not found or not accessible via RLS)
+    let group_res = use_resource({
+        let id = id.clone();
+        move || {
             let id = id.clone();
-            move || {
-                let id = id.clone();
-                async move {
-                    let groups = fetch_groups_lokal_db().await?;
-                    let group = groups.into_iter().find(|g| g.id == id);
-                    Ok(group.map(|g| {
-                        let color = if g.color.is_empty() {
-                            "#3A6BFF".to_string()
-                        } else {
-                            g.color
-                        };
-                        (g.id, g.name, color)
-                    }))
+            async move {
+                if !matches!(auth_status.read().clone(), AuthStatus::Authenticated { .. }) {
+                    return Ok(None);
                 }
+                let (user_id, token) = match get_user_id_and_session_token().await {
+                    Ok(t) => t,
+                    Err(_) => return Ok(None),
+                };
+                fetch_group_by_id(id, user_id.to_string(), token).await
             }
-        });
+        }
+    });
 
     let mut tab = use_signal(|| DetailTab::Members);
-    let mut open_invite_from_right = use_signal(|| false);
     let mut show_invite_dropdown = use_signal(|| false);
 
     // Files loaded separately to avoid fetching when not on Files tab
@@ -336,7 +326,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                         DetailTab::Members => rsx!(
                                                             MembersTab {
                                                                 group_id: gid_for_members,
-                                                                open_invite_from_right: open_invite_from_right,
+                                                                open_invite_from_right: use_signal(|| false),
                                                             }
                                                         ),
 
@@ -379,13 +369,9 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                                                 ",
                                                                                 onclick: {
                                                                                     let gid_upload = gid.clone();
-                                                                                    let mut files_res = files_res.clone();
-                                                                                    let mut upload_status = upload_status.clone();
 
                                                                                     move |_| {
                                                                                         let gid_upload = gid_upload.clone();
-                                                                                        let mut files_res = files_res.clone();
-                                                                                        let mut upload_status = upload_status.clone();
 
                                                                                         // Native file picker (desktop)
                                                                                         let picked = rfd::FileDialog::new().pick_file();
@@ -401,40 +387,40 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
 
                                                                                         upload_status.set(Some(format!("Uploading {}...", filename)));
 
-                                                                            spawn(async move {
-                                                                                match tokio::fs::read(&path).await {
-                                                                                    Ok(bytes) => {
-                                                                                        match get_user_id_and_session_token().await {
-                                                                                            Ok((_, token)) => {
-                                                                                                match upload_file(
-                                                                                                    gid_upload,
-                                                                                                    filename,
-                                                                                                    bytes,
-                                                                                                    "application/octet-stream".to_string(),
-                                                                                                    token,
-                                                                                                )
-                                                                                                .await
-                                                                                                {
-                                                                                                    Ok(_) => {
-                                                                                                        sync_local_to_remote_db().await;
-                                                                                                        upload_status.set(Some("Uploaded!".to_string()));
-                                                                                                        files_res.restart();
-                                                                                                    }
-                                                                                                    Err(e) => {
-                                                                                                        upload_status.set(Some(format!("Upload failed: {e}")));
+                                                                                        spawn(async move {
+                                                                                            match tokio::fs::read(&path).await {
+                                                                                                Ok(bytes) => {
+                                                                                                    match get_user_id_and_session_token().await {
+                                                                                                        Ok((_, token)) => {
+                                                                                                            match upload_file(
+                                                                                                                gid_upload,
+                                                                                                                filename,
+                                                                                                                bytes,
+                                                                                                                "application/octet-stream".to_string(),
+                                                                                                                token,
+                                                                                                            )
+                                                                                                            .await
+                                                                                                            {
+                                                                                                                Ok(_) => {
+                                                                                                                    let _ = sync_local_to_remote_db().await;
+                                                                                                                    upload_status.set(Some("Uploaded!".to_string()));
+                                                                                                                    files_res.restart();
+                                                                                                                }
+                                                                                                                Err(e) => {
+                                                                                                                    upload_status.set(Some(format!("Upload failed: {e}")));
+                                                                                                                }
+                                                                                                            }
+                                                                                                        }
+                                                                                                        Err(e) => {
+                                                                                                            upload_status.set(Some(format!("Not authenticated: {e}")));
+                                                                                                        }
                                                                                                     }
                                                                                                 }
+                                                                                                Err(e) => {
+                                                                                                    upload_status.set(Some(format!("Failed to read file: {e}")));
+                                                                                                }
                                                                                             }
-                                                                                            Err(e) => {
-                                                                                                upload_status.set(Some(format!("Not authenticated: {e}")));
-                                                                                            }
-                                                                                        }
-                                                                                    }
-                                                                                    Err(e) => {
-                                                                                        upload_status.set(Some(format!("Failed to read file: {e}")));
-                                                                                    }
-                                                                                }
-                                                                            });
+                                                                                        });
                                                                                     }
                                                                                 },
                                                                                 "Choose file…"
@@ -510,28 +496,17 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                                                                 onclick: {
                                                                                                     let filename = filename.clone();
                                                                                                     let gid_delete = gid.clone();
-                                                                                                    let mut files_res = files_res.clone();
 
                                                                                                     move |_| {
                                                                                                         let gid_delete = gid_delete.clone();
                                                                                                         let filename = filename.clone();
-                                                                                                        let mut files_res = files_res.clone();
 
                                                                                                         spawn(async move {
-                                                                                                        println!("[Files] Delete gestartet");
-                                                                                                        match get_user_id_and_session_token().await {
-                                                                                                            Ok((_, token)) => {
-                                                                                                                println!("[Files] Token OK, rufe delete_file auf");
-                                                                                                                match delete_file(gid_delete, filename, token).await {
-                                                                                                                    Ok(_) => println!("[Files] Delete erfolgreich"),
-                                                                                                                    Err(e) => println!("[Files] Delete fehler: {}", e),
-                                                                                                                }
+                                                                                                            if let Ok((_, token)) = get_user_id_and_session_token().await {
+                                                                                                                let _ = delete_file(gid_delete, filename, token).await;
                                                                                                             }
-                                                                                                            Err(e) => println!("[Files] Token fehler: {}", e),
-                                                                                                        }
-                                                                                                        println!("[Files] Restart files_res");
-                                                                                                        files_res.restart();
-                                                                                                    });
+                                                                                                            files_res.restart();
+                                                                                                        });
                                                                                                     }
                                                                                                 },
                                                                                                 "Delete"
@@ -583,12 +558,9 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
 
                                 button {
                                     class: "w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 transition border border-white/10 font-medium mb-3",
-                                    onclick: {
-                                        let mut show_invite_dropdown = show_invite_dropdown.clone();
-                                        move |_| {
-                                            let currently_open = show_invite_dropdown();
-                                            show_invite_dropdown.set(!currently_open);
-                                        }
+                                    onclick: move |_| {
+                                        let currently_open = show_invite_dropdown();
+                                        show_invite_dropdown.set(!currently_open);
                                     },
                                     if show_invite_dropdown() { "Close Invite" } else { "+ Invite Member" }
                                 }
@@ -598,11 +570,8 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                         UserSearchDropdown {
                                             group_id: id.clone(),
                                             current_user_id: uid,
-                                            on_invite_sent: {
-                                                let mut show_invite_dropdown = show_invite_dropdown.clone();
-                                                move |_| {
-                                                    show_invite_dropdown.set(false);
-                                                }
+                                            on_invite_sent: move |_| {
+                                                show_invite_dropdown.set(false);
                                             },
                                         }
                                     } else {
@@ -627,13 +596,9 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                     class: "w-full py-3 rounded-2xl bg-red-500/20 hover:bg-red-500/25 transition border border-red-400/30 text-red-200 font-medium",
                                     onclick: {
                                         let group_id = id.clone();
-                                        let nav = nav.clone();
-                                        let mut delete_status = delete_status.clone();
 
                                         move |_| {
                                             let group_id = group_id.clone();
-                                            let nav = nav.clone();
-                                            let mut delete_status = delete_status.clone();
 
                                             spawn(async move {
                                                 delete_status.set(None);
@@ -642,7 +607,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                     Ok((user_id, token)) => {
                                                         match delete_group(group_id, user_id.to_string(), token).await {
                                                             Ok(_) => {
-                                                                sync_local_to_remote_db().await;
+                                                                let _ = sync_local_to_remote_db().await;
                                                                 let _ = nav.push("/Groups");
                                                             }
                                                             Err(e) => {
@@ -664,18 +629,16 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                     class: "w-full py-3 rounded-2xl bg-orange-500/20 hover:bg-orange-500/25 transition border border-orange-400/30 text-orange-200 font-medium mt-3",
                                     onclick: {
                                         let group_id = id.clone();
-                                        let nav = nav.clone();
 
                                         move |_| {
                                             let group_id = group_id.clone();
-                                            let nav = nav.clone();
 
                                             spawn(async move {
                                                 match crate::utils::functions::get_user_id_and_session_token().await {
                                                     Ok((user_id, token)) => {
                                                         match crate::groups::leave_group(group_id, user_id.to_string(), token).await {
                                                             Ok(_) => {
-                                                                sync_local_to_remote_db().await;
+                                                                let _ = sync_local_to_remote_db().await;
                                                                 let _ = nav.push("/Groups");
                                                             }
                                                             Err(e) => {

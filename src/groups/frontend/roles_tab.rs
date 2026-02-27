@@ -1,6 +1,8 @@
-/*
-Roles management tab for group detail page
-*/
+/// Roles management tab for the group detail page.
+///
+/// Allows owners to promote/demote members, transfer ownership, and kick members.
+/// Admins can kick regular members. Actions are dispatched via a `pending_action`
+/// signal to keep all `spawn` calls in the parent scope.
 
 use crate::database::local::init_fetch::init_fetch_local_db::{
     fetch_group_members_lokal_db, fetch_profiles_lokal_db,
@@ -9,12 +11,14 @@ use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use dioxus::prelude::*;
 use server_fn::error::ServerFnError;
 
+/// Tuple representing a group member: `(user_id, username, role)`.
 type MemberWithRole = (String, String, String);
 type MembersRes = Resource<Result<Vec<MemberWithRole>, ServerFnError>>;
 
-// Pending action: (target_user_id, action_name, label)
+/// Pending action dispatched from a child button: `(target_user_id, action_name, label)`.
 type PendingAction = (String, String, String);
 
+/// Roles tab showing all group members with role management actions.
 #[component]
 pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
     let group_id_for_fetch = group_id.clone();
@@ -63,11 +67,9 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
 
     let mut action_status = use_signal(|| Option::<String>::None);
     let mut expanded_user = use_signal(|| Option::<String>::None);
-
-    // Signal das eine Action triggert – spawn passiert HIER im Parent
     let mut pending_action = use_signal(|| Option::<PendingAction>::None);
 
-    // Effect: wenn pending_action gesetzt wird, fuehre den spawn im Parent-Scope aus
+    // Execute the pending action in the parent scope so spawn has access to all signals.
     let gid_for_action = group_id.clone();
     let uid_for_action = current_user_id.clone();
     use_effect(move || {
@@ -75,29 +77,19 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
         if let Some((target, action, label)) = action_opt {
             let gid = gid_for_action.clone();
             let actor = uid_for_action.clone();
-            let mut action_status = action_status.clone();
-            let mut members_res = members_res.clone();
 
-            // Sofort clearen damit der Effect nicht nochmal feuert
+            // Clear immediately so the effect doesn't re-fire
             pending_action.set(None);
 
             spawn(async move {
-                println!(
-                    "[RolesTab] Action gestartet: {} auf user {}",
-                    action, target
-                );
-
                 let (_, token) =
                     match crate::utils::functions::get_user_id_and_session_token().await {
                         Ok(t) => t,
                         Err(e) => {
-                            println!("[RolesTab] Token-Fehler: {}", e);
                             action_status.set(Some(format!("Error: {}", e)));
                             return;
                         }
                     };
-
-                println!("[RolesTab] Backend-Call: action={}", action);
 
                 let result = match action.as_str() {
                     "promote" => {
@@ -132,13 +124,11 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
 
                 match result {
                     Ok(_) => {
-                        println!("[RolesTab] Erfolgreich, starte sync...");
                         let _ = sync_local_to_remote_db().await;
                         action_status.set(Some(format!("✓ {}", label)));
                         members_res.restart();
                     }
                     Err(e) => {
-                        println!("[RolesTab] Fehler: {}", e);
                         action_status.set(Some(format!("Error: {}", e)));
                     }
                 }
@@ -178,9 +168,9 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
                                 username: username.clone(),
                                 role: role.clone(),
                                 current_user_id: current_user_id.clone(),
-                                is_owner: is_owner,
-                                is_admin: is_admin,
-                                expanded_user: expanded_user.clone(),
+                                is_owner,
+                                is_admin,
+                                expanded_user,
                                 on_action: move |(target, action, label): (String, String, String)| {
                                     expanded_user.set(None);
                                     action_status.set(Some(format!("{}...", label)));
@@ -197,6 +187,7 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
     }
 }
 
+/// Single member row with expandable action buttons.
 #[component]
 fn MemberRoleRow(
     user_id: String,
@@ -263,7 +254,6 @@ fn MemberRoleRow(
                             ",
                             onclick: {
                                 let uid = user_id.clone();
-                                let mut expanded_user = expanded_user.clone();
                                 move |_| {
                                     let current = expanded_user.read().clone();
                                     if current.as_ref() == Some(&uid) {
@@ -290,7 +280,7 @@ fn MemberRoleRow(
                                 user_id: user_id.clone(),
                                 action: "promote".to_string(),
                                 dangerous: false,
-                                on_action: on_action.clone(),
+                                on_action,
                             }
                         }
                         if role == "admin" {
@@ -299,7 +289,7 @@ fn MemberRoleRow(
                                 user_id: user_id.clone(),
                                 action: "demote".to_string(),
                                 dangerous: false,
-                                on_action: on_action.clone(),
+                                on_action,
                             }
                         }
                     }
@@ -310,7 +300,7 @@ fn MemberRoleRow(
                             user_id: user_id.clone(),
                             action: "transfer".to_string(),
                             dangerous: true,
-                            on_action: on_action.clone(),
+                            on_action,
                         }
                     }
 
@@ -320,7 +310,7 @@ fn MemberRoleRow(
                             user_id: user_id.clone(),
                             action: "kick".to_string(),
                             dangerous: true,
-                            on_action: on_action.clone(),
+                            on_action,
                         }
                     }
                 }
@@ -329,7 +319,7 @@ fn MemberRoleRow(
     }
 }
 
-// Einfacher Button der nur den Callback nach oben feuert, kein spawn
+/// Simple action button that fires the callback upward without spawning.
 #[component]
 fn ActionBtn(
     label: String,
@@ -351,7 +341,6 @@ fn ActionBtn(
                 let uid = user_id.clone();
                 let action = action.clone();
                 let label = label.clone();
-                let on_action = on_action.clone();
                 move |_| {
                     on_action.call((uid.clone(), action.clone(), label.clone()));
                 }
