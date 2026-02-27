@@ -344,6 +344,7 @@ pub fn EventForm(
                 if is_edit {
                     DeleteButton {
                         is_recurrent,
+                        is_recurrence_exception,
                         is_loading,
                         on_delete_instance: move |_| {
                             spawn(async move {
@@ -542,6 +543,7 @@ pub fn RecurrencePicker(
 #[component]
 fn DeleteButton(
     is_recurrent: bool,
+    is_recurrence_exception: bool,
     is_loading: Signal<bool>,
     on_delete_instance: EventHandler<()>,
     on_delete_all: EventHandler<()>,
@@ -564,7 +566,12 @@ fn DeleteButton(
                     if is_recurrent {
                         show_delete_menu.set(!show_delete_menu());
                     } else {
-                        on_delete_single.call(());
+                        // check if is really single event or instance of recurring
+                        if is_recurrence_exception {
+                            on_delete_instance.call(());
+                        } else {
+                            on_delete_single.call(());
+                        }
                     }
                 },
                 "Delete"
@@ -614,7 +621,7 @@ fn RecurrentScopeDialog(
                     bg-[#0E1120] border border-white/10 rounded-2xl
                     p-6 w-[340px] shadow-2xl flex flex-col gap-5
                 ",
-                h3 { class: "text-white font-semibold text-base", "edit repeating event" }
+                h3 { class: "text-white font-semibold text-base", "Edit Repeating Event" }
                 p { class: "text-white/50 text-sm", "Do you want to change only this or all events?" }
 
                 div { class: "flex flex-col gap-2",
