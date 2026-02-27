@@ -15,18 +15,15 @@ use crate::{auth::backend::*, utils::structs::*};
 pub async fn get_user_id_and_session_token() -> core::result::Result<(Uuid, String), ServerFnError>
 {
     //Client holen und Auth checken
-    // println!("get_user_zeug gestartet");
     let client = match get_client() {
         Ok(c) => c,
         Err(e) => return Err(ServerFnError::new(format!("get_client Error: {}", e))),
     };
-    // println!("client erhalten");
     if !client.auth().is_authenticated() {
         return Err(ServerFnError::new(
             "get_user_id_and_session_token Error: User not authenticated.",
         ));
     }
-    // println!("client authentifiziert");
     let user_id = client
         .current_user()
         .await
