@@ -19,7 +19,6 @@ use crate::groups::frontend::GroupsPage;
 use crate::groups::frontend::group_detail::GroupDetailPage;
 use crate::todos::frontend::todo_dashboard::ToDoDashboard;
 use crate::user::frontend::{create_profile::CreateProfileView, profile_view::ProfileView};
-use axum::extract::DefaultBodyLimit;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
 static CSS: Asset = asset!("/assets/tailwind.css");
@@ -28,6 +27,8 @@ fn main() {
     //Launch/Windowbuilder nutzen um Kontextmenü oben in App weg zu bekommen und um "immer im Vordergrund" zu deaktivieren
     #[cfg(not(feature = "server"))]
     {
+        #[allow(unused_mut)]
+        //gets flagged as unused because the following rows are within the #[cfg(feature = "desktop")] flag
         let mut builder = LaunchBuilder::new();
 
         #[cfg(feature = "desktop")]
@@ -72,6 +73,8 @@ fn App() -> Element {
     let auth_view = use_signal(|| AuthView::Login);
     let mut initialized = use_signal(|| false); // use later to enable offline mode/view, maybe enum ClientState {Ready, Offline, Error(AuthError)}
     let mut db_is_ready = use_signal(|| false);
+    #[allow(unused_mut)]
+    ////gets flagged as unused because the the signal is updated in another file, not here
     let mut is_syncing = use_signal(|| false);
     use_context_provider(|| is_syncing);
     // initialize Supabase client
