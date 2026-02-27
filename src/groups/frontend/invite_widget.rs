@@ -1,17 +1,27 @@
-/// UI components for group invitation management.
-///
-/// Contains two widgets:
-/// - [`InvitesWidget`]: Shows pending invitations on the groups overview page.
-/// - [`UserSearchDropdown`]: User search and invite UI for the group detail page.
+/*
+Side Note Important! :  be aware that major parts of the css styling was made with LLM's (GroundLayer with ChatGpt & some details with Claude)
+                        refactoring parts were consulted with LLM (Claude)
+                        anything else is highlighted in the spot where it was used
+*/
+
+/*
+Group invitation UI widgets.
+
+Two components:
+- InvitesWidget:        Shows pending invitations on the groups overview page.
+                        Accept/decline buttons trigger backend calls and refresh the list.
+- UserSearchDropdown:   Live-search dropdown on the group detail page.
+                        Searches users by username and sends invites on click.
+*/
 
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use dioxus::prelude::*;
 use server_fn::error::ServerFnError;
 
-/// Displays pending group invitations for the current user.
+/// Pending invitations panel for the current user.
 ///
-/// Shows accept/decline buttons for each invitation. Calls `on_change`
-/// after a successful accept so the parent can refresh its group list.
+/// Fetches invites on mount. After accepting an invite the parent's group
+/// list is refreshed via `on_change`.
 #[component]
 pub fn InvitesWidget(user_id: String, on_change: EventHandler<()>) -> Element {
     let user_id_for_fetch = user_id.clone();
@@ -81,11 +91,14 @@ pub fn InvitesWidget(user_id: String, on_change: EventHandler<()>) -> Element {
                                                 let uid = uid.clone();
 
                                                 spawn(async move {
-                                                    if let Ok((_, token)) = crate::utils::functions::get_user_id_and_session_token().await
-                                                        && crate::groups::backend::invites::accept_invite(gid, uid, token).await.is_ok()
-                                                    {
-                                                        invites_res.restart();
-                                                        on_change.call(());
+                                                    if let Ok((_, token)) = crate::utils::functions::get_user_id_and_session_token().await {
+                                                        if crate::groups::backend::invites::accept_invite(gid, uid, token)
+                                                            .await
+                                                            .is_ok()
+                                                        {
+                                                            invites_res.restart();
+                                                            on_change.call(());
+                                                        }
                                                     }
                                                 });
                                             }
@@ -109,10 +122,13 @@ pub fn InvitesWidget(user_id: String, on_change: EventHandler<()>) -> Element {
                                                 let uid = uid.clone();
 
                                                 spawn(async move {
-                                                    if let Ok((_, token)) = crate::utils::functions::get_user_id_and_session_token().await
-                                                        && crate::groups::backend::invites::decline_invite(gid, uid, token).await.is_ok()
-                                                    {
-                                                        invites_res.restart();
+                                                    if let Ok((_, token)) = crate::utils::functions::get_user_id_and_session_token().await {
+                                                        if crate::groups::backend::invites::decline_invite(gid, uid, token)
+                                                            .await
+                                                            .is_ok()
+                                                        {
+                                                            invites_res.restart();
+                                                        }
                                                     }
                                                 });
                                             }
@@ -131,10 +147,10 @@ pub fn InvitesWidget(user_id: String, on_change: EventHandler<()>) -> Element {
     }
 }
 
-/// Search dropdown for inviting users to a group.
+/// Live-search dropdown for inviting users to a group.
 ///
-/// Performs live search as the user types (minimum 2 characters).
-/// Results are shown in a dropdown; clicking a result sends the invite.
+/// Fires a search request after every keystroke (minimum 2 characters).
+/// Clicking a result sends the invite and collapses the dropdown.
 #[component]
 pub fn UserSearchDropdown(
     group_id: String,
@@ -146,7 +162,7 @@ pub fn UserSearchDropdown(
     let mut is_searching = use_signal(|| false);
     let mut invite_status = use_signal(|| Option::<String>::None);
 
-    // Trigger search when query changes
+    // Re-run search whenever the query text changes
     let current_user_id_search = current_user_id.clone();
     let _ = use_effect(move || {
         let query = search_query.read().clone();
@@ -189,7 +205,7 @@ pub fn UserSearchDropdown(
                 oninput: move |e| search_query.set(e.value()),
             }
 
-            // Search results dropdown
+            // Results dropdown (positioned absolutely below the input)
             if !search_results.read().is_empty() {
                 div {
                     class: "

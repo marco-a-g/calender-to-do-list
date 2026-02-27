@@ -1,4 +1,3 @@
-pub mod files;
 pub mod group_detail;
 pub mod invite_widget;
 pub mod members;

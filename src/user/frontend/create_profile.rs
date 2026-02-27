@@ -54,7 +54,7 @@ pub fn CreateProfileView(auth_status: Signal<AuthStatus>, auth_view: Signal<Auth
         let name = username();
 
         // check only on input
-        if name.len() <= 0 {
+        if name.is_empty() {
             checking.set(false);
             status.set(None);
             return;

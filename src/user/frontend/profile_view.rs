@@ -64,7 +64,7 @@ pub fn ProfileView() -> Element {
         let name = username();
 
         // check only on input
-        if name.len() <= 0 {
+        if name.is_empty() {
             checking.set(false);
             status.set(None);
             return;

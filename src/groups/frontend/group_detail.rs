@@ -1,8 +1,16 @@
-/// Groups UI module: list view and detail page.
-///
-/// Contains two main pages:
-/// - [`GroupsPage`]: Overview of user's groups with create-group functionality.
-/// - [`GroupDetailPage`]: Single group view with tabs for members, files, and roles.
+/*
+Side Note Important! :  be aware that major parts of the css styling was made with LLM's (GroundLayer with ChatGpt & some details with Claude)
+                        refactoring parts were consulted with LLM (Claude)
+                        anything else is highlighted in the spot where it was used
+*/
+
+/*
+Groups UI module: list view and detail page.
+
+Two main pages:
+- GroupsPage:       Overview of user's groups with create-group functionality.
+- GroupDetailPage:  Single group view with tabs for members, files, and roles.
+*/
 
 use dioxus::prelude::*;
 use dioxus_router::use_navigator;
@@ -20,12 +28,12 @@ use crate::groups::frontend::roles_tab::RolesTab;
 use crate::groups::{create_group, delete_group, fetch_group_by_id};
 use crate::utils::functions::get_user_id_and_session_token;
 
-/// Color palette for group creation (hex values matching DB format).
+// Hex color palette for group creation, matching DB format.
 const GROUP_COLORS: [&str; 8] = [
     "#3A6BFF", "#A855F7", "#EC4899", "#10B981", "#F59E0B", "#06B6D4", "#EF4444", "#64748B",
 ];
 
-/// Page wrapper providing consistent background styling.
+/// Reusable page wrapper that provides the dark gradient background.
 #[component]
 fn PageShell(children: Element) -> Element {
     rsx! {
@@ -41,7 +49,8 @@ fn PageShell(children: Element) -> Element {
     }
 }
 
-/// Main groups page showing the user's groups and a create-group form.
+/// Main groups page — shows the user's groups on the left and a create-group
+/// form with pending invitations on the right.
 #[component]
 pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
     let current_user_id = match auth_status.read().clone() {
@@ -49,6 +58,7 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
         _ => None,
     };
 
+    // Fetch groups + member counts from local DB
     let mut groups_res: GroupsRes = use_resource(move || async move {
         let groups = fetch_groups_lokal_db().await?;
         let all_members = fetch_group_members_lokal_db().await?;
@@ -81,6 +91,8 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
             div { class: "w-full min-h-screen px-4 sm:px-6 lg:px-12 py-6 sm:py-8 lg:py-10",
                 div { class: "mx-auto max-w-[1200px] w-full",
                     div { class: "grid grid-cols-1 lg:grid-cols-[520px_1px_520px] gap-6 lg:gap-10 items-start",
+
+                        // Left column: group list
                         div { class: "flex flex-col",
                             div { class: "text-white/60 text-xs tracking-[0.18em] mb-6", "GROUPS" }
                             if let Some(ref e) = *create_error.read() {
@@ -89,8 +101,10 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
                             GroupsOverview { groups_res }
                         }
 
+                        // Vertical divider (desktop only)
                         div { class: "hidden lg:block w-px bg-white/10 h-full" }
 
+                        // Right column: actions panel
                         div {
                             div {
                                 class: "
@@ -173,6 +187,8 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
                                     },
                                     "+ Create New Group"
                                 }
+
+                                // Pending invitations (only shown when logged in)
                                 if let Some(uid) = current_user_id.clone() {
                                     InvitesWidget {
                                         user_id: uid,
@@ -188,7 +204,7 @@ pub fn GroupsPage(auth_status: Signal<AuthStatus>) -> Element {
     }
 }
 
-/// Available tabs on the group detail page.
+/// Tab selector for the group detail page.
 #[derive(Clone, Copy, PartialEq)]
 enum DetailTab {
     Members,
@@ -196,7 +212,10 @@ enum DetailTab {
     Roles,
 }
 
-/// Detail page for a single group with tabs for members, files, and roles.
+/// Detail page for a single group.
+///
+/// Left panel shows group metadata and a tabbed view (members / files / roles).
+/// Right panel holds quick actions: invite, files shortcut, delete, leave.
 #[component]
 pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
     let nav = use_navigator();
@@ -206,7 +225,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
         _ => None,
     };
 
-    // Fetch group metadata (returns None if not found or not accessible via RLS)
+    // Fetch group metadata — returns None when not found or RLS blocks access
     let group_res = use_resource({
         let id = id.clone();
         move || {
@@ -227,7 +246,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
     let mut tab = use_signal(|| DetailTab::Members);
     let mut show_invite_dropdown = use_signal(|| false);
 
-    // Files loaded separately to avoid fetching when not on Files tab
+    // Files are loaded lazily — only fetched when the Files tab is active
     let mut files_res = use_resource({
         let group_id = id.clone();
         move || {
@@ -250,6 +269,8 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
             div { class: "w-full min-h-screen px-4 sm:px-6 lg:px-12 py-6 sm:py-8 lg:py-10",
                 div { class: "mx-auto max-w-[1200px] w-full",
                     div { class: "grid grid-cols-1 lg:grid-cols-[1fr_1px_520px] gap-6 lg:gap-10 items-start w-full",
+
+                        // Left panel: group content with tabs
                         div { class: "min-h-0",
                             div {
                                 class: "
@@ -269,7 +290,8 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
 
                                         rsx!(
                                             div { class: "flex flex-col",
-                                                // Group header
+
+                                                // Group header with name and color badge
                                                 div { class: "flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 flex-none",
                                                     div {
                                                         div { class: "text-white/60 text-xs tracking-[0.18em] mb-2", "GROUP OVERVIEW" }
@@ -284,7 +306,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                     }
                                                 }
 
-                                                // Tab navigation
+                                                // Tab bar
                                                 div { class: "flex gap-2 mb-4 flex-none overflow-x-auto whitespace-nowrap -mx-1 px-1",
                                                     button {
                                                         class: if tab() == DetailTab::Members {
@@ -320,7 +342,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                     }
                                                 }
 
-                                                // Tab content
+                                                // Tab content area
                                                 div { class: "flex-1 min-h-0 overflow-hidden",
                                                     match tab() {
                                                         DetailTab::Members => rsx!(
@@ -353,7 +375,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                                     }
                                                                 }
 
-                                                                // Upload panel
+                                                                // Collapsible upload panel
                                                                 if upload_open() {
                                                                     div { class: "flex-none mb-4 rounded-3xl bg-white/5 border border-white/10 p-4",
                                                                         div { class: "text-white/60 text-xs tracking-[0.18em] mb-3", "UPLOAD" }
@@ -373,7 +395,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                                                     move |_| {
                                                                                         let gid_upload = gid_upload.clone();
 
-                                                                                        // Native file picker (desktop)
+                                                                                        // Opens native file picker (desktop only via rfd)
                                                                                         let picked = rfd::FileDialog::new().pick_file();
                                                                                         let Some(path) = picked else {
                                                                                             upload_status.set(Some("No file selected.".to_string()));
@@ -433,7 +455,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
                                                                     }
                                                                 }
 
-                                                                // File list
+                                                                // Scrollable file list
                                                                 div { class: "flex-1 min-h-0 overflow-auto pr-1",
                                                                     match files_res.read().as_ref() {
                                                                         Some(Ok(list)) => rsx!(
@@ -543,7 +565,7 @@ pub fn GroupDetailPage(id: String, auth_status: Signal<AuthStatus>) -> Element {
 
                         div { class: "hidden lg:block w-px bg-white/10 h-full" }
 
-                        // Actions panel
+                        // Right panel: quick actions
                         div { class: "min-h-0",
                             div {
                                 class: "

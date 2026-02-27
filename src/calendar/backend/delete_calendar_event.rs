@@ -440,13 +440,12 @@ pub async fn delete_calendar_event_without_changed_instances(
         to_be_deleted.push(event_id);
         //check instances for skipped for deletion or orphaning
         for child in children {
-            if let Some(excep) = child.recurrence_exception
-                && let Some(overr) = excep.overrides
-                && overr.skipped
-            {
-                to_be_deleted.push(child.id);
-            } else {
-                let orphan = CalendarEvent {
+            if let Some(excep) = child.recurrence_exception {
+                if let Some(overr) = excep.overrides {
+                    if overr.skipped {
+                        to_be_deleted.push(child.id);
+                    } else {
+                        let orphan = CalendarEvent {
                     id: child.id,
                     summary: child.summary,
                     description: child.description,
@@ -467,6 +466,8 @@ pub async fn delete_calendar_event_without_changed_instances(
                 orphanage.push((child.id, orphaned));
             }
         }
+    }
+}
         let mut not_orphaned: Vec<(Uuid, StatusCode, ServerFnError)> = Vec::new();
         //check orphanage worked
         for orphan in orphanage {

@@ -1,8 +1,17 @@
-/// Roles management tab for the group detail page.
-///
-/// Allows owners to promote/demote members, transfer ownership, and kick members.
-/// Admins can kick regular members. Actions are dispatched via a `pending_action`
-/// signal to keep all `spawn` calls in the parent scope.
+/*
+Side Note Important! :  be aware that major parts of the css styling was made with LLM's (GroundLayer with ChatGpt & some details with Claude)
+                        refactoring parts were consulted with LLM (Claude)
+                        anything else is highlighted in the spot where it was used
+*/
+
+/*
+Roles management tab for the group detail page.
+
+Owners can promote/demote members, transfer ownership, and kick members.
+Admins can kick regular members. Actions are dispatched through a
+`pending_action` signal so that all `spawn` calls live in the parent scope
+(required by Dioxus for signal access).
+*/
 
 use crate::database::local::init_fetch::init_fetch_local_db::{
     fetch_group_members_lokal_db, fetch_profiles_lokal_db,
@@ -11,14 +20,17 @@ use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use dioxus::prelude::*;
 use server_fn::error::ServerFnError;
 
-/// Tuple representing a group member: `(user_id, username, role)`.
+// (user_id, username, role)
 type MemberWithRole = (String, String, String);
 type MembersRes = Resource<Result<Vec<MemberWithRole>, ServerFnError>>;
 
-/// Pending action dispatched from a child button: `(target_user_id, action_name, label)`.
+// (target_user_id, action_name, display_label)
 type PendingAction = (String, String, String);
 
 /// Roles tab showing all group members with role management actions.
+///
+/// Fetches members + profiles from local DB, resolves usernames,
+/// and renders each row with context-dependent action buttons.
 #[component]
 pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
     let group_id_for_fetch = group_id.clone();
@@ -29,6 +41,7 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
             let all_members = fetch_group_members_lokal_db().await?;
             let all_profiles = fetch_profiles_lokal_db().await?;
 
+            // Build username lookup: profile_id -> username
             let username_map: std::collections::HashMap<String, String> = all_profiles
                 .into_iter()
                 .map(|p| (p.id, p.username))
@@ -50,6 +63,7 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
         }
     });
 
+    // Determine the current user's role to decide which actions to show
     let current_user_role = members_res
         .read()
         .as_ref()
@@ -69,7 +83,8 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
     let mut expanded_user = use_signal(|| Option::<String>::None);
     let mut pending_action = use_signal(|| Option::<PendingAction>::None);
 
-    // Execute the pending action in the parent scope so spawn has access to all signals.
+    // Effect that picks up pending actions and executes them.
+    // This pattern keeps spawn in the parent scope where all signals are accessible.
     let gid_for_action = group_id.clone();
     let uid_for_action = current_user_id.clone();
     use_effect(move || {
@@ -145,6 +160,7 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
                 }
             }
 
+            // Status banner (success / error / in-progress)
             if let Some(status) = action_status.read().as_ref() {
                 div {
                     class: if status.starts_with("✓") {
@@ -188,6 +204,11 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
 }
 
 /// Single member row with expandable action buttons.
+///
+/// Actions shown depend on the viewer's role:
+/// - Owner sees promote/demote, transfer, kick
+/// - Admin sees kick (members only)
+/// - Members see no actions
 #[component]
 fn MemberRoleRow(
     user_id: String,
@@ -202,6 +223,7 @@ fn MemberRoleRow(
     let is_self = user_id == current_user_id;
     let is_expanded = expanded_user.read().as_ref() == Some(&user_id);
 
+    // Permission checks
     let can_change_role = is_owner && !is_self && role != "owner" && role != "invited";
     let can_kick = (is_owner || (is_admin && role == "member")) && !is_self && role != "owner";
     let can_transfer = is_owner && !is_self && role != "invited";
@@ -219,6 +241,7 @@ fn MemberRoleRow(
         div {
             class: "rounded-2xl bg-white/5 border border-white/10 hover:bg-white/[0.07] transition",
 
+            // Header row: avatar, name, role badge, expand toggle
             div {
                 class: "flex items-center justify-between px-4 py-3",
 
@@ -269,6 +292,7 @@ fn MemberRoleRow(
                 }
             }
 
+            // Expandable action row
             if is_expanded && has_actions {
                 div {
                     class: "flex flex-wrap gap-2 px-4 pb-3 pt-1 border-t border-white/5",
@@ -319,7 +343,7 @@ fn MemberRoleRow(
     }
 }
 
-/// Simple action button that fires the callback upward without spawning.
+/// Small action button that fires the callback upward (no spawning here).
 #[component]
 fn ActionBtn(
     label: String,

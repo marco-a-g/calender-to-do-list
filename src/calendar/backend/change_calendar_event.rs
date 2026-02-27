@@ -44,17 +44,18 @@ pub async fn edit_instance_of_recurrent_event(
         instance.recurrence_exception.clone(),
     )
     .await?;
-    if let Some(rec_ex) = instance.recurrence_exception
-        && let Some(overr) = rec_ex.overrides
-        && overr.skipped
-    {
-        return delete_instance_of_recurrent_event(
-            rec_ex.recurrence_id,
-            overr.overrides_datetime,
-            None,
-            None,
-        )
-        .await;
+    if let Some(rec_ex) = instance.recurrence_exception.clone() {
+        if let Some(overr) = rec_ex.overrides.clone() {
+            if overr.skipped {
+                return delete_instance_of_recurrent_event(
+                    rec_ex.recurrence_id,
+                    overr.overrides_datetime,
+                    None,
+                    None,
+                )
+                .await;
+            }
+        }
     }
     create_calendar_event(
         instance.summary,
@@ -97,12 +98,14 @@ pub async fn edit_calendar_event(
     let mut to_be_orphaned: Vec<CalendarEvent> = Vec::new();
 
     // check, whether the recurrence is changed in a way that needs to check the exceptions
-    if let Some(new_recurrence) = new_version.recurrence.clone()
-        && let Some(old_recurrence) = old_version.recurrence.clone()
-        && (new_recurrence.recurrence_until < old_recurrence.recurrence_until
+    if let (Some(new_recurrence), Some(old_recurrence)) = (
+        new_version.recurrence.clone(),
+        old_version.recurrence.clone(),
+    ) {
+        if new_recurrence.recurrence_until < old_recurrence.recurrence_until
             || new_version.from_date_time != old_version.from_date_time
-            || new_recurrence.rrule != old_recurrence.rrule)
-    {
+            || new_recurrence.rrule != old_recurrence.rrule
+        {
         //only allow changing either the rrule or from_date_time
         if new_recurrence.rrule != old_recurrence.rrule
             && new_version.from_date_time.date_naive() != old_version.from_date_time.date_naive()
@@ -127,16 +130,15 @@ pub async fn edit_calendar_event(
             && new_recurrence.rrule == old_recurrence.rrule
         {
             for instance in perhaps_need_change_vec {
-                if let Some(rec_ex) = instance.recurrence_exception.clone()
-                    && let Some(over) = rec_ex.overrides
-                    && over.overrides_datetime > new_recurrence.recurrence_until
-                {
-                    if over.skipped {
-                        to_be_del.push(instance);
-                    } else if let Some(k_o) = keep_overridings
-                        && k_o
-                    {
-                        to_non_override.push(instance);
+                if let Some(rec_ex) = instance.recurrence_exception.clone() {
+                    if let Some(over) = rec_ex.overrides.clone() {
+                        if over.overrides_datetime > new_recurrence.recurrence_until {
+                            if over.skipped {
+                                to_be_del.push(instance);
+                            } else if keep_overridings == Some(true) {
+                                to_non_override.push(instance);
+                            }
+                        }
                     }
                 }
             }
@@ -145,22 +147,22 @@ pub async fn edit_calendar_event(
         else {
             let mut to_be_shifted: Vec<CalendarEvent> = Vec::new();
             for instance in perhaps_need_change_vec {
-                if let Some(ref rec_ex) = instance.recurrence_exception
-                    && let Some(over) = rec_ex.overrides
-                {
-                    if over.overrides_datetime
-                        <= new_version
-                            .from_date_time
-                            .with_time(NaiveTime::MIN)
-                            .unwrap()
-                        || over.overrides_datetime > new_recurrence.recurrence_until
-                    {
-                        match (keep_overridings, over.skipped) {
-                            (Some(true), false) => to_non_override.push(instance),
-                            _ => to_be_del.push(instance),
+                if let Some(rec_ex) = instance.recurrence_exception.as_ref() {
+                    if let Some(over) = rec_ex.overrides.as_ref() {
+                        if over.overrides_datetime
+                            <= new_version
+                                .from_date_time
+                                .with_time(NaiveTime::MIN)
+                                .unwrap()
+                            || over.overrides_datetime > new_recurrence.recurrence_until
+                        {
+                            match (keep_overridings, over.skipped) {
+                                (Some(true), false) => to_non_override.push(instance),
+                                _ => to_be_del.push(instance),
+                            }
+                        } else {
+                            to_be_shifted.push(instance);
                         }
-                    } else {
-                        to_be_shifted.push(instance);
                     }
                 }
             }
@@ -466,10 +468,9 @@ pub async fn edit_calendar_event(
             }
         }
     }
+}
     // in case, the element is switched to non-recurrent, check for depending events to handle them
-    if let Some(_) = old_version.recurrence
-        && let None = new_version.recurrence.clone()
-    {
+    if old_version.recurrence.is_some() && new_version.recurrence.is_none() {
         let to_be_deleted_or_orphaned =
             get_calendar_events_by_recurrence_id(new_version.id).await?;
         for child in to_be_deleted_or_orphaned {
