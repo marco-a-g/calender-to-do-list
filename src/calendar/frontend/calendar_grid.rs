@@ -25,7 +25,7 @@ pub fn CalendarGrid(
 ) -> Element {
     rsx! {
         div {
-            style: "display: flex; flex-direction: column; flex: 1; overflow: hidden;",
+            style: "display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0vh;",
             GridToolbar {
                 displayed_date,
                 view_mode,
@@ -33,7 +33,7 @@ pub fn CalendarGrid(
                 active_calendar_ids,
             }
             div {
-                style: "flex: 1; overflow: hidden; display: flex; flex-direction: column;",
+                style: "flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0;",
                 if view_mode() == ViewMode::Month {
                     MonthGrid {
                         events: events.clone(),
@@ -276,7 +276,9 @@ fn MonthGrid(
 
     rsx! {
         div {
-            style: "display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(60px, 1fr)); gap: 1px; background: rgba(255,255,255,0.04); flex: 1; height: 100%;",
+            style: "display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); \
+             grid-template-rows: auto repeat(6, minmax(clamp(80px, 12vh, 168px), 1fr)); \
+            gap: 1px; background: rgba(255,255,255,0.04); flex: 1; min-height: 0; overflow: auto;",
 
             div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Mon" }
             div { style: "padding: 6px 8px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); background: #14161f; letter-spacing: 0.08em; text-transform: uppercase;", "Tue" }
@@ -296,7 +298,7 @@ fn MonthGrid(
                     let cell_naive = cell_date.date_naive();
                     let is_today = cell_naive == today;
 
-                    let day_events: Vec<CalendarEventLight> = events
+                    let mut day_events: Vec<CalendarEventLight> = events
                         .iter()
                         .filter(|e| {
                             e.from_date_time
@@ -307,6 +309,24 @@ fn MonthGrid(
                         .filter(|e| !e.skipped)
                         .cloned()
                         .collect();
+
+                    day_events.sort_by(|a, b| {
+                        match (a.is_all_day, b.is_all_day) {
+                            (true, false) => return std::cmp::Ordering::Less,
+                            (false, true) => return std::cmp::Ordering::Greater,
+                            _ => {}
+                        }
+
+                        let adt = a.from_date_time.parse::<DateTime<Utc>>().ok();
+                        let bdt = b.from_date_time.parse::<DateTime<Utc>>().ok();
+
+                        match (adt, bdt) {
+                            (Some(adt), Some(bdt)) => adt.cmp(&bdt),
+                            (Some(_), None) => std::cmp::Ordering::Less,
+                            (None, Some(_)) => std::cmp::Ordering::Greater,
+                            (None, None) => a.summary.cmp(&b.summary),
+                        }
+                    });
 
                     rsx! {
                         DayCell {
