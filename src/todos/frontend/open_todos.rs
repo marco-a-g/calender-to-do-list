@@ -352,9 +352,9 @@ fn ToDoItem(
                 .as_ref()
                 .map(|g| g.name.clone())
                 .unwrap_or("Group".to_string());
-            format!("{}", g_name)
+            g_name.to_string()
         };
-        let l_text = format!("{}", list.name);
+        let l_text = list.name.to_string();
         (Some(g_text), Some(l_text))
     } else {
         (None, None)

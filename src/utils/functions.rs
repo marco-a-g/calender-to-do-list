@@ -46,12 +46,10 @@ pub async fn get_calendar_event_from_remote(
     let response_event = get_elements_from_remote_by_url_string_unchecked(url_events).await?;
     let mut events = parse_response_string_to_calendar_events(response_event).await?;
     match events.pop() {
-        None => {
-            return Err(ServerFnError::new(format!(
-                "get_calendar_event_from_remote Error: No element found"
-            )));
-        }
-        Some(ev) => return Ok(ev),
+        None => Err(ServerFnError::new(
+            "get_calendar_event_from_remote Error: No element found".to_string(),
+        )),
+        Some(ev) => Ok(ev),
     }
 }
 
@@ -89,34 +87,22 @@ pub fn parse_calendar_event_to_light(event: CalendarEvent) -> CalendarEventLight
         summary: event.summary,
         description: event.description,
         from_date_time: event.from_date_time.to_string(),
-        to_date_time: match event.to_date_time {
-            Some(t) => Some(t.to_string()),
-            None => None,
-        },
+        to_date_time: event.to_date_time.map(|t| t.to_string()),
         attachment: event.attachment,
-        rrule: match event.recurrence.clone() {
-            Some(r) => Some(r.rrule.to_string()),
-            None => None,
-        },
-        recurrence_until: match event.recurrence {
-            Some(r) => Some(r.recurrence_until.to_string()),
-            None => None,
-        },
+        rrule: event.recurrence.map(|r| r.rrule.to_string()),
+        recurrence_until: event.recurrence.map(|r| r.recurrence_until.to_string()),
         location: event.location,
-        category: match event.categories {
-            Some(c) => Some(c.join(", ")),
-            None => None,
-        },
+        category: event.categories.map(|c| c.join(", ")),
         is_all_day: event.is_all_day,
-        recurrence_id: match &event.recurrence_exception {
-            Some(r) => Some(r.recurrence_id.to_string()),
-            None => None,
-        },
+        recurrence_id: event
+            .recurrence_exception
+            .as_ref()
+            .map(|r| r.recurrence_id.to_string()),
         overrides_datetime: match &event.recurrence_exception {
-            Some(r) => match &r.overrides {
-                Some(o) => Some(o.overrides_datetime.to_string()),
-                None => None,
-            },
+            Some(r) => r
+                .overrides
+                .as_ref()
+                .map(|o| o.overrides_datetime.to_string()),
             None => None,
         },
         skipped: match &event.recurrence_exception {
@@ -170,9 +156,10 @@ pub fn parse_calendar_event_light_to_calendar_event(
         }),
 
         _ => {
-            return Err(ServerFnError::new(format!(
+            return Err(ServerFnError::new(
                 "Parse CalendarEvent Logic Error: Recurrence needs rrule and recurrence_until"
-            )));
+                    .to_string(),
+            ));
         }
     };
     let overr = match ev_light.overrides_datetime {
@@ -193,18 +180,12 @@ pub fn parse_calendar_event_light_to_calendar_event(
         }),
         _ => None,
     };
-    match (&recurrence, &recurrence_exception) {
-        (Some(_), Some(_)) => {
-            return Err(ServerFnError::new(format!(
-                "Parse CalendarEvent Logic Error: An Event must not be recurrent and a recurrence exception!"
-            )));
-        }
-        (_, _) => {}
+    if let (Some(_), Some(_)) = (&recurrence, &recurrence_exception) {
+        return Err(ServerFnError::new("Parse CalendarEvent Logic Error: An Event must not be recurrent and a recurrence exception!".to_string()));
     }
-    let categories: Option<Vec<String>> = match ev_light.category {
-        None => None,
-        Some(cat) => Some(cat.split(',').map(|c| c.trim().to_string()).collect()),
-    };
+    let categories: Option<Vec<String>> = ev_light
+        .category
+        .map(|cat| cat.split(',').map(|c| c.trim().to_string()).collect());
     let last_mod: DateTime<Utc> = ev_light
         .last_mod
         .parse::<chrono::DateTime<Utc>>()
@@ -288,26 +269,26 @@ pub fn check_overriding_recurrence(
         return false;
     }
     match rrule {
-        Rrule::Daily => return true,
+        Rrule::Daily => true,
         Rrule::Weekly => {
-            return (child_overrides_dt
+            (child_overrides_dt
                 .signed_duration_since(parent_from_dt)
                 .num_days()
                 % 7)
-                == 0;
+                == 0
         }
         Rrule::Fortnight => {
-            return (child_overrides_dt
+            (child_overrides_dt
                 .signed_duration_since(parent_from_dt)
                 .num_days()
                 % 14)
-                == 0;
+                == 0
         }
         Rrule::Annual => {
-            return (child_overrides_dt.day() == parent_from_dt.day()
-                && child_overrides_dt.month() == parent_from_dt.month());
+            child_overrides_dt.day() == parent_from_dt.day()
+                && child_overrides_dt.month() == parent_from_dt.month()
         }
-        Rrule::MonthlyOnDate => return (child_overrides_dt.day() == parent_from_dt.day()),
+        Rrule::MonthlyOnDate => child_overrides_dt.day() == parent_from_dt.day(),
         Rrule::MonthlyOnWeekday => {
             if (child_overrides_dt.day() <= 7 && parent_from_dt.day() <= 7)
                 || (child_overrides_dt.day() > 7
@@ -323,11 +304,11 @@ pub fn check_overriding_recurrence(
                     && parent_from_dt.day() > 21
                     && parent_from_dt.day() <= 28)
             {
-                return (child_overrides_dt.weekday() == parent_from_dt.weekday());
+                child_overrides_dt.weekday() == parent_from_dt.weekday()
             } else {
                 false
             }
         }
-        Rrule::OnWeekDays => return child_overrides_dt.weekday().num_days_from_monday() <= 5,
+        Rrule::OnWeekDays => child_overrides_dt.weekday().num_days_from_monday() <= 5,
     }
 }

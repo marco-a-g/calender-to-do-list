@@ -4,4 +4,4 @@ pub mod members;
 pub mod overview;
 pub mod roles_tab;
 
-pub use group_detail::{GroupsPage};
+pub use group_detail::GroupsPage;

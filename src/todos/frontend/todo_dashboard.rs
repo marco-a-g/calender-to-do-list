@@ -37,7 +37,7 @@ pub fn ToDoDashboard() -> Element {
     let mut todo_to_edit = use_signal(|| None::<TodoEventLight>);
     let mut list_to_edit = use_signal(|| None::<TodoListLight>);
     //leeres Set aus Tasks erstellen um u.a. nachher geladenen tasks trennen zu können in erledigt / nicht erledigt
-    let mut tasks_signal = use_signal(|| Vec::<TodoEventLight>::new());
+    let mut tasks_signal = use_signal(Vec::<TodoEventLight>::new);
     //modal zur abfrage ob bei recurring todos bei Änderung ganze reige oder nur instanz geändert werden soll
     let mut show_recurrence_choice_modal = use_signal(|| false);
     //Zwischenspeicher des zu bearbeitenden todos vor abfrage (nur instanz oder reihe)

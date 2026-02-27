@@ -110,11 +110,11 @@ pub fn frontend_input_to_todo_list(
     //neue Liste zusammenstellen
     let new_list = ToDoList {
         id: Uuid::new_v4(),
-        name: name,
+        name,
         description: description.filter(|s| !s.is_empty()),
-        owned_by: owned_by,
+        owned_by,
         due_date_time: due_date,
-        priority: priority,
+        priority,
         attachment: None,
         recurrence: recurrence_settings,
         recurrence_exception: None,

@@ -46,15 +46,15 @@ pub fn CreateEditToDoModal(
     edit_series_mode: Signal<bool>,
 ) -> Element {
     //Standards fürs erstellen setzen
-    let mut new_task_title = use_signal(|| String::new());
-    let mut new_task_description = use_signal(|| String::new());
-    let mut new_task_group_id = use_signal(|| String::new());
-    let mut new_task_list_id = use_signal(|| String::new());
-    let mut new_task_assignee = use_signal(|| String::new());
-    let mut new_task_due_date = use_signal(|| String::new());
+    let mut new_task_title = use_signal(String::new);
+    let mut new_task_description = use_signal(String::new);
+    let mut new_task_group_id = use_signal(String::new);
+    let mut new_task_list_id = use_signal(String::new);
+    let mut new_task_assignee = use_signal(String::new);
+    let mut new_task_due_date = use_signal(String::new);
     let mut new_task_priority = use_signal(|| "normal".to_string());
-    let mut new_task_rrule = use_signal(|| String::new());
-    let mut new_task_recurrence_until = use_signal(|| String::new());
+    let mut new_task_rrule = use_signal(String::new);
+    let mut new_task_recurrence_until = use_signal(String::new);
 
     //für edit Maske alle listen nutzen, clonen
     let lists_for_effect = all_lists.clone();
@@ -245,13 +245,13 @@ pub fn CreateEditToDoModal(
                         },
                         //Hier light creieren und in backend funktion in Transfer Objekt wandeln
                         summary: new_task_title(),
-                        description: description,
+                        description,
                         completed: existing_todo.completed,
                         due_datetime: due_date,
                         priority: Some(new_task_priority()),
                         attachment: existing_todo.attachment.clone(),
                         rrule: target_rrule, //rrule aus Fallunterscheidung oben nutzen
-                        recurrence_until: recurrence_until,
+                        recurrence_until,
                         recurrence_id: target_rec_id, //recid  aus Fallunterscheidung oben nutzen
                         created_by: existing_todo.created_by.clone(),
                         created_at: existing_todo.created_at.clone(),

@@ -8,7 +8,6 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use server_fn::error::ServerFnError;
 
-
 const DEFAULT_GROUP_COLOR: &str = "#3A6BFF";
 
 #[derive(Debug, Deserialize)]

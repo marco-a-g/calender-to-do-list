@@ -41,8 +41,8 @@ fn input_style_disabled() -> &'static str {
 
 #[component]
 pub fn ProfileView() -> Element {
-    let mut username = use_signal(|| String::new()); // dynamic signal for input field
-    let mut own_username = use_signal(|| String::new()); // holds current username as it is in db
+    let mut username = use_signal(String::new); // dynamic signal for input field
+    let mut own_username = use_signal(String::new); // holds current username as it is in db
     let mut username_fetch = use_resource(get_own_username);
     let mut editing = use_signal(|| false);
     let mut info = use_signal(|| None::<String>);

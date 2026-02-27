@@ -1,9 +1,8 @@
-use chrono::{DateTime, Datelike, Days, Local, NaiveDateTime, NaiveTime, TimeZone, Utc, Weekday};
+use chrono::{Datelike, Days, NaiveTime, Utc};
 use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
 use server_fn::error::ServerFnError;
-use uuid::Uuid;
 
 use crate::auth::backend::*;
 use crate::calendar::backend::create_calendar_event::create_calendar_event;
@@ -40,12 +39,12 @@ pub async fn edit_instance_of_recurrent_event(
         instance.calendar_id,
         instance.from_date_time,
         instance.to_date_time,
-        instance.recurrence.clone(),
-        instance.recurrence_exception.clone(),
+        instance.recurrence,
+        instance.recurrence_exception,
     )
     .await?;
-    if let Some(rec_ex) = instance.recurrence_exception.clone() {
-        if let Some(overr) = rec_ex.overrides.clone() {
+    if let Some(rec_ex) = instance.recurrence_exception {
+        if let Some(overr) = rec_ex.overrides {
             if overr.skipped {
                 return delete_instance_of_recurrent_event(
                     rec_ex.recurrence_id,
@@ -86,8 +85,8 @@ pub async fn edit_calendar_event(
         new_version.calendar_id,
         new_version.from_date_time,
         new_version.to_date_time,
-        new_version.recurrence.clone(),
-        new_version.recurrence_exception.clone(),
+        new_version.recurrence,
+        new_version.recurrence_exception,
     )
     .await?;
 
@@ -98,327 +97,330 @@ pub async fn edit_calendar_event(
     let mut to_be_orphaned: Vec<CalendarEvent> = Vec::new();
 
     // check, whether the recurrence is changed in a way that needs to check the exceptions
-    if let (Some(new_recurrence), Some(old_recurrence)) = (
-        new_version.recurrence.clone(),
-        old_version.recurrence.clone(),
-    ) {
+    if let (Some(new_recurrence), Some(old_recurrence)) =
+        (new_version.recurrence, old_version.recurrence)
+    {
         if new_recurrence.recurrence_until < old_recurrence.recurrence_until
             || new_version.from_date_time != old_version.from_date_time
             || new_recurrence.rrule != old_recurrence.rrule
         {
-        //only allow changing either the rrule or from_date_time
-        if new_recurrence.rrule != old_recurrence.rrule
-            && new_version.from_date_time.date_naive() != old_version.from_date_time.date_naive()
-        {
-            return Err(ServerFnError::new(
-                "Due to unknown expectations it is not possible to change the starting date and the recurrence rule in the same step.",
-            ));
-        }
+            //only allow changing either the rrule or from_date_time
+            if new_recurrence.rrule != old_recurrence.rrule
+                && new_version.from_date_time.date_naive()
+                    != old_version.from_date_time.date_naive()
+            {
+                return Err(ServerFnError::new(
+                    "Due to unknown expectations it is not possible to change the starting date and the recurrence rule in the same step.",
+                ));
+            }
 
-        //get all changed instances
-        let url_query = format!(
-            "{}/rest/v1/calendar_events?recurrence_id=eq.{}",
-            SUPABASE_URL, new_version.id,
-        );
-        let perhaps_need_change =
-            get_elements_from_remote_by_url_string_unchecked(url_query).await?;
-        let perhaps_need_change_vec =
-            parse_response_string_to_calendar_events(perhaps_need_change).await?;
+            //get all changed instances
+            let url_query = format!(
+                "{}/rest/v1/calendar_events?recurrence_id=eq.{}",
+                SUPABASE_URL, new_version.id,
+            );
+            let perhaps_need_change =
+                get_elements_from_remote_by_url_string_unchecked(url_query).await?;
+            let perhaps_need_change_vec =
+                parse_response_string_to_calendar_events(perhaps_need_change).await?;
 
-        // only recurrence_until is changed
-        if new_version.from_date_time == old_version.from_date_time
-            && new_recurrence.rrule == old_recurrence.rrule
-        {
-            for instance in perhaps_need_change_vec {
-                if let Some(rec_ex) = instance.recurrence_exception.clone() {
-                    if let Some(over) = rec_ex.overrides.clone() {
-                        if over.overrides_datetime > new_recurrence.recurrence_until {
-                            if over.skipped {
-                                to_be_del.push(instance);
-                            } else if keep_overridings == Some(true) {
-                                to_non_override.push(instance);
+            // only recurrence_until is changed
+            if new_version.from_date_time == old_version.from_date_time
+                && new_recurrence.rrule == old_recurrence.rrule
+            {
+                for instance in perhaps_need_change_vec {
+                    if let Some(rec_ex) = instance.recurrence_exception {
+                        if let Some(over) = rec_ex.overrides {
+                            if over.overrides_datetime > new_recurrence.recurrence_until {
+                                if over.skipped {
+                                    to_be_del.push(instance);
+                                } else if keep_overridings == Some(true) {
+                                    to_non_override.push(instance);
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        // rrule and / or from_date_time is changed
-        else {
-            let mut to_be_shifted: Vec<CalendarEvent> = Vec::new();
-            for instance in perhaps_need_change_vec {
-                if let Some(rec_ex) = instance.recurrence_exception.as_ref() {
-                    if let Some(over) = rec_ex.overrides.as_ref() {
-                        if over.overrides_datetime
-                            <= new_version
-                                .from_date_time
-                                .with_time(NaiveTime::MIN)
-                                .unwrap()
-                            || over.overrides_datetime > new_recurrence.recurrence_until
-                        {
-                            match (keep_overridings, over.skipped) {
-                                (Some(true), false) => to_non_override.push(instance),
-                                _ => to_be_del.push(instance),
+            // rrule and / or from_date_time is changed
+            else {
+                let mut to_be_shifted: Vec<CalendarEvent> = Vec::new();
+                for instance in perhaps_need_change_vec {
+                    if let Some(rec_ex) = instance.recurrence_exception.as_ref() {
+                        if let Some(over) = rec_ex.overrides.as_ref() {
+                            if over.overrides_datetime
+                                <= new_version
+                                    .from_date_time
+                                    .with_time(NaiveTime::MIN)
+                                    .unwrap()
+                                || over.overrides_datetime > new_recurrence.recurrence_until
+                            {
+                                match (keep_overridings, over.skipped) {
+                                    (Some(true), false) => to_non_override.push(instance),
+                                    _ => to_be_del.push(instance),
+                                }
+                            } else {
+                                to_be_shifted.push(instance);
                             }
-                        } else {
-                            to_be_shifted.push(instance);
                         }
                     }
                 }
-            }
-            for shifty in to_be_shifted {
-                let mut overr = shifty.recurrence_exception.unwrap().overrides.unwrap(); //can safely be unwraped for we checked before if it is an overriding exception
-                let mut odt = overr.overrides_datetime;
-                let mut from_dt = shifty.from_date_time;
-                let mut rec_ex: Option<RecurrenceException> = None;
+                for shifty in to_be_shifted {
+                    let overr = shifty.recurrence_exception.unwrap().overrides.unwrap(); //can safely be unwraped for we checked before if it is an overriding exception
+                    let mut odt = overr.overrides_datetime;
+                    let mut from_dt = shifty.from_date_time;
+                    let mut rec_ex: Option<RecurrenceException> = None;
 
-                //in case rrule did not change
-                if new_recurrence.rrule == old_recurrence.rrule {
-                    match new_recurrence.rrule {
-                        Rrule::Daily => {
-                            // in case, the time was not changed in the exception it should also not be changed according to the recurrent event after the shift
-                            if odt.time() == from_dt.time() {
-                                from_dt = from_dt
+                    //in case rrule did not change
+                    if new_recurrence.rrule == old_recurrence.rrule {
+                        match new_recurrence.rrule {
+                            Rrule::Daily => {
+                                // in case, the time was not changed in the exception it should also not be changed according to the recurrent event after the shift
+                                if odt.time() == from_dt.time() {
+                                    from_dt = from_dt
+                                        .with_time(new_version.from_date_time.time())
+                                        .unwrap();
+                                }
+                                //set odt to the new time
+                                odt = odt.with_time(new_version.from_date_time.time()).unwrap();
+                                rec_ex = Some(RecurrenceException {
+                                    recurrence_id: new_version.id,
+                                    overrides: Some(Overrides {
+                                        overrides_datetime: odt,
+                                        skipped: overr.skipped,
+                                    }),
+                                });
+                            }
+                            Rrule::Weekly => {
+                                // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
+                                if odt.time() == from_dt.time()
+                                    && odt.weekday() == from_dt.weekday()
+                                {
+                                    from_dt = (from_dt
+                                        - chrono::Duration::days(
+                                            from_dt.weekday().num_days_from_monday().into(),
+                                        )
+                                        + chrono::Duration::days(
+                                            new_version
+                                                .from_date_time
+                                                .weekday()
+                                                .num_days_from_monday()
+                                                .into(),
+                                        ))
                                     .with_time(new_version.from_date_time.time())
                                     .unwrap();
-                            }
-                            //set odt to the new time
-                            odt = odt.with_time(new_version.from_date_time.time()).unwrap();
-                            rec_ex = Some(RecurrenceException {
-                                recurrence_id: new_version.id,
-                                overrides: Some(Overrides {
-                                    overrides_datetime: odt,
-                                    skipped: overr.skipped,
-                                }),
-                            });
-                        }
-                        Rrule::Weekly => {
-                            // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
-                            if odt.time() == from_dt.time() && odt.weekday() == from_dt.weekday() {
-                                from_dt = (from_dt
-                                    - chrono::Duration::days(
+                                }
+
+                                //set odt to the new date and time
+                                odt =
+                                    (odt - chrono::Duration::days(
                                         from_dt.weekday().num_days_from_monday().into(),
-                                    )
-                                    + chrono::Duration::days(
+                                    ) + chrono::Duration::days(
                                         new_version
                                             .from_date_time
                                             .weekday()
                                             .num_days_from_monday()
                                             .into(),
                                     ))
-                                .with_time(new_version.from_date_time.time())
-                                .unwrap();
-                            }
-
-                            //set odt to the new date and time
-                            odt =
-                                (odt - chrono::Duration::days(
-                                    from_dt.weekday().num_days_from_monday().into(),
-                                ) + chrono::Duration::days(
-                                    new_version
-                                        .from_date_time
-                                        .weekday()
-                                        .num_days_from_monday()
-                                        .into(),
-                                ))
-                                .with_time(new_version.from_date_time.time())
-                                .unwrap();
-                            rec_ex = Some(RecurrenceException {
-                                recurrence_id: new_version.id,
-                                overrides: Some(Overrides {
-                                    overrides_datetime: odt,
-                                    skipped: overr.skipped,
-                                }),
-                            });
-                        }
-                        Rrule::OnWeekDays => {
-                            // in case, the time was not changed in the exception it should also not be changed according to the recurrent event after the shift
-                            if odt == from_dt {
-                                from_dt = from_dt
                                     .with_time(new_version.from_date_time.time())
                                     .unwrap();
+                                rec_ex = Some(RecurrenceException {
+                                    recurrence_id: new_version.id,
+                                    overrides: Some(Overrides {
+                                        overrides_datetime: odt,
+                                        skipped: overr.skipped,
+                                    }),
+                                });
                             }
-                            //set odt to the new time
-                            odt = odt.with_time(new_version.from_date_time.time()).unwrap();
-                            rec_ex = Some(RecurrenceException {
-                                recurrence_id: new_version.id,
-                                overrides: Some(Overrides {
-                                    overrides_datetime: odt,
-                                    skipped: overr.skipped,
-                                }),
-                            });
-                        }
-                        Rrule::Fortnight => {
-                            // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
-                            let time_dif_to_rec =
-                                (odt - new_version.from_date_time).num_days() % 14;
-                            if odt.time() == from_dt.time()
-                                && (from_dt - odt).num_days().abs() % 14 == 0
-                            {
-                                from_dt = from_dt
+                            Rrule::OnWeekDays => {
+                                // in case, the time was not changed in the exception it should also not be changed according to the recurrent event after the shift
+                                if odt == from_dt {
+                                    from_dt = from_dt
+                                        .with_time(new_version.from_date_time.time())
+                                        .unwrap();
+                                }
+                                //set odt to the new time
+                                odt = odt.with_time(new_version.from_date_time.time()).unwrap();
+                                rec_ex = Some(RecurrenceException {
+                                    recurrence_id: new_version.id,
+                                    overrides: Some(Overrides {
+                                        overrides_datetime: odt,
+                                        skipped: overr.skipped,
+                                    }),
+                                });
+                            }
+                            Rrule::Fortnight => {
+                                // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
+                                let time_dif_to_rec =
+                                    (odt - new_version.from_date_time).num_days() % 14;
+                                if odt.time() == from_dt.time()
+                                    && (from_dt - odt).num_days().abs() % 14 == 0
+                                {
+                                    from_dt = from_dt
+                                        .checked_add_days(Days::new(
+                                            time_dif_to_rec.try_into().unwrap(),
+                                        ))
+                                        .unwrap()
+                                        .with_time(new_version.from_date_time.time())
+                                        .unwrap();
+                                }
+                                //set odt to the new date and time
+                                odt = odt
                                     .checked_add_days(Days::new(
                                         time_dif_to_rec.try_into().unwrap(),
                                     ))
                                     .unwrap()
                                     .with_time(new_version.from_date_time.time())
                                     .unwrap();
+                                rec_ex = Some(RecurrenceException {
+                                    recurrence_id: new_version.id,
+                                    overrides: Some(Overrides {
+                                        overrides_datetime: odt,
+                                        skipped: overr.skipped,
+                                    }),
+                                });
                             }
-                            //set odt to the new date and time
-                            odt = odt
-                                .checked_add_days(Days::new(time_dif_to_rec.try_into().unwrap()))
-                                .unwrap()
-                                .with_time(new_version.from_date_time.time())
-                                .unwrap();
-                            rec_ex = Some(RecurrenceException {
-                                recurrence_id: new_version.id,
-                                overrides: Some(Overrides {
-                                    overrides_datetime: odt,
-                                    skipped: overr.skipped,
-                                }),
-                            });
-                        }
-                        Rrule::MonthlyOnDate => {
-                            // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
-                            if odt.time() == from_dt.time() && from_dt.day() == odt.day() {
-                                from_dt = from_dt
+                            Rrule::MonthlyOnDate => {
+                                // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
+                                if odt.time() == from_dt.time() && from_dt.day() == odt.day() {
+                                    from_dt = from_dt
+                                        .with_day(new_version.from_date_time.day())
+                                        .unwrap_or(
+                                            //unwrap should work except it is the last day of the month and the current month is shorter. this cannot happen to december so the unwraps within should be without problem
+                                            from_dt
+                                                .with_day(
+                                                    from_dt
+                                                        .with_month(from_dt.month() + 1)
+                                                        .unwrap()
+                                                        .with_day(1)
+                                                        .unwrap()
+                                                        .checked_sub_days(Days::new(1))
+                                                        .unwrap()
+                                                        .day(),
+                                                )
+                                                .unwrap(),
+                                        )
+                                }
+                                //set odt to the new date and time
+                                odt = odt
                                     .with_day(new_version.from_date_time.day())
                                     .unwrap_or(
                                         //unwrap should work except it is the last day of the month and the current month is shorter. this cannot happen to december so the unwraps within should be without problem
-                                        from_dt
-                                            .with_day(
-                                                from_dt
-                                                    .with_month(from_dt.month() + 1)
-                                                    .unwrap()
-                                                    .with_day(1)
-                                                    .unwrap()
-                                                    .checked_sub_days(Days::new(1))
-                                                    .unwrap()
-                                                    .day(),
-                                            )
-                                            .unwrap(),
+                                        odt.with_day(
+                                            odt.with_month(odt.month() + 1)
+                                                .unwrap()
+                                                .with_day(1)
+                                                .unwrap()
+                                                .checked_sub_days(Days::new(1))
+                                                .unwrap()
+                                                .day(),
+                                        )
+                                        .unwrap(),
                                     )
-                            }
-                            //set odt to the new date and time
-                            odt = odt
-                                .with_day(new_version.from_date_time.day())
-                                .unwrap_or(
-                                    //unwrap should work except it is the last day of the month and the current month is shorter. this cannot happen to december so the unwraps within should be without problem
-                                    odt.with_day(
-                                        odt.with_month(odt.month() + 1)
-                                            .unwrap()
-                                            .with_day(1)
-                                            .unwrap()
-                                            .checked_sub_days(Days::new(1))
-                                            .unwrap()
-                                            .day(),
-                                    )
-                                    .unwrap(),
-                                )
-                                .with_time(new_version.from_date_time.time())
-                                .unwrap();
-
-                            rec_ex = Some(RecurrenceException {
-                                recurrence_id: new_version.id,
-                                overrides: Some(Overrides {
-                                    overrides_datetime: odt,
-                                    skipped: overr.skipped,
-                                }),
-                            });
-                        }
-                        Rrule::MonthlyOnWeekday => {
-                            let new_rrule_parts = (
-                                new_version.from_date_time.weekday().num_days_from_monday(),
-                                new_version.from_date_time.day() / 7,
-                            );
-                            let from_mon = from_dt
-                                .with_day(1)
-                                .unwrap()
-                                .weekday()
-                                .num_days_from_monday();
-                            let mut new_day: u32 = 1;
-                            if from_mon <= new_rrule_parts.0 {
-                                new_day = odt
-                                    .with_day(1)
-                                    .unwrap()
-                                    .checked_add_days(Days::new(
-                                        (new_rrule_parts.0 - from_mon) as u64,
-                                    ))
-                                    .unwrap()
-                                    .day()
-                                    + (7 * new_rrule_parts.1)
-                            }
-                            // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
-                            if odt == from_dt {
-                                from_dt = from_dt
-                                    .with_day(new_day)
-                                    .unwrap_or(from_dt.with_day(new_day - 7).unwrap())
                                     .with_time(new_version.from_date_time.time())
                                     .unwrap();
-                            }
-                            //set odt to the new date and time
-                            odt = odt
-                                .with_day(new_day)
-                                .unwrap_or(odt.with_day(new_day - 7).unwrap())
-                                .with_time(new_version.from_date_time.time())
-                                .unwrap();
 
-                            rec_ex = Some(RecurrenceException {
-                                recurrence_id: new_version.id,
-                                overrides: Some(Overrides {
-                                    overrides_datetime: odt,
-                                    skipped: overr.skipped,
-                                }),
-                            });
-                        }
-                        Rrule::Annual => {
-                            // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
-                            if odt == from_dt {
-                                from_dt = new_version
-                                    .from_date_time
-                                    .with_year(from_dt.year())
+                                rec_ex = Some(RecurrenceException {
+                                    recurrence_id: new_version.id,
+                                    overrides: Some(Overrides {
+                                        overrides_datetime: odt,
+                                        skipped: overr.skipped,
+                                    }),
+                                });
+                            }
+                            Rrule::MonthlyOnWeekday => {
+                                let new_rrule_parts = (
+                                    new_version.from_date_time.weekday().num_days_from_monday(),
+                                    new_version.from_date_time.day() / 7,
+                                );
+                                let from_mon = from_dt
+                                    .with_day(1)
+                                    .unwrap()
+                                    .weekday()
+                                    .num_days_from_monday();
+                                let mut new_day: u32 = 1;
+                                if from_mon <= new_rrule_parts.0 {
+                                    new_day = odt
+                                        .with_day(1)
+                                        .unwrap()
+                                        .checked_add_days(Days::new(
+                                            (new_rrule_parts.0 - from_mon) as u64,
+                                        ))
+                                        .unwrap()
+                                        .day()
+                                        + (7 * new_rrule_parts.1)
+                                }
+                                // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
+                                if odt == from_dt {
+                                    from_dt = from_dt
+                                        .with_day(new_day)
+                                        .unwrap_or(from_dt.with_day(new_day - 7).unwrap())
+                                        .with_time(new_version.from_date_time.time())
+                                        .unwrap();
+                                }
+                                //set odt to the new date and time
+                                odt = odt
+                                    .with_day(new_day)
+                                    .unwrap_or(odt.with_day(new_day - 7).unwrap())
+                                    .with_time(new_version.from_date_time.time())
+                                    .unwrap();
+
+                                rec_ex = Some(RecurrenceException {
+                                    recurrence_id: new_version.id,
+                                    overrides: Some(Overrides {
+                                        overrides_datetime: odt,
+                                        skipped: overr.skipped,
+                                    }),
+                                });
+                            }
+                            Rrule::Annual => {
+                                // in case, time and weekday were not changed in the exception they should also not be changed according to the recurrent event after the shift
+                                if odt == from_dt {
+                                    from_dt = new_version
+                                        .from_date_time
+                                        .with_year(from_dt.year())
+                                        .unwrap_or(
+                                            //unwrap should work except from_date_time of the parent event is the 29.2.
+                                            from_dt
+                                                .with_month(2)
+                                                .unwrap()
+                                                .with_day(28)
+                                                .unwrap()
+                                                .with_time(new_version.from_date_time.time())
+                                                .unwrap(),
+                                        );
+                                }
+                                //set odt to the new date and time
+                                odt = odt
+                                    .with_day(new_version.from_date_time.day())
                                     .unwrap_or(
-                                        //unwrap should work except from_date_time of the parent event is the 29.2.
-                                        from_dt
-                                            .with_month(2)
-                                            .unwrap()
-                                            .with_day(28)
-                                            .unwrap()
-                                            .with_time(new_version.from_date_time.time())
-                                            .unwrap(),
-                                    );
-                            }
-                            //set odt to the new date and time
-                            odt = odt
-                                .with_day(new_version.from_date_time.day())
-                                .unwrap_or(
-                                    //unwrap should work except it is the last day of the month and the current month is shorter. this cannot happen to december so the unwraps within should be without problem
-                                    odt.with_day(
-                                        odt.with_month(odt.month() + 1)
-                                            .unwrap()
-                                            .with_day(1)
-                                            .unwrap()
-                                            .checked_sub_days(Days::new(1))
-                                            .unwrap()
-                                            .day(),
+                                        //unwrap should work except it is the last day of the month and the current month is shorter. this cannot happen to december so the unwraps within should be without problem
+                                        odt.with_day(
+                                            odt.with_month(odt.month() + 1)
+                                                .unwrap()
+                                                .with_day(1)
+                                                .unwrap()
+                                                .checked_sub_days(Days::new(1))
+                                                .unwrap()
+                                                .day(),
+                                        )
+                                        .unwrap(),
                                     )
-                                    .unwrap(),
-                                )
-                                .with_time(new_version.from_date_time.time())
-                                .unwrap();
+                                    .with_time(new_version.from_date_time.time())
+                                    .unwrap();
 
-                            rec_ex = Some(RecurrenceException {
-                                recurrence_id: new_version.id,
-                                overrides: Some(Overrides {
-                                    overrides_datetime: odt,
-                                    skipped: overr.skipped,
-                                }),
-                            });
+                                rec_ex = Some(RecurrenceException {
+                                    recurrence_id: new_version.id,
+                                    overrides: Some(Overrides {
+                                        overrides_datetime: odt,
+                                        skipped: overr.skipped,
+                                    }),
+                                });
+                            }
                         }
                     }
-                }
-                // if rrule was changed
-                else {
-                    if check_overriding_recurrence(
+                    // if rrule was changed
+                    else if check_overriding_recurrence(
                         odt,
                         new_version.from_date_time,
                         new_recurrence.recurrence_until,
@@ -439,36 +441,33 @@ pub async fn edit_calendar_event(
                                 skipped: overr.skipped,
                             }),
                         });
+                    } else if let Some(true) = keep_overridings {
+                        to_non_override.push(shifty.clone());
                     } else {
-                        if let Some(true) = keep_overridings {
-                            to_non_override.push(shifty.clone());
-                        } else {
-                            to_be_del.push(shifty.clone());
-                        }
+                        to_be_del.push(shifty.clone());
                     }
+                    edit_calendar_event_unchecked(CalendarEvent {
+                        id: shifty.id,
+                        summary: shifty.summary,
+                        description: shifty.description,
+                        calendar_id: shifty.calendar_id,
+                        created_at: shifty.created_at,
+                        created_by: shifty.created_by,
+                        from_date_time: from_dt,
+                        to_date_time: shifty.to_date_time,
+                        attachment: shifty.attachment,
+                        recurrence: None,
+                        recurrence_exception: rec_ex,
+                        location: shifty.location,
+                        categories: shifty.categories,
+                        is_all_day: shifty.is_all_day,
+                        last_mod: Utc::now(),
+                    })
+                    .await?;
                 }
-                edit_calendar_event_unchecked(CalendarEvent {
-                    id: shifty.id,
-                    summary: shifty.summary,
-                    description: shifty.description,
-                    calendar_id: shifty.calendar_id,
-                    created_at: shifty.created_at,
-                    created_by: shifty.created_by,
-                    from_date_time: from_dt,
-                    to_date_time: shifty.to_date_time,
-                    attachment: shifty.attachment,
-                    recurrence: None,
-                    recurrence_exception: rec_ex,
-                    location: shifty.location,
-                    categories: shifty.categories,
-                    is_all_day: shifty.is_all_day,
-                    last_mod: Utc::now(),
-                })
-                .await?;
             }
         }
     }
-}
     // in case, the element is switched to non-recurrent, check for depending events to handle them
     if old_version.recurrence.is_some() && new_version.recurrence.is_none() {
         let to_be_deleted_or_orphaned =
@@ -553,12 +552,12 @@ pub async fn edit_single_calendar_event(
 ) -> core::result::Result<(), ServerFnError> {
     //check wether it really was a single calendar event
     let old_version = get_calendar_event_from_remote(new_version.id).await?;
-    if let Some(_) = old_version.recurrence {
+    if old_version.recurrence.is_some() {
         return Err(ServerFnError::new(
             "Mismatching Event: The CalendarEvent to be altered is not a single event.",
         ));
     };
-    if let Some(_) = old_version.recurrence_exception {
+    if old_version.recurrence_exception.is_some() {
         return Err(ServerFnError::new(
             "Mismatching Event: The CalendarEvent to be altered is instance of a recurrent event.",
         ));
@@ -570,8 +569,8 @@ pub async fn edit_single_calendar_event(
         new_version.calendar_id,
         new_version.from_date_time,
         new_version.to_date_time,
-        new_version.recurrence.clone(),
-        new_version.recurrence_exception.clone(),
+        new_version.recurrence,
+        new_version.recurrence_exception,
     )
     .await?;
 
@@ -606,28 +605,25 @@ pub async fn edit_calendar_event_unchecked(
         summary: changed_event.summary,
         description: changed_event.description,
         from_date_time: changed_event.from_date_time.to_string(),
-        to_date_time: match changed_event.to_date_time {
-            Some(t) => Some(t.to_string()),
-            None => None,
-        },
-        attachment: changed_event.attachment.into(),
-        rrule: match &changed_event.recurrence {
-            Some(r) => Some(r.rrule.to_string().to_lowercase()),
-            None => None,
-        },
-        recurrence_until: match &changed_event.recurrence {
-            Some(r) => Some(r.recurrence_until.to_string()),
-            None => None,
-        },
-        recurrence_id: match &changed_event.recurrence_exception {
-            Some(r) => Some(r.recurrence_id.to_string()),
-            None => None,
-        },
+        to_date_time: changed_event.to_date_time.map(|t| t.to_string()),
+        attachment: changed_event.attachment,
+        rrule: changed_event
+            .recurrence
+            .as_ref()
+            .map(|r| r.rrule.to_string().to_lowercase()),
+        recurrence_until: changed_event
+            .recurrence
+            .as_ref()
+            .map(|r| r.recurrence_until.to_string()),
+        recurrence_id: changed_event
+            .recurrence_exception
+            .as_ref()
+            .map(|r| r.recurrence_id.to_string()),
         overrides_datetime: match &changed_event.recurrence_exception {
-            Some(r) => match &r.overrides {
-                Some(o) => Some(o.overrides_datetime.to_string()),
-                None => None,
-            },
+            Some(r) => r
+                .overrides
+                .as_ref()
+                .map(|o| o.overrides_datetime.to_string()),
             None => None,
         },
         skipped: match &changed_event.recurrence_exception {
@@ -637,11 +633,8 @@ pub async fn edit_calendar_event_unchecked(
             },
             None => false.to_string(),
         },
-        location: changed_event.location.into(),
-        category: match changed_event.categories {
-            Some(c) => Some(c.join(", ")),
-            None => None,
-        },
+        location: changed_event.location,
+        category: changed_event.categories.map(|c| c.join(", ")),
         is_all_day: changed_event.is_all_day.to_string(),
     };
 
