@@ -398,3 +398,150 @@ fn map_id_to_shadow_list(
     // Sollte keine passende Liste existieren
     Err(format!("Could not find List-ID '{}' .", id_to_search).into())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*; // Importiert deine Structs und Funktionen
+    use crate::utils::structs::Overrides;
+    use crate::utils::structs::RecurrenceException;
+    use crate::utils::structs::Recurrent;
+    use chrono::{TimeZone, Utc};
+    use uuid::Uuid;
+
+    // --- Tests für: frontend_input_to_todo ---
+
+    #[test]
+    fn test_frontend_input_to_todo_success() {
+        // Arrange: Valide Strings, wie sie vom Frontend übergeben werden
+        let list_uuid_str = Uuid::new_v4().to_string();
+        let user_uuid_str = Uuid::new_v4().to_string();
+
+        // Act
+        let result = frontend_input_to_todo(
+            list_uuid_str.clone(),
+            "Wichtiges Meeting".to_string(),
+            Some("Bitte vorbereiten".to_string()),
+            Some("2026-05-20".to_string()), // Setzt voraus, dass html_input_to_db funktioniert
+            Some("High".to_string()),       // Dank strum::EnumString wird das zu Priority::High
+            None,
+            None,
+            Some(user_uuid_str.clone()),
+        );
+
+        // Assert
+        assert!(result.is_ok());
+        let todo = result.unwrap();
+
+        assert_eq!(todo.summary, "Wichtiges Meeting");
+        assert_eq!(todo.to_do_list_id.to_string(), list_uuid_str);
+        assert_eq!(todo.priority, Priority::High);
+        assert_eq!(
+            todo.assigned_to_user,
+            Some(Uuid::parse_str(&user_uuid_str).unwrap())
+        );
+        assert_eq!(todo.completed, false);
+    }
+
+    #[test]
+
+    fn test_frontend_input_to_todo_fail_invalid_uuid() {
+        // Arrange: Ein ungültiger String anstelle einer echten UUID
+        let invalid_list_uuid = "definitiv-keine-uuid".to_string();
+
+        // Act
+        let result = frontend_input_to_todo(
+            invalid_list_uuid,
+            "Titel".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        // Assert: Die Funktion muss per `?` Operator fehlschlagen
+        assert!(result.is_err());
+    }
+
+    // --- Tests für: todo_event_into_to_do_transfer ---
+
+    #[test]
+    fn test_todo_event_into_to_do_transfer_simple() {
+        // Arrange: Ein ToDoEvent ohne Wiederholungen und mit Nil-UUID für die Liste
+        let simple_todo = TodoEvent {
+            id: Uuid::new_v4(),
+            summary: "Einkaufen".to_string(),
+            description: None,
+            to_do_list_id: Uuid::nil(), // Löst die if todo.to_do_list_id.is_nil() Logik aus
+            completed: false,
+            due_date_time: Some(Utc::now()),
+            priority: Priority::Normal,
+            assigned_to_user: None,
+            attachment: None,
+            recurrence: None,
+            recurrence_exception: None,
+            created_at: Utc::now(),
+            created_by: Uuid::new_v4(),
+            last_mod: Utc::now(),
+        };
+
+        // Act
+        let result = todo_event_into_to_do_transfer(simple_todo.clone()).unwrap();
+
+        // Assert
+        assert_eq!(result.summary, "Einkaufen");
+        assert_eq!(result.rrule, None);
+        // Prüft, ob aus der Uuid::nil() korrekterweise ein None für das Frontend wurde
+        assert_eq!(result.todo_list_id, None);
+        // Prüft, ob das Debug-Format mit to_lowercase() wie gewünscht greift
+        assert_eq!(result.priority, "normal");
+    }
+
+    #[test]
+    fn test_todo_event_into_to_do_transfer_complex() {
+        // Arrange: Ein stark verschachteltes ToDoEvent mit Ausnahmen und Regeln
+        let recurrence_until_date = Utc.with_ymd_and_hms(2026, 12, 31, 23, 59, 59).unwrap();
+        let override_date = Utc.with_ymd_and_hms(2026, 11, 15, 12, 0, 0).unwrap();
+        let list_id = Uuid::new_v4();
+        let rec_id = Uuid::new_v4();
+
+        let complex_todo = TodoEvent {
+            id: Uuid::new_v4(),
+            summary: "Wöchentlicher Sync".to_string(),
+            description: Some("Mit dem Team".to_string()),
+            to_do_list_id: list_id,
+            completed: true,
+            due_date_time: Some(Utc::now()),
+            priority: Priority::Top,
+            assigned_to_user: Some(Uuid::new_v4()),
+            attachment: None,
+            recurrence: Some(Recurrent {
+                rrule: Rrule::Weekly,
+                recurrence_until: recurrence_until_date,
+            }),
+            recurrence_exception: Some(RecurrenceException {
+                recurrence_id: rec_id,
+                overrides: Some(Overrides {
+                    overrides_datetime: override_date,
+                    skipped: true,
+                }),
+            }),
+            created_at: Utc::now(),
+            created_by: Uuid::new_v4(),
+            last_mod: Utc::now(),
+        };
+
+        // Act
+        let result = todo_event_into_to_do_transfer(complex_todo).unwrap();
+
+        // Assert
+        assert_eq!(result.rrule, Some("weekly".to_string()));
+        assert_eq!(result.recurrence_until, Some(recurrence_until_date));
+        assert_eq!(result.recurrence_id, Some(rec_id));
+        assert_eq!(result.overrides_datetime, Some(override_date));
+        assert_eq!(result.skipped, true);
+        assert_eq!(result.priority, "top");
+        assert_eq!(result.todo_list_id, Some(list_id));
+    }
+}

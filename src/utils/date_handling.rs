@@ -191,7 +191,7 @@ fn add_months_same_date(
     let day = std::cmp::min(preferered_day_on_exception, day_raw);
     //println!("Fehler bei {} {} {}", year, month, day);
     date.with_day(1) //erst Tag auf eins setzen sonst wirft es manchmal fehler
-        .ok_or("Error resetting day to 1")?
+        .ok_or("Error resetting day to 1 in fn add_months_same_date")?
         .with_year(year)
         .ok_or("Invalid year in fn add_months_same_date")?
         .with_month(month as u32)
@@ -215,7 +215,10 @@ fn add_months_same_date(
 ///
 /// Returns an `Option<u32>` representing the last day of the requested month or `None` if input month is out of bounds.
 fn handle_last_day_of_month(year: i32, month: u32) -> Option<u32> {
-    if month == 12 {
+    if !(1..=12).contains(&month) {
+        //Abfangen falscher Monatsangaben
+        return None;
+    } else if month == 12 {
         // im Dezember -> ersten Tag des neuen Jahres nehmen und davon dann vorgänger
         NaiveDate::from_ymd_opt(year + 1, 1, 1)?
             .pred_opt() // Gibt Vorgängerdatum
@@ -259,6 +262,8 @@ fn add_month_on_same_weekday(
     };
 
     let mut date_result = date
+        .with_day(1) //erst Tag auf eins setzen sonst wirft es manchmal fehler
+        .ok_or("Error resetting day to 1 in add_month_on_same_weekday")?
         .with_year(next_year)
         .ok_or("Invalid year in fn add_month_on_same_weekday")?
         .with_month(next_month)
@@ -279,4 +284,205 @@ fn add_month_on_same_weekday(
     }
 
     Ok(date_result) // Gibt das berechnete Datum zurück
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*; // Importiert die Funktion und den Error-Typ aus der äußeren Datei
+    use chrono::{TimeZone, Utc};
+
+    #[test]
+    fn test_html_input_to_db_success() {
+        // Arrange: Ein typischer String aus einem HTML <input type="date">
+        let input = "2026-01-30";
+
+        // Act
+        let result = html_input_to_db(input);
+
+        // Assert: Wir erwarten ein Ok mit einem DateTime-Objekt, das auf Mitternacht UTC steht
+        assert!(result.is_ok());
+        let dt = result.unwrap().unwrap();
+
+        let expected = Utc.with_ymd_and_hms(2026, 1, 30, 0, 0, 0).unwrap();
+        assert_eq!(dt, expected);
+    }
+
+    #[test]
+    fn test_html_input_to_db_fail() {
+        // Arrange: Ein komplett ungültiger String
+        let input = "2026-13-45"; // Monat 13, Tag 45 gibt es nicht
+
+        // Act
+        let result = html_input_to_db(input);
+
+        // Assert: Wir erwarten, dass die Funktion fehlschlägt und einen Fehler wirft
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_db_to_display_only_date_success() {
+        // Arrange: Ein valider RFC 3339 String (Mittags UTC)
+        let input = Some("2026-01-30T12:00:00Z".to_string());
+
+        // Ein zweiter valider Fall: Reines Datum ohne Uhrzeit
+        let input_naive = Some("2026-01-30".to_string());
+
+        // Act
+        let result = db_to_display_only_date(&input);
+        let result_naive = db_to_display_only_date(&input_naive);
+
+        // Assert
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "30.01.2026");
+
+        assert!(result_naive.is_ok());
+        assert_eq!(result_naive.unwrap(), "30.01.2026");
+
+        // Test auf leere Eingabe
+        assert_eq!(db_to_display_only_date(&None).unwrap(), "");
+    }
+
+    #[test]
+    fn test_db_to_display_only_date_fail() {
+        // Arrange: Ein Datum im falschen Format (z.B. Deutsches Format als Input) oder reiner Text
+        let input_wrong_format = Some("30.01.2026".to_string());
+        let input_garbage = Some("Gestern".to_string());
+
+        // Act
+        let result_wrong = db_to_display_only_date(&input_wrong_format);
+        let result_garbage = db_to_display_only_date(&input_garbage);
+
+        // Assert: Die Funktion muss fehlschlagen
+        assert!(result_wrong.is_err());
+        assert!(result_garbage.is_err());
+    }
+
+    #[test]
+    fn test_db_to_html_input_success() {
+        // Fall 1: Reguläres RFC 3339 Datum aus der Datenbank (mit Uhrzeit und Zeitzone)
+        let input_rfc = Some("2026-01-30T18:00:00Z".to_string());
+        assert_eq!(db_to_html_input(&input_rfc).unwrap(), "2026-01-30");
+
+        // Fall 2: Reines Datum (Fallback greift)
+        let input_date = Some("2026-02-15".to_string());
+        assert_eq!(db_to_html_input(&input_date).unwrap(), "2026-02-15");
+
+        // Fall 3: Leere Eingaben
+        assert_eq!(db_to_html_input(&Some("".to_string())).unwrap(), "");
+        assert_eq!(db_to_html_input(&None).unwrap(), "");
+    }
+
+    #[test]
+    fn test_db_to_html_input_fail() {
+        // Absichtlich falsches Format (z.B. Deutsches Datum)
+        let input_invalid = Some("30.01.2026".to_string());
+
+        let result = db_to_html_input(&input_invalid);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_add_months_same_date_success() {
+        // Fall 1: Standard-Übersprung (15. Jan -> 15. Feb)
+        let start_normal = Utc.with_ymd_and_hms(2026, 1, 15, 12, 0, 0).unwrap();
+        let result_normal = add_months_same_date(start_normal, 1, 15).unwrap();
+        assert_eq!(
+            result_normal,
+            Utc.with_ymd_and_hms(2026, 2, 15, 12, 0, 0).unwrap()
+        );
+
+        // Fall 2: Monatsende-Kappung (31. Jan -> 28. Feb, da 2026 kein Schaltjahr ist)
+        let start_end_of_month = Utc.with_ymd_and_hms(2026, 1, 31, 12, 0, 0).unwrap();
+        let result_end = add_months_same_date(start_end_of_month, 1, 31).unwrap();
+        assert_eq!(
+            result_end,
+            Utc.with_ymd_and_hms(2026, 2, 28, 12, 0, 0).unwrap()
+        );
+
+        // Fall 3: Schaltjahr-Erkennung (31. Jan 2024 -> 29. Feb 2024)
+        let start_leap = Utc.with_ymd_and_hms(2024, 1, 31, 12, 0, 0).unwrap();
+        let result_leap = add_months_same_date(start_leap, 1, 31).unwrap();
+        assert_eq!(
+            result_leap,
+            Utc.with_ymd_and_hms(2024, 2, 29, 12, 0, 0).unwrap()
+        );
+
+        // Fall 4: Jahreswechsel (31. Dez -> 31. Jan des Folgejahres)
+        let start_year_rollover = Utc.with_ymd_and_hms(2026, 12, 31, 12, 0, 0).unwrap();
+        let result_year = add_months_same_date(start_year_rollover, 1, 31).unwrap();
+        assert_eq!(
+            result_year,
+            Utc.with_ymd_and_hms(2027, 1, 31, 12, 0, 0).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_add_months_same_date_fail() {
+        let start_date = Utc.with_ymd_and_hms(2026, 1, 15, 12, 0, 0).unwrap();
+
+        // Act: Wir versuchen, eine extrem hohe Zahl an Monaten hinzuzufügen,
+        // was das maximale Limit der Chrono-Bibliothek für Jahre überschreitet.
+        // (u32::MAX ist über 4 Milliarden).
+        let result = add_months_same_date(start_date, u32::MAX, 15);
+
+        // Assert: Die Funktion muss fehlschlagen, da das Jahr nicht mehr darstellbar ist.
+        assert!(result.is_err());
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn test_handle_last_day_of_month_success() {
+        // Fall 1: Normale Monate (31 und 30 Tage)
+        assert_eq!(handle_last_day_of_month(2026, 1), Some(31)); // Januar
+        assert_eq!(handle_last_day_of_month(2026, 4), Some(30)); // April
+
+        // Fall 2: Februar in einem normalen Jahr
+        assert_eq!(handle_last_day_of_month(2026, 2), Some(28));
+
+        // Fall 3: Februar in einem Schaltjahr (z.B. 2024 oder 2028)
+        assert_eq!(handle_last_day_of_month(2024, 2), Some(29));
+
+        // Fall 4: Der Dezember-Übergang (Jahreswechsel)
+        assert_eq!(handle_last_day_of_month(2026, 12), Some(31));
+    }
+
+    #[test]
+    fn test_handle_last_day_of_month_fail() {
+        // Fall 1: Ein Monat, den es nicht gibt (> 12)
+        assert_eq!(handle_last_day_of_month(2026, 13), None);
+
+        // Fall 2: Der "Nullte" Monat
+        assert_eq!(handle_last_day_of_month(2026, 0), None);
+    }
+
+    #[test]
+    fn test_add_month_on_same_weekday_success() {
+        // Normalfall: 3. Mittwoch im Januar 2026 (21.01) -> 3. Mittwoch im Februar 2026 (18.02)
+        let start = Utc.with_ymd_and_hms(2026, 1, 21, 12, 0, 0).unwrap();
+        let result = add_month_on_same_weekday(start).unwrap();
+        assert_eq!(result, Utc.with_ymd_and_hms(2026, 2, 18, 12, 0, 0).unwrap());
+
+        // Jahreswechsel: 1. Montag im Dezember 2025 (01.12) -> 1. Montag im Januar 2026 (05.01)
+        let start_dec = Utc.with_ymd_and_hms(2025, 12, 1, 12, 0, 0).unwrap();
+        let result_dec = add_month_on_same_weekday(start_dec).unwrap();
+        assert_eq!(
+            result_dec,
+            Utc.with_ymd_and_hms(2026, 1, 5, 12, 0, 0).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_add_month_on_same_weekday_edge_case() {
+        // ACHTUNG: Dieser Test schlägt mit deiner aktuellen Implementierung fehl!
+        // 5. Freitag im Januar 2026 (30.01.2026) -> Es gibt nur 4 Freitage im Februar 2026.
+        // Erwartet: Fallback auf den 4. Freitag (27.02.2026).
+        let start_edge = Utc.with_ymd_and_hms(2026, 1, 30, 12, 0, 0).unwrap();
+        let result_edge = add_month_on_same_weekday(start_edge);
+
+        assert!(result_edge.is_ok(), "Funktion hat einen Error geworfen!");
+        assert_eq!(
+            result_edge.unwrap(),
+            Utc.with_ymd_and_hms(2026, 2, 27, 12, 0, 0).unwrap()
+        );
+    }
 }

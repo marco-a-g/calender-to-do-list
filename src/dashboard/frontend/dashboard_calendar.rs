@@ -185,3 +185,37 @@ pub fn DashboardCalendar(evts: Vec<(CalendarEventLight, String, String)>) -> Ele
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{DateTime, Local};
+
+    #[test]
+    fn test_extract_time_for_dashboard_success() {
+        // Arrange: Ein valider RFC 3339 String
+        let input = "2026-02-27T12:00:00Z";
+
+        // Act
+        let result = extract_time_for_dashboard(input);
+
+        // Assert: Wir berechnen die erwartete lokale Zeit dynamisch auf dem Test-System
+        let expected_dt = DateTime::parse_from_rfc3339(input)
+            .unwrap()
+            .with_timezone(&Local);
+        let expected_str = expected_dt.format("%H:%M").to_string();
+
+        assert_eq!(result, expected_str);
+    }
+
+    #[test]
+    fn test_extract_time_for_dashboard_fail() {
+        // Arrange: Ungültige Eingaben
+        let input_garbage = "abcdef";
+        let input_empty = "";
+
+        // Assert: Bei Fehlern erwarten wir einen leeren String
+        assert_eq!(extract_time_for_dashboard(input_garbage), "");
+        assert_eq!(extract_time_for_dashboard(input_empty), "");
+    }
+}
