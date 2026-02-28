@@ -13,11 +13,20 @@ use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::date_handling::calculate_next_date;
 use crate::utils::{functions::*, structs::*};
 
-/// Deletes an Instance of an recurrent event. In case this is the last regular instance of the recurrent event the whole event will be deleted.
+/// Deletes an Instance of an recurrent event.
+///
+/// In case this is the last regular instance of the recurrent event the whole event will be deleted.
 /// In this case pass_on_to will be used as new parent event (and therefore set to recurrent if it is not) for remaining instances.
-/// If pass_on_to is None, will be turned into single CalendarEvents (if keep_orphans == true) or they will be deleted (otherwise).
-// #[server]
-#[allow(clippy::diverging_sub_expression)] 
+///
+/// ## Arguments
+/// - `recurrent_event_id`- `Uuid` of the recurrent parent event.
+/// - `instance_date`- DateTime of the instance to be deleted
+/// - `pass_on_to`- if the deleted instance is the last regular instance of the event, `pass_on_to` will be used as new parent event (and therefore set to recurrent if it is not) if pass_on_to is None, these orphans will be handled as `keep_orphans`
+/// - ´keep_orphans´-  orphans will be turned into single CalendarEvents (if keep_orphans == true) or they will be deleted (otherwise)
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+#[allow(clippy::diverging_sub_expression)] // clippy suspects some unwrap_or... without reason
 pub async fn delete_instance_of_recurrent_event(
     recurrent_event_id: Uuid,
     instance_date: DateTime<Utc>,
@@ -215,7 +224,7 @@ pub async fn delete_instance_of_recurrent_event(
                 .unwrap()
                 .with_day(1)
                 .unwrap();
-            #[allow(unused)]
+            #[allow(unused)] //is not unused - allthough clippy thinks so
             let date_before = match rec_event.recurrence.unwrap().rrule {
                 Rrule::Daily => rec_event
                     .recurrence
@@ -427,6 +436,12 @@ pub async fn delete_instance_of_recurrent_event(
 }
 
 /// deletes an (recurrent) event and turns all changed instances into single events
+///
+/// ## Arguments
+/// - `event_id`- `Uuid` of the event to be deleted
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
 // #[server]
 #[allow(unused)]
 pub async fn delete_calendar_event_without_changed_instances(
@@ -523,6 +538,12 @@ pub async fn delete_calendar_event_without_changed_instances(
 }
 
 ///used to delete an (recurrent or non recurrent) calendar_event completely with all instances.
+///
+/// ## Arguments
+/// - `event_id`- `Uuid` of the event to be deleted
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
 // #[server]
 pub async fn delete_calendar_event_with_all_instances(
     event_id: Uuid,
@@ -562,7 +583,14 @@ pub async fn delete_calendar_event_with_all_instances(
     }
 }
 
-/// to delete a non-recurrent element. Will return an Error if the element is recurrent.
+/// to delete a non-recurrent element.
+///
+/// ## Arguments
+/// - `event_id`- `Uuid` of the event to be deleted
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+/// Will return an Error if the element is recurrent.
 // #[server]
 pub async fn delete_single_calendar_event(
     event_id: Uuid,
@@ -586,7 +614,15 @@ pub async fn delete_single_calendar_event(
     Ok(())
 }
 
-//returns 204 No Content even when delete is successful so an additional approval is necessary.
+/// Just to be used in functions that check for attached parent or child events.
+///
+/// If not handled, parent or child events might be deleted by supabase.
+/// ## Arguments
+/// - `event_id`- `Uuid` of the event to be deleted
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+/// Might returns `204 - No Content` even when delete is successful so an additional approval is necessary..
 // #[server]
 async fn delete_single_calendar_event_unchecked(
     event_id: Uuid,
