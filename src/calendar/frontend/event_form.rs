@@ -43,8 +43,7 @@ pub fn EventForm(
     /// Pre-filled start date when form is opened via a day click
     prefilled_date: Option<DateTime<Utc>>, // change to local
     on_close: EventHandler<()>,
-    on_saved: EventHandler<()>,
-    on_deleted: EventHandler<()>,
+    on_refresh: EventHandler<()>,
 ) -> Element {
     let initial_event = match &mode {
         EventFormMode::Edit(e) => e.clone(),
@@ -107,13 +106,13 @@ pub fn EventForm(
 
     let to_date_formatted = use_memo(move || {
         if is_all_day() {
-            to_date().unwrap_or_default().date_naive().to_string()
+            to_date()
+                .map(|d| d.date_naive().to_string())
+                .unwrap_or_else(|| "".to_string())
         } else {
             to_date()
-                .unwrap_or_default()
-                .naive_utc()
-                .format("%Y-%m-%dT%H:%M")
-                .to_string()
+                .map(|d| d.naive_utc().format("%Y-%m-%dT%H:%M").to_string())
+                .unwrap_or_else(|| "".to_string())
         }
     });
 
@@ -196,34 +195,54 @@ pub fn EventForm(
                         class: field_input_class(),
                         r#type: if is_all_day() { "date" } else { "datetime-local" },
                         value: "{from_date_formatted}",
-                        onchange: move |e| from_date.set(
-                            NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
-                            .map(|d| d.and_utc())
-                            .unwrap_or_else(|_| from_date())
-                        ),
+                        onchange: move |e| {
+                            if is_all_day() {
+                                from_date.set(
+                                    NaiveDate::parse_from_str(&e.value(), "%Y-%m-%d")
+                                    .unwrap_or_else(|_| from_date().date_naive())
+                                    .and_hms_opt(0, 0, 0)
+                                    .unwrap() // safe because 0,0,0 is always some
+                                    .and_utc()
+                                );
+                            } else {
+                                from_date.set(
+                                    NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
+                                    .map(|d| d.and_utc())
+                                    .unwrap_or_else(|_| from_date())
+                                );
+                            }
+                        }
                     }
                 }
 
-                if !is_all_day() {
-                    FormField {
-                        label: "to (optional)",
-                        input {
-                            class: field_input_class(),
-                            r#type: if is_all_day() { "date" } else { "datetime-local" },
-                            value: "{to_date_formatted}",
-                            onchange: move |e| {
-                                let value = e.value();
-                                if value.is_empty() {
-                                    to_date.set(None);
+                FormField {
+                    label: "to (optional)",
+                    input {
+                        class: field_input_class(),
+                        r#type: if is_all_day() { "date" } else { "datetime-local" },
+                        value: "{to_date_formatted}",
+                        onchange: move |e| {
+                            let value = e.value();
+                            if value.is_empty() {
+                                to_date.set(None);
+                            } else {
+                                if is_all_day() {
+                                    to_date.set(Some(
+                                        NaiveDate::parse_from_str(&value, "%Y-%m-%d")
+                                        .unwrap_or_else(|_| from_date().date_naive())
+                                        .and_hms_opt(0, 0, 0)
+                                        .unwrap() // safe because 0,0,0 is always some
+                                        .and_utc()
+                                    ));
                                 } else {
                                     to_date.set(Some(
-                                        NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
+                                        NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M")
                                         .map(|d| d.and_utc())
-                                        .unwrap_or_else(|_| to_date().unwrap_or_default())
+                                        .unwrap_or_else(|_| from_date())
                                     ));
                                 }
-                            },
-                        }
+                            }
+                        },
                     }
                 }
 
@@ -297,7 +316,7 @@ pub fn EventForm(
                                         match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
                                         Ok(()) => {
                                             println!("Event erstellt");
-                                            on_close.call(());
+                                            on_refresh.call(());
                                         },
                                         Err(err) => {
                                             error_msg.set(Some(err.to_string()));
@@ -326,7 +345,7 @@ pub fn EventForm(
                                         }).await {
                                         Ok(()) => {
                                             println!("Event bearbeitet");
-                                            on_close.call(());
+                                            on_refresh.call(());
                                         },
                                         Err(err) => {
                                             error_msg.set(Some(err.to_string()));
@@ -344,13 +363,14 @@ pub fn EventForm(
                 if is_edit {
                     DeleteButton {
                         is_recurrent,
+                        is_recurrence_exception,
                         is_loading,
                         on_delete_instance: move |_| {
                             spawn(async move {
-                                match delete_instance_of_recurrent_event(id(), from_date(), None, Some(true)).await {
+                                match delete_instance_of_recurrent_event(recurrence_exception().map(|e| e.recurrence_id).unwrap_or_else(|| id()), from_date(), None, Some(true)).await {
                                     Ok(()) => {
                                         println!("Instanz gelöscht");
-                                        on_close.call(());
+                                        on_refresh.call(());
                                     },
                                     Err(err) => {
                                         error_msg.set(Some(err.to_string()));
@@ -363,7 +383,7 @@ pub fn EventForm(
                                 match delete_calendar_event_with_all_instances(id()).await {
                                     Ok(()) => {
                                         println!("Event gelöscht");
-                                        on_close.call(());
+                                        on_refresh.call(());
                                     },
                                     Err(err) => {
                                         error_msg.set(Some(err.to_string()));
@@ -376,7 +396,7 @@ pub fn EventForm(
                                 match delete_single_calendar_event(id()).await {
                                     Ok(()) => {
                                         println!("Event gelöscht");
-                                        on_close.call(());
+                                        on_refresh.call(());
                                     },
                                     Err(err) => {
                                         error_msg.set(Some(err.to_string()));
@@ -415,7 +435,7 @@ pub fn EventForm(
                         }).await {
                         Ok(()) => {
                             println!("Event bearbeitet");
-                            on_close.call(());
+                            on_refresh.call(());
                         },
                         Err(err) => {
                             error_msg.set(Some(err.to_string()));
@@ -449,7 +469,7 @@ pub fn EventForm(
                         None).await {
                         Ok(()) => {
                             println!("Event bearbeitet");
-                            on_close.call(());
+                            on_refresh.call(());
                         },
                         Err(err) => {
                             error_msg.set(Some(err.to_string()));
@@ -542,6 +562,7 @@ pub fn RecurrencePicker(
 #[component]
 fn DeleteButton(
     is_recurrent: bool,
+    is_recurrence_exception: bool,
     is_loading: Signal<bool>,
     on_delete_instance: EventHandler<()>,
     on_delete_all: EventHandler<()>,
@@ -564,7 +585,12 @@ fn DeleteButton(
                     if is_recurrent {
                         show_delete_menu.set(!show_delete_menu());
                     } else {
-                        on_delete_single.call(());
+                        // check if is really single event or instance of recurring
+                        if is_recurrence_exception {
+                            on_delete_instance.call(());
+                        } else {
+                            on_delete_single.call(());
+                        }
                     }
                 },
                 "Delete"
@@ -614,7 +640,7 @@ fn RecurrentScopeDialog(
                     bg-[#0E1120] border border-white/10 rounded-2xl
                     p-6 w-[340px] shadow-2xl flex flex-col gap-5
                 ",
-                h3 { class: "text-white font-semibold text-base", "edit repeating event" }
+                h3 { class: "text-white font-semibold text-base", "Edit Repeating Event" }
                 p { class: "text-white/50 text-sm", "Do you want to change only this or all events?" }
 
                 div { class: "flex flex-col gap-2",
