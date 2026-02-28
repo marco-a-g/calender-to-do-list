@@ -99,7 +99,7 @@ pub fn calculate_next_date(
         "monthly_on_date" => add_months_same_date(current, 1, start_date_of_rec.day()), //Start date mitgeben um Probleme um 31. des Monats zu handeln
         "monthly_on_weekday" => add_month_on_same_weekday(current),
         "Annual" | "annual" => add_months_same_date(current, 12, start_date_of_rec.day()), //Start date mitgeben um Probleme um 31. des Monats zu handeln
-        _ => Err(format!("No matching rrule").into()),
+        _ => Err("No matching rrule".to_string().into()),
     }
 }
 

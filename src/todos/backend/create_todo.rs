@@ -39,17 +39,33 @@ pub struct ToDoTransfer {
     pub skipped: bool,
 }
 
+//Struct to fix cargo clippy warning and minimize arguments for functions frontend_input_to_todo
+pub struct TodoFrontendInput {
+    pub todo_list_id: String,
+    pub summary: String,
+    pub description: Option<String>,
+    pub due_datetime: Option<String>,
+    pub priority: Option<String>,
+    pub rrule: Option<String>,
+    pub recurrence_until: Option<String>,
+    pub assigned_to_user: Option<String>,
+}
+
 //Wandelt den Input aus Frontend in ein valides ToDoEvent struct um für Typesafety
 pub fn frontend_input_to_todo(
-    todo_list_id: String,
-    summary: String,
-    description: Option<String>,
-    due_datetime: Option<String>,
-    priority: Option<String>,
-    rrule: Option<String>,
-    recurrence_until: Option<String>,
-    assigned_to_user: Option<String>,
+    input_todo: TodoFrontendInput,
 ) -> Result<TodoEvent, Box<dyn std::error::Error>> {
+    let TodoFrontendInput {
+        todo_list_id,
+        summary,
+        description,
+        due_datetime,
+        priority,
+        rrule,
+        recurrence_until,
+        assigned_to_user,
+    } = input_todo;
+
     //List id parsen
     let list_uuid = if todo_list_id.is_empty() {
         Uuid::nil()
