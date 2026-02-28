@@ -95,7 +95,7 @@ pub fn CalendarPage() -> Element {
 
     rsx! {
         div {
-            style: "width: 100%; height: 80vh; display: flex; overflow: hidden; color: white; background: #080910; padding: 20px; box-sizing: border-box; gap: 16px;",
+            style: "width: 100%; height: 90vh; display: flex; overflow: hidden; color: white; background: #080910; padding: 20px; box-sizing: border-box; gap: 16px;",
 
             div {
                 style: "
