@@ -9,7 +9,7 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 ## ⚠️ Notes/Disclaimers for Team-LMU
 
 - **Arno:**
-- Key contributions: Navbar, Groups Backend & Frontend, Calender Frontend (Rendering)
+- Key contributions: Navbar, Groups Backend & Frontend, Calender Frontend (Rendering), Login / Register Frontend
 - Used (Chatgpt & Claude) for research, troubleshooting, refacotring, some components and help with proper documentation, All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions) were created with LLM but also manually adjusted if needed. 
 - The biggest LLM usage was for the Pullrequest #50, for more informations look up the General paragraph regarding Rustversion compatibility
 - **Marco:**
@@ -21,7 +21,7 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 - 
 - 
 - **Paul:**
-- Key contributions: Supabase Setup, Authentication Backend & Frontend, Profiles Backend & Frontend, Calendars connection between Backend and Frontend
+- Key contributions: Supabase Setup, Authentication Backend & connection to Frontend, Profiles Backend & Frontend, Calendars connection between Backend and Frontend
 - Used LLMs (GPT, Claude) for research, troubleshooting, Supabase setup, help with css
 
 
