@@ -1,3 +1,4 @@
+use crate::todos::backend::create_todo::TodoFrontendInput;
 use crate::todos::backend::create_todo::{
     create_todo_event, frontend_input_to_todo, todo_event_into_to_do_transfer,
 };
@@ -270,26 +271,20 @@ pub fn CreateEditToDoModal(
                     let _ = edit_todo_event(updated_todo).await; // Edit Funkrion an Remote -DB, kümmert sich selbst um Fallunterscheidung anhand eingabeparameter nach Fallunterscheidung oben
                 } else {
                     // Create-Modus
-                    let new_todo_list_id = list_id;
-                    let new_summary = new_task_title();
-                    let new_description = description;
-                    let new_due_datetime = due_date;
-                    let new_priority = Some(new_task_priority());
-                    let new_rrule = rrule;
-                    let new_recurrence_until = recurrence_until;
-                    let new_assigned_to_user = assignee;
+
+                    let input_todo = TodoFrontendInput {
+                        todo_list_id: list_id,
+                        summary: new_task_title(),
+                        description,
+                        due_datetime: due_date,
+                        priority: Some(new_task_priority()),
+                        rrule,
+                        recurrence_until,
+                        assigned_to_user: assignee,
+                    };
 
                     //lässt sich input erfolgreich in ToDoEvent umwandeln
-                    match frontend_input_to_todo(
-                        new_todo_list_id,
-                        new_summary,
-                        new_description,
-                        new_due_datetime,
-                        new_priority,
-                        new_rrule,
-                        new_recurrence_until,
-                        new_assigned_to_user,
-                    ) {
+                    match frontend_input_to_todo(input_todo) {
                         //Wenn ja in ToDoTransfer umwandeln
                         Ok(new_todo_struct) => {
                             match todo_event_into_to_do_transfer(new_todo_struct) {
