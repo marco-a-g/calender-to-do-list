@@ -138,9 +138,15 @@ pub fn CreateEditToDoModal(
         "Create To-Do"
     };
 
-    // Validierung für eingabemaske, gültig wenn: Titel nicht leer || RRule eingaben gültig
-    let is_form_valid = !new_task_title().is_empty()
-        && (new_task_rrule().is_empty() || !new_task_recurrence_until().is_empty());
+    // Validierung für Eingabemaske, gültig wenn: Titel nicht leer || RRule eingaben gültig
+    let is_form_valid = if new_task_title().is_empty() {
+        false
+    } else if !new_task_rrule().is_empty() {
+        // wenn rrule eingegeben wird muss ein erstes due date angegeben werden
+        !new_task_due_date().is_empty() && !new_task_recurrence_until().is_empty()
+    } else {
+        true
+    };
 
     let all_lists_for_handler = all_lists.clone();
 
