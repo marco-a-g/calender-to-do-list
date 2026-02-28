@@ -4,11 +4,18 @@ use dioxus::prelude::*;
 
 // Aus Datetime nur Uhrzeit holen, Hilfsfunktion bei Dashboard
 fn extract_time_for_dashboard(datetime: &str) -> String {
-    if let Ok(dt) = DateTime::parse_from_rfc3339(datetime) {
-        let local_time = dt.with_timezone(&Local);
-        local_time.format("%H:%M").to_string()
-    } else {
-        "".to_string()
+    match chrono::DateTime::parse_from_rfc3339(datetime) {
+        Ok(dt) => {
+            let utc_time = dt.with_timezone(&chrono::Utc);
+            utc_time.format("%H:%M").to_string()
+        }
+        Err(e) => {
+            eprintln!(
+                "Error on extracting time for dashboardevents '{}': {}",
+                datetime, e
+            );
+            "".to_string()
+        }
     }
 }
 
@@ -32,12 +39,12 @@ pub fn DashboardCalendar(evts: Vec<(CalendarEventLight, String, String)>) -> Ele
                 .iter()
                 .filter(|(evt, _, _)| {
                     if let Ok(start_dt) = DateTime::parse_from_rfc3339(&evt.from_date_time) {
-                        let start_date = start_dt.with_timezone(&Local).date_naive();
+                        let start_date = start_dt.with_timezone(&chrono::Utc).date_naive();
                         let end_date = evt
                             .to_date_time
                             .as_deref()
                             .and_then(|t| DateTime::parse_from_rfc3339(t).ok())
-                            .map(|dt| dt.with_timezone(&Local).date_naive())
+                            .map(|dt| dt.with_timezone(&chrono::Utc).date_naive())
                             .unwrap_or(start_date);
                         let current_date_to_check = date.date_naive();
 
