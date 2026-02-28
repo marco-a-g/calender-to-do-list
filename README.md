@@ -2,38 +2,49 @@
 **A collaboration desktop App written in Rust and the Dioxus framework.**
 
 Planify is a full-stack app for personal and collaborative organization. The application uses Supabase as its central database provider. 
-It combines a **calendar**, **to-do management**, **group collaboration**, **file sharing**, and a **dashboard** in a desktop interface.
+It combines a **calendar**, **to-do management**, **group collaboration** and a **dashboard** in a desktop interface.
 
 ---
 
 ## ⚠️ Notes/Disclaimers for Team-LMU
 
 - **Arno:**
+   - Key contributions:
+   - 
+   -
 - **Marco:** 
-   - Used LLMs (Gemini) for research, troubleshooting, refactoring, cumbersome Tasks like reworking SQL Query. All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions), due to no experience with frontend.
-   - The two Placeholders in the Dashboard for future expansion (Newsfeed and Chat) are explicitly created fully by a LLM.
-   - Communica
+   - Key contributions: Local DB setup, sync and fetch operations, To-Do components, frontend runtime expansion of recurring tasks regarding recurrence rules, and Dashboard.
+   - Used LLMs (Gemini) for research, troubleshooting, refactoring, cumbersome Tasks like reworking SQL Querys, Documentation. All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions), created with the help of LLMs due to no experience with frontend-development.
+   - The two placeholders in the Dashboard for future expansion (Newsfeed and Chat) are explicitly created fully by a LLM.
 - **Max:** 
+   - Key contributions:
+   - 
+   -
 - **Paul:** 
+   - Key contributions:
+   - 
+   -
+
 
 - **General:**
-   - server_fn, #[server], #[cfg(not(feature = "server"))]: Initially, we planned to offer two ways to access the application: as a desktop app and via a web browser using a standalone server. Hence, we began structuring our functions logic using Dioxus's  server_fn type. We later narrowed the project's scope to desktop-only and decided to keep these function signatures to facilitate an easyer transition to the web in the future.
-   - Rust stable update llm
-   - In some of our Pull-Requests on Github we used
-
+   - server_fn, #[server], #[cfg(not(feature = "server"))]: Initially, we planned to offer two ways to access the application: as a desktop app and via a web browser using a standalone server. Hence, we began structuring our functions logic using Dioxus's server types. We later narrowed the project's scope to desktop-only and decided to keep these function signatures to facilitate an easierf transition to the web in the future.
+   - Two days before the deadline, we realized the assignment strictly required Rust 1.85, whereas we had been developing on a newer version we downloaded at the start of the course. Downgrading Rust triggered severe dependency conflicts and sub-crate incompatibilities. To resolve these complex issues and refactor the affected functions within the remaining time, we heavily relied on cargo clippy and LLM assistance. In the heat of the moment, these changes were implemented directly on an active working branch used for refactoring the group module. The resulting merge combines both the dependency resolution and the group module updates, not an isolated feature and may signal wrong git blame information as Arno committed these changes (e.g. Calendar backend functions even though Max wrote them, but refactoring implied some minor changes to fit 1.85.0)
+   - In some of our Pull-Requests on Github we used Github's Copilot to review our changes.
+   - Specific minor usage of LLMs is documented in the code itself.
+   - Due to Dioxus's dependency on native system libraries for UI rendering, running the app inside a Devcontainer won't work. As discussed, a detailed setup walkthrough is provided.  
 ---
 
 ## 🛠 System Requirements & Setup
 
 
-> **Recommendation:** We highly recommend building and running this project on **Windows** due to a significantly simpler setup process and fewer OS-level dependency conflicts.
+> **Recommendation:** We highly recommend building and running this project on **Windows** due to a clearer setup process and significantly fewer OS-level dependency conflicts.
 
 **Prerequisites:** It is assumed that **Git** and **Rust (version 1.85.0)** are already installed on your system. 
 
 Since Planify is a native desktop app, Dioxus relies on the web rendering engine of the respective operating system. This first guide focuses on the Windows setup. 
 
-### 1. Windows-Specific Requirements (Mandatory)
-Rust requires the Microsoft C++ Linker (`link.exe`) to compile native `.exe` binaries on Windows. 
+### 1. Windows-Specific Requirements
+To build the native Windows desktop application, Rust relies on the Microsoft C++ Linker (link.exe).
 
 If not already installed, please ensure the **Visual Studio Build Tools** are present on your system. You must have the **"Desktop development with C++"** workload installed, specifically including:
 * **MSVC v143**
@@ -44,9 +55,9 @@ The Dioxus Command Line Interface is the core tool for serving the app. It also 
 
 To install the CLI, please follow the instructions provided by Dioxus. Below is an excerpt from the official Dioxus documentation:
 
-> **Install the Dioxus CLI** > Dioxus ships with its own build tool that leverages `cargo` to provide integrated hot-reloading, bundling, and development servers for web and mobile. Follow the instructions provided by the Dioxus Devlopers:
-> 
-> You can download the cli with `cargo-binstall`:
+> **Install the Dioxus CLI** > Dioxus ships with its own build tool that leverages `cargo` to provide integrated hot-reloading, bundling, and development servers for web and mobile. You can download the prebuilt binary with the following command:
+>
+> You can also download the cli with `cargo-binstall` (if cargo-binstall is installed):
 > ```bash
 > cargo binstall dioxus-cli --force
 > ```
@@ -59,43 +70,50 @@ To install the CLI, please follow the instructions provided by Dioxus. Below is 
 
 Make sure to also add the WebAssembly target via your terminal:
 ```bash
-cargo install dioxus-cli
 rustup target add wasm32-unknown-unknown
 ```
 
 ### 3. Setup & Run
-Follow these steps to run the app locally:
+Follow these steps to run the app:
 
 1. **Clone the repository (if not already done):**
    ```bash
-   git clone [https://github.com/marco-a-g/calender-to-do-list.git](https://github.com/marco-a-g/calender-to-do-list.git)
+   git clone https://github.com/marco-a-g/calender-to-do-list.git
    ```
 
-2. **Start the app in debug mode:**
+2. **Build and serve the app:**
+
+Follow these steps to build and run the app:
+
    ```bash
+   dx build --desktop
+   dx run --desktop
+   ```
+Or with dioxus own integrated hot-reloading feature:
+
+   ```bash
+   dx build --desktop
    dx serve --desktop
    ```
 
+
 ## Table of Contents
 
-1. [Overview](#overview)
+1. [Short Overview](#short-overview)
 2. [Features](#features)
-3. [Tech Stack](#tech-stack)
-4. [Architecture](#architecture)
-5. [Local Database & Synchronization](#local-database--synchronization)
-6. [Project Structure](#project-structure)
-7. [Current Development Status / Notes](#current-development-status--notes)
+3. [Tech Stack & Architecture](#tech-stack--architecture)
+4. [Modules](#modules)
+5. [Documentation](#documentation)
 
 ---
 
-## Overview
+## Short Overview
 
 Planify is designed for productive team and/or self-organization:
 
 - Create and manage calendar events
 - Create, manage, assign and prioritize To-Do's
 - Create groups, share files and manage members
-- Local SQLite data storage with synchronization to a remote DB (Supabase)
 
 ---
 
@@ -103,14 +121,14 @@ Planify is designed for productive team and/or self-organization:
 
 ### Authentication & Profile
 - Login / Registration
-- Profile creation (choose a username)
+- Profile creation
 - Username availability check (with delayed input validation)
 - Profile page to view and change the username
 
 ### Dashboard
 - Home screen with a central overview
-- To-do widget showing upcoming tasks this week
-- Calendar widget showing events this week
+- To-do widget showing upcoming tasks this week, assigned to the current user
+- Calendar widget showing all personal and group events this week 
 - News widget (Dev.to articles with the #rust tag), clickable to open Dev.to in Browser
 - Chat section (not yet implemented)
 
@@ -119,6 +137,7 @@ Planify is designed for productive team and/or self-organization:
 - Filter To-Do's by Group, To-Do-List and due date
 - Detailed view for single To-Do's 
 - Create, edit, delete, and complete To-Do's
+- Create, edit, delete To-Do-Lists
 - Recurring to-dos and series handling
 - History view of completed tasks
 
@@ -132,7 +151,7 @@ Planify is designed for productive team and/or self-organization:
 ### Groups
 - Group overview with color coding and member count
 - Create a group (including color selection)
-- Group detail page with tabs: **Members**, **Files**, **Roles**
+- Group detail page with tabs: Members, Files, Roles
 - Invitation workflow (user search, invite handling)
 - Leave / delete group (depending on permissions)
 
@@ -140,7 +159,7 @@ Planify is designed for productive team and/or self-organization:
 - File selection via native desktop file picker
 - Upload in a group context
 - File list per group
-- Download (open URL)
+- Download
 - Delete files
 
 ### Roles & Permissions
@@ -150,7 +169,7 @@ Planify is designed for productive team and/or self-organization:
 
 ---
 
-## Tech Stack
+## Tech Stack & Architecture
 
 - **Language:** Rust
 - **UI/Frontend:** Dioxus
@@ -158,6 +177,12 @@ Planify is designed for productive team and/or self-organization:
 - **Auth/Backend Connection:** Supabase
 - **Local Data Storage:** SQLite (sqlx)
 
+Planify uses a local SQLite database and synchronizes with Supabase.
+
+**Sync Principle:**
+- A sync is triggered when a user is authenticated.
+- Tables are mirrored locally (`...Light` structs).
+- A re-sync is triggered after specific actions and after a set time automatically.
 
 ---
 
@@ -168,7 +193,7 @@ The app is organized into modular components:
 - `auth` – Login, registration, session logic
 - `dashboard` – Home view and widgets
 - `calendar` – Calendar frontend and event logic
-- `todos` – Task management including recurrence handling
+- `todos` – To-Do and To-Do-List management
 - `groups` – Groups, members, roles, files, invites
 - `database` – SQLite initialization, local fetches, sync
 - `user` – Profile functions
@@ -176,26 +201,9 @@ The app is organized into modular components:
 
 ---
 
-## Local Database & Synchronization
+## Documentation
 
-Planify uses a local SQLite database as its working foundation and synchronizes with Supabase.
-
-**Sync Principle:**
-- A sync is triggered when a user is authenticated.
-- Tables are mirrored locally (`...Light` structs).
-- A re-sync is triggered after specific write actions.
-
-**Important Note (Current State):**
-In the current implementation, the local DB is reset during the initialization process (file deletion before rebuild). This is convenient for development, but not yet final for production offline use.
-
----
-
-## Project Structure
-
-*(Add a brief overview of your directory tree here if required by the grading rubric)*
-
----
-
-## Current Development Status / Notes
-
-*(Add any final notes on missing features, known bugs, or next steps here)*
+- To inspect all of our own documentation, excluding all of Dioxus' documentation, you can run:
+   ```bash
+   cargo doc --no-deps --open 
+   ```
