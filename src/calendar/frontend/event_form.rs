@@ -106,13 +106,13 @@ pub fn EventForm(
 
     let to_date_formatted = use_memo(move || {
         if is_all_day() {
-            to_date().unwrap_or_default().date_naive().to_string()
+            to_date()
+                .map(|d| d.date_naive().to_string())
+                .unwrap_or_else(|| "".to_string())
         } else {
             to_date()
-                .unwrap_or_default()
-                .naive_utc()
-                .format("%Y-%m-%dT%H:%M")
-                .to_string()
+                .map(|d| d.naive_utc().format("%Y-%m-%dT%H:%M").to_string())
+                .unwrap_or_else(|| "".to_string())
         }
     });
 
@@ -325,8 +325,6 @@ pub fn EventForm(
                                     });
                                 },
                                 EventFormMode::Edit(e) => {
-                                    println!("from_date: {:?}", from_date());
-                                    println!("to_date: {:?}", to_date());
                                     spawn(async move {
                                         match edit_single_calendar_event(CalendarEvent{
                                             id: id(),
