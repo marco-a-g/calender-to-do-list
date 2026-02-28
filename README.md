@@ -21,8 +21,10 @@ The normal installation has to go through the following steps:
     curl -sSL https://dioxus.dev/install.sh | bash
 
 Steps you might need to do in case the view is not loading correctly:
-    it might occur that the ciew is looking faulty with white edges and some views after login not working correctly
-    this might happen because the tailwind didnt finish building bevor the application starts, in this case you need
-    to rebuild the app after serving with 'r' in the terminal or click ctrl + c and serve again
+    run in this order:  dx build --desktop
+                        dx serve --desktop
+    this is needed because of race conditions, if you only do dx serve --desktop, it can happen that the application
+    is built and started bevor the tailwind is generated. Otherwise you can also try just rebuilding the app with 'r'
+    but in this way the application wont look correct in the first build
 
-If you see that the Tailwind.css is not generated at all, it could be that you're not on the latest dioxus version
+If you see that the Tailwind.css is not generated at all, it could be that you're not on the latest dioxus version (min. 0.7)
