@@ -68,7 +68,7 @@ pub async fn delete_instance_of_recurrent_event(
                         .await?;
                     }
                     for adopted in exceptions {
-                        if let Some(_) = adopted.recurrence_exception.unwrap().overrides {
+                        if adopted.recurrence_exception.unwrap().overrides.is_some() {
                             delete_single_calendar_event(adopted.id).await?;
                         } else {
                             edit_calendar_event_unchecked(CalendarEvent {
@@ -96,7 +96,7 @@ pub async fn delete_instance_of_recurrent_event(
                     }
                 } else if let Some(true) = keep_orphans {
                     for adopted in exceptions {
-                        if let Some(_) = adopted.recurrence_exception.unwrap().overrides {
+                        if adopted.recurrence_exception.unwrap().overrides.is_some() {
                             delete_single_calendar_event_unchecked(adopted.id).await?;
                         } else {
                             edit_calendar_event_unchecked(CalendarEvent {
@@ -214,30 +214,35 @@ pub async fn delete_instance_of_recurrent_event(
                 .unwrap();
             #[allow(unused)]
             let date_before = match rec_event.recurrence.unwrap().rrule {
+                #[allow(clippy::diverging_sub_expression)]
                 Rrule::Daily => rec_event
                     .recurrence
                     .unwrap()
                     .recurrence_until
                     .checked_sub_days(Days::new(1))
                     .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
+                #[allow(clippy::diverging_sub_expression)]
                 Rrule::Weekly => rec_event
                     .recurrence
                     .unwrap()
                     .recurrence_until
                     .checked_sub_days(Days::new(7))
                     .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
+                #[allow(clippy::diverging_sub_expression)]
                 Rrule::Fortnight => rec_event
                     .recurrence
                     .unwrap()
                     .recurrence_until
                     .checked_sub_days(Days::new(14))
                     .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
+                #[allow(clippy::diverging_sub_expression)]
                 Rrule::MonthlyOnDate => rec_event
                     .recurrence
                     .unwrap()
                     .recurrence_until
                     .checked_sub_months(Months::new(1))
                     .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
+                #[allow(clippy::diverging_sub_expression)]
                 Rrule::Annual => rec_event
                     .recurrence
                     .unwrap()
@@ -430,7 +435,11 @@ pub async fn delete_calendar_event_without_changed_instances(
     event_id: Uuid,
 ) -> core::result::Result<(), ServerFnError> {
     // check wether event is recurrent
-    if let Some(_) = get_calendar_event_from_remote(event_id).await?.recurrence {
+    if get_calendar_event_from_remote(event_id)
+        .await?
+        .recurrence
+        .is_some()
+    {
         let children = get_calendar_events_by_recurrence_id(event_id).await?;
         let mut orphanage: Vec<(Uuid, StatusCode)> = Vec::new();
         let mut to_be_deleted: Vec<Uuid> = Vec::new();
@@ -468,9 +477,10 @@ pub async fn delete_calendar_event_without_changed_instances(
         let mut not_orphaned: Vec<(Uuid, StatusCode, ServerFnError)> = Vec::new();
         //check orphanage worked
         for orphan in orphanage {
-            if let Some(_) = get_calendar_event_from_remote(orphan.0)
+            if get_calendar_event_from_remote(orphan.0)
                 .await?
                 .recurrence_exception
+                .is_some()
             {
                 not_orphaned.push((
                     orphan.0,
@@ -520,7 +530,11 @@ pub async fn delete_calendar_event_with_all_instances(
     event_id: Uuid,
 ) -> core::result::Result<(), ServerFnError> {
     // check wether event is recurrent and delete element and instances
-    if let Some(_) = get_calendar_event_from_remote(event_id).await?.recurrence {
+    if get_calendar_event_from_remote(event_id)
+        .await?
+        .recurrence
+        .is_some()
+    {
         let mut children = get_calendar_events_ids_by_recurrence_id(event_id).await?;
         children.push(event_id);
         let mut deleted: Vec<(Uuid, StatusCode)> = Vec::new();

@@ -304,9 +304,10 @@ pub struct GroupMemberLight {
 
 /// A calendar is either
 /// - belonging to a user
-///  then list_type must be set to "private" and an owner_id must be provided.
+///   then list_type must be set to "private" and an owner_id must be provided.
 /// - or to a group
-///  then list_type must be set to "group" and a group_id must be provided.
+///   then list_type must be set to "group" and a group_id must be provided.
+///
 /// There must only be one, either owner_id or group_id.
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct CalendarLight {

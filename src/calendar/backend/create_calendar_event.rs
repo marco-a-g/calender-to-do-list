@@ -28,6 +28,7 @@ struct NewCalendarEvent {
 }
 
 // #[server]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_calendar_event(
     summary: String,
     description: Option<String>,
@@ -88,6 +89,7 @@ pub async fn create_calendar_event(
 }
 
 // #[server]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_calendar_event_unchecked(
     summary: String,
     description: Option<String>,

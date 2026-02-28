@@ -574,7 +574,7 @@ pub async fn edit_single_calendar_event(
     .await?;
 
     edit_calendar_event_unchecked(new_version.clone()).await?;
-    
+
     let uploaded = get_calendar_event_from_remote(new_version.id).await?;
     if new_version.description != uploaded.description
         || new_version.from_date_time != uploaded.from_date_time
