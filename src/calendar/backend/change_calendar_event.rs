@@ -34,6 +34,7 @@ pub struct CalendarEventUp {
 ///
 /// ## Arguments
 /// - `instance`- the changed instance of the event.
+/// 
 /// The function checks wether the instance allready exists in supabase or otherwise (when the `Id` of the given instance is just a fake one for the frontend) creates a new instance for the change.
 ///
 /// ## Errors
@@ -624,6 +625,7 @@ pub async fn edit_single_calendar_event(
 ///
 /// ## Arguments
 /// - `changed_event`- the changed version of the event.
+/// 
 /// The function checks wether the instance allready exists in supabase or otherwise (when the `Id` of the given instance is just a fake one for the frontend) creates a new instance for the change.
 ///
 /// ## Errors
