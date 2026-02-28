@@ -15,7 +15,7 @@ const DB_PATH: &str = "src/database/local/local_Database.db";
 
 /// Initializes base SQLite connection configuration.
 ///
-/// `LazyLock` enforces that the connection string is formatted and parsed exactly once.
+/// `LazyLock` enforces that the connection string is formatted and paresd exactly once.
 /// Automatically creates local Database file if it does not exist yet at specified `DB_PATH`.
 ///
 /// # Panics
@@ -42,7 +42,7 @@ pub static POOL_LOCAL_DB: OnceLock<SqlitePool> = OnceLock::new();
 ///    `group_members`, `calendars`, `calendar_events`, `todo_lists`,, `todo_events`)
 /// - Stores the connection pool inside the `OnceLock`, for global access.
 ///
-/// ## Errors
+/// # Errors
 ///
 /// Returns a `ServerFnError` if:
 /// - Connection to the database file cannot be created.
@@ -199,7 +199,7 @@ pub async fn init_database() -> Result<(), ServerFnError> {
 ///
 /// Accesses global connection pool, that is initialized prior in form of a OnceLock
 ///
-/// ## Errors
+/// # Errors
 ///
 /// Returns a `ServerFnError` if  pool has not been initialized yet
 pub fn get_pool_lokal_db() -> Result<&'static sqlx::SqlitePool, ServerFnError> {
@@ -210,7 +210,7 @@ pub fn get_pool_lokal_db() -> Result<&'static sqlx::SqlitePool, ServerFnError> {
 
 /// Retrieves all Groups from the local database as a vector of GroupLight.
 ///
-/// ## Errors
+/// # Errors
 ///
 /// Returns a `ServerFnError` if:
 /// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
@@ -226,7 +226,7 @@ pub async fn fetch_groups_lokal_db() -> Result<Vec<GroupLight>, ServerFnError> {
 
 /// Retrieves all todo-lists from the local database as a vector of TodoListLight.
 ///
-/// ## Errors
+/// # Errors
 ///
 /// Returns a `ServerFnError` if:
 /// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
@@ -249,7 +249,7 @@ pub async fn fetch_todo_lists_lokal_db() -> Result<Vec<TodoListLight>, ServerFnE
 
 /// Retrieves all todos from the local database as a vector of TodoEventLight.
 ///
-/// ## Errors
+/// # Errors
 ///
 /// Returns a `ServerFnError` if:
 /// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
@@ -265,7 +265,7 @@ pub async fn fetch_todo_events_lokal_db() -> Result<Vec<TodoEventLight>, ServerF
 
 /// Retrieves all "member of Group" entries from the local database as a vector of GroupMemberLight.
 ///
-/// ## Errors
+/// # Errors
 ///
 /// Returns a `ServerFnError` if:
 /// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
@@ -281,7 +281,7 @@ pub async fn fetch_group_members_lokal_db() -> Result<Vec<GroupMemberLight>, Ser
 
 /// Retrieves all userprofiles from the local database as a vector of ProfileLight.
 ///
-/// ## Errors
+/// # Errors
 ///
 /// Returns a `ServerFnError` if:
 /// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
@@ -297,7 +297,7 @@ pub async fn fetch_profiles_lokal_db() -> Result<Vec<ProfileLight>, ServerFnErro
 
 /// Retrieves all calendars-events from the local database as a vector of CalendarEventLight.
 ///
-/// ## Errors
+/// # Errors
 ///
 /// Returns a `ServerFnError` if:
 /// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
@@ -313,7 +313,7 @@ pub async fn fetch_calendar_events_lokal_db() -> Result<Vec<CalendarEventLight>,
 
 /// Retrieves all calendars from the local database as a vector of CalendarLight.
 ///
-/// ## Errors
+/// # Errors
 ///
 /// Returns a `ServerFnError` if:
 /// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).

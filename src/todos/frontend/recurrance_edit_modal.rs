@@ -40,7 +40,6 @@ pub fn EditRecurrenceChoiceModal(
                 // Icon / Header
                 div {
                     div {
-                        // NEU: SVG entfernt, font-size hinzugefügt, Emoji eingesetzt
                         style: "background: rgba(58, 107, 255, 0.1); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; color: #3A6BFF; font-size: 24px;",
                         "🔄"
                     }
