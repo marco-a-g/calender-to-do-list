@@ -21,9 +21,8 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 - 
 - 
 - **Paul:**
-- Key contributions:
--  
--  
+- Key contributions: Supabase Setup, Authentication Backend & Frontend, Profiles Backend & Frontend, Calendars connection between Backend and Frontend
+- Used LLMs (GPT, Claude) for research, troubleshooting, Supabase setup, help with css
 
 
 - **General:**
@@ -240,6 +239,7 @@ Planify is designed for productive team and/or self-organization:
 - **UI/Frontend:** Dioxus
 - **HTTP/API:** reqwest
 - **Auth/Backend Connection:** Supabase
+- **Main database:** Supabase (PostgreSQL)
 - **Local Data Storage:** SQLite (sqlx)
 
 Planify uses a local SQLite database and synchronizes with Supabase.
