@@ -43,7 +43,7 @@ fn card_style(width: &str) -> String {
 
 #[component]
 pub fn CreateProfileView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -> Element {
-    let mut username = use_signal(|| String::new());
+    let mut username = use_signal(String::new);
     let mut info = use_signal(|| None::<String>);
     let mut error = use_signal(|| None::<String>);
     let mut status = use_signal(|| None::<bool>);
@@ -54,7 +54,7 @@ pub fn CreateProfileView(auth_status: Signal<AuthStatus>, auth_view: Signal<Auth
         let name = username();
 
         // check only on input
-        if name.len() <= 0 {
+        if name.is_empty() {
             checking.set(false);
             status.set(None);
             return;

@@ -141,7 +141,7 @@ pub async fn signup(email: &str, password: &str) -> Result<(), AuthError> {
 pub async fn logout() -> Result<(), AuthError> {
     let client = get_client()?;
 
-    let response = client.auth().sign_out().await?;
+    client.auth().sign_out().await?;
 
     Ok(())
 }

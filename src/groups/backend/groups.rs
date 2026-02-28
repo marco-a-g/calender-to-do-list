@@ -8,9 +8,6 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use server_fn::error::ServerFnError;
 
-// Transfer type for group data: (group_id, name, color_hex, member_count)
-type GroupTransfer = (String, String, String, i32);
-
 const DEFAULT_GROUP_COLOR: &str = "#3A6BFF";
 
 #[derive(Debug, Deserialize)]
@@ -27,122 +24,6 @@ struct CreateGroupPayload {
     name: String,
     color: String,
     owner_id: String,
-}
-// Fetches all groups visible to the current user.
-// Only returns groups where the user's role is not 'invited' (i.e., accepted members only)
-//#[server]
-pub async fn fetch_groups(
-    user_id: String,
-    _access_token: String,
-) -> Result<Vec<GroupTransfer>, ServerFnError> {
-    let url = SUPABASE_URL;
-    let key = ANON_KEY;
-    let token = get_user_id_and_session_token().await?.1;
-    let client = reqwest::Client::new();
-
-    // Join group_members with groups, excluding pending invites
-    let endpoint = format!(
-        "{}/rest/v1/group_members?user_id=eq.{}&role=neq.invited&select=group_id,role,groups(id,name,color,created_at)&order=joined_at.desc",
-        url, user_id
-    );
-
-    let response = client
-        .get(&endpoint)
-        .header("apikey", key)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "application/json")
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("fetch_groups request: {e}")))?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "(no body)".to_string());
-        return Err(ServerFnError::new(format!(
-            "fetch_groups Supabase {}: {}",
-            status, body
-        )));
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct GroupJoin {
-        id: String,
-        name: String,
-        color: Option<String>,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct MemberWithGroup {
-        groups: Option<GroupJoin>,
-    }
-
-    let rows: Vec<MemberWithGroup> = response
-        .json()
-        .await
-        .map_err(|e| ServerFnError::new(format!("fetch_groups json: {e}")))?;
-
-    let group_ids: Vec<String> = rows
-        .iter()
-        .filter_map(|r| r.groups.as_ref().map(|g| g.id.clone()))
-        .collect();
-
-    let mut member_counts: std::collections::HashMap<String, i32> =
-        std::collections::HashMap::new();
-
-    if !group_ids.is_empty() {
-        let ids_param = group_ids
-            .iter()
-            .map(|id| format!("\"{}\"", id))
-            .collect::<Vec<_>>()
-            .join(",");
-
-        let count_endpoint = format!(
-            "{}/rest/v1/group_members?group_id=in.({})&role=neq.invited&select=group_id",
-            url, ids_param
-        );
-
-        let count_response = client
-            .get(&count_endpoint)
-            .header("apikey", key)
-            .header("Authorization", format!("Bearer {}", token))
-            .send()
-            .await
-            .ok();
-
-        if let Some(resp) = count_response {
-            if resp.status().is_success() {
-                #[derive(Deserialize)]
-                struct MemberCount {
-                    group_id: String,
-                }
-
-                if let Ok(members) = resp.json::<Vec<MemberCount>>().await {
-                    for m in members {
-                        *member_counts.entry(m.group_id).or_insert(0) += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    let result: Vec<GroupTransfer> = rows
-        .into_iter()
-        .filter_map(|r| {
-            r.groups.map(|g| {
-                let color = g
-                    .color
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or_else(|| DEFAULT_GROUP_COLOR.to_string());
-                let count = member_counts.get(&g.id).copied().unwrap_or(0);
-                (g.id, g.name, color, count)
-            })
-        })
-        .collect();
-
-    Ok(result)
 }
 
 // Fetches a single group by ID
@@ -441,23 +322,4 @@ pub async fn leave_group(
         .map_err(|e| ServerFnError::new(e.to_string()))?;
 
     Ok(())
-}
-
-// Sets user's preferred color for a group (not yet implemented)
-//#[server]
-pub async fn set_group_color(
-    _user_id: String,
-    _group_id: String,
-    _color: String,
-) -> Result<(), ServerFnError> {
-    Ok(())
-}
-
-// Gets user's preferred color for a group (not yet implemented)
-//#[server]
-pub async fn get_group_color(
-    _user_id: String,
-    _group_id: String,
-) -> Result<Option<String>, ServerFnError> {
-    Ok(Some(DEFAULT_GROUP_COLOR.to_string()))
 }

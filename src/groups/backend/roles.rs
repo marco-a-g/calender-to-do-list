@@ -11,9 +11,6 @@ use dioxus_logger::tracing::{debug, warn};
 use serde::Deserialize;
 use server_fn::error::ServerFnError;
 
-// Member data for the roles UI: (user_id, username, role)
-pub type MemberWithRole = (String, String, String);
-
 fn bearer(token: &str) -> String {
     format!("Bearer {token}")
 }
@@ -57,103 +54,6 @@ async fn get_user_role(
         .map_err(|e| ServerFnError::new(format!("Parse role error: {e}")))?;
 
     Ok(roles.first().map(|r| r.role.clone()))
-}
-
-#[derive(Deserialize)]
-struct MemberRow {
-    user_id: String,
-    role: String,
-}
-
-#[derive(Deserialize)]
-struct ProfileRow {
-    id: String,
-    username: Option<String>,
-}
-
-// Retrieves all group members with their usernames and roles
-//#[server]
-pub async fn fetch_members_with_roles(
-    group_id: String,
-    access_token: String,
-) -> Result<Vec<MemberWithRole>, ServerFnError> {
-    let client = reqwest::Client::new();
-    let auth = bearer(&access_token);
-    debug!("fetch_members_with_roles: group_id={}", group_id);
-
-    // Fetch all members of the group
-    let members_url = format!(
-        "{}/rest/v1/group_members?group_id=eq.{}&select=user_id,role&order=joined_at.asc",
-        SUPABASE_URL, group_id
-    );
-
-    let members_response = client
-        .get(&members_url)
-        .header("apikey", ANON_KEY)
-        .header("Authorization", &auth)
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Fetch members error: {e}")))?;
-
-    debug!("members_response status={}", members_response.status());
-
-    if !members_response.status().is_success() {
-        let err = members_response.text().await.unwrap_or_default();
-        return Err(ServerFnError::new(format!("Fetch members failed: {err}")));
-    }
-
-    let members: Vec<MemberRow> = members_response
-        .json()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Parse members error: {e}")))?;
-
-    if members.is_empty() {
-        return Ok(vec![]);
-    }
-
-    // Batch fetch usernames for all member user_ids
-    let user_ids: Vec<&str> = members.iter().map(|m| m.user_id.as_str()).collect();
-    let ids_filter = user_ids
-        .iter()
-        .map(|id| format!("\"{}\"", id))
-        .collect::<Vec<_>>()
-        .join(",");
-
-    let profiles_url = format!(
-        "{}/rest/v1/profiles?id=in.({})&select=id,username",
-        SUPABASE_URL, ids_filter
-    );
-
-    let profiles_response = client
-        .get(&profiles_url)
-        .header("apikey", ANON_KEY)
-        .header("Authorization", &auth)
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Fetch profiles error: {e}")))?;
-
-    debug!("profiles_response status={}", profiles_response.status());
-
-    let profiles: Vec<ProfileRow> = if profiles_response.status().is_success() {
-        profiles_response.json().await.unwrap_or_default()
-    } else {
-        vec![]
-    };
-
-    // Combine members with their usernames
-    let result: Vec<MemberWithRole> = members
-        .into_iter()
-        .map(|m| {
-            let username = profiles
-                .iter()
-                .find(|p| p.id == m.user_id)
-                .and_then(|p| p.username.clone())
-                .unwrap_or_else(|| "Unknown".to_string());
-            (m.user_id, username, m.role)
-        })
-        .collect();
-
-    Ok(result)
 }
 
 // Changes a member's role (promote to admin or demote to member)

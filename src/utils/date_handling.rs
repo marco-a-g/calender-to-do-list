@@ -114,7 +114,7 @@ fn add_months_same_date(
 
     //falls wiederholendes todo in nächsten monat fallen würde letzten Tag des monats suchen (bsp. Wdh. Event am 31. März soll dann 30.April nicht 1. Mai) ...
     let day_raw = handle_last_day_of_month(year, month as u32)
-        .ok_or_else(|| format!("Date conversion invalid in fn add_months_same_date"))?;
+        .ok_or_else(|| "Date conversion invalid in fn add_months_same_date".to_string())?;
 
     //...und das kleinere der beiden nehmen
     let day = std::cmp::min(preferered_day_on_exception, day_raw);
@@ -171,14 +171,14 @@ fn add_month_on_same_weekday(
 
     //Sucht den ersten Wochentag des Monats, der gleich des Todo DueDate-Tages ist
     while date_result.weekday() != weekday {
-        date_result = date_result + Duration::days(1);
+        date_result += Duration::days(1);
     }
     //springt auf n-ten Wochentag des Monats vor
-    date_result = date_result + Duration::weeks((nth_weekday_of_month - 1) as i64);
+    date_result += Duration::weeks((nth_weekday_of_month - 1) as i64);
 
     //Wenn nächster passender Wochentag erst im übernächsten monat eine woche zurück gehen, letzten passenden Wochentag nehmen
     if date_result.month() != next_month {
-        date_result = date_result - Duration::weeks(1);
+        date_result -= Duration::weeks(1);
     }
 
     Ok(date_result) // Gibt das berechnete Datum zurück

@@ -85,7 +85,7 @@ pub fn DashboardView() -> Element {
 //Widget für Datum und Uhrzeit
 #[component]
 pub fn DashboardDateTimeWidget() -> Element {
-    let mut current_time = use_signal(|| Local::now());
+    let mut current_time = use_signal(Local::now);
     //Uhrzeit aktualisieren im Hintergrund
     use_future(move || async move {
         loop {

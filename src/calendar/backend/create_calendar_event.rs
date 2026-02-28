@@ -1,9 +1,8 @@
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
 use server_fn::error::ServerFnError;
-use supabase::client::*;
 use uuid::Uuid;
 
 use crate::auth::backend::*;
@@ -45,11 +44,11 @@ pub async fn create_calendar_event(
 ) -> core::result::Result<(), ServerFnError> {
     match check_input_sensibility(
         summary.clone(),
-        calendar_id.clone(),
-        from_date_time.clone(),
-        to_date_time.clone(),
-        recurrence.clone(),
-        recurrence_exception.clone(),
+        calendar_id,
+        from_date_time,
+        to_date_time,
+        recurrence,
+        recurrence_exception,
     )
     .await
     {
@@ -109,32 +108,24 @@ pub async fn create_calendar_event_unchecked(
     // println!("user_id und token erstellt");
     // fit data into a NewCalendarEvent for building the json
     let new_cal_event = NewCalendarEvent {
-        summary: summary,
-        description: description,
+        summary,
+        description,
         calendar_id: calendar_id.to_string(),
         from_date_time: from_date_time.to_string(),
-        to_date_time: match to_date_time {
-            Some(t) => Some(t.to_string()),
-            None => None,
-        },
-        attachment: attachment.into(),
-        rrule: match &recurrence {
-            Some(r) => Some(r.rrule.to_string().to_lowercase()),
-            None => None,
-        },
-        recurrence_until: match &recurrence {
-            Some(r) => Some(r.recurrence_until.to_string()),
-            None => None,
-        },
-        recurrence_id: match &recurrence_exception {
-            Some(r) => Some(r.recurrence_id.to_string()),
-            None => None,
-        },
+        to_date_time: to_date_time.map(|t| t.to_string()),
+        attachment,
+        rrule: recurrence
+            .as_ref()
+            .map(|r| r.rrule.to_string().to_lowercase()),
+        recurrence_until: recurrence.as_ref().map(|r| r.recurrence_until.to_string()),
+        recurrence_id: recurrence_exception
+            .as_ref()
+            .map(|r| r.recurrence_id.to_string()),
         overrides_datetime: match &recurrence_exception {
-            Some(r) => match &r.overrides {
-                Some(o) => Some(o.overrides_datetime.to_string()),
-                None => None,
-            },
+            Some(r) => r
+                .overrides
+                .as_ref()
+                .map(|o| o.overrides_datetime.to_string()),
             None => None,
         },
         skipped: match &recurrence_exception {
@@ -144,11 +135,8 @@ pub async fn create_calendar_event_unchecked(
             },
             None => false.to_string(),
         },
-        location: location.into(),
-        category: match categories {
-            Some(c) => Some(c.join(", ")),
-            None => None,
-        },
+        location,
+        category: categories.map(|c| c.join(", ")),
         is_all_day: is_all_day.to_string(),
     };
     // println!("new_cal_event erstellt");

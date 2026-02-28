@@ -38,8 +38,8 @@ fn card_style(width: &str) -> String {
 
 #[component]
 pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -> Element {
-    let mut email = use_signal(|| String::new());
-    let mut password = use_signal(|| String::new());
+    let mut email = use_signal(String::new);
+    let mut password = use_signal(String::new);
     let mut remember_me = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
 
@@ -150,11 +150,11 @@ pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -
 
 #[component]
 pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
-    let mut firstname = use_signal(|| String::new());
-    let mut lastname = use_signal(|| String::new());
-    let mut phone = use_signal(|| String::new());
-    let mut email = use_signal(|| String::new());
-    let mut password = use_signal(|| String::new());
+    let mut firstname = use_signal(String::new);
+    let mut lastname = use_signal(String::new);
+    let mut phone = use_signal(String::new);
+    let mut email = use_signal(String::new);
+    let mut password = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
     let mut info = use_signal(|| None::<String>);
 

@@ -46,11 +46,11 @@ pub fn CreateEditListModal(
     selected_list: Signal<ListFilter>,
 ) -> Element {
     //Standardwerte für neue ToDoListe setzen
-    let mut new_list_title = use_signal(|| String::new());
-    let mut new_list_description = use_signal(|| String::new());
-    let mut new_list_group_id = use_signal(|| String::new());
-    let mut new_list_event_id = use_signal(|| String::new());
-    let mut new_list_due_date = use_signal(|| String::new());
+    let mut new_list_title = use_signal(String::new);
+    let mut new_list_description = use_signal(String::new);
+    let mut new_list_group_id = use_signal(String::new);
+    let mut new_list_event_id = use_signal(String::new);
+    let mut new_list_due_date = use_signal(String::new);
     let mut new_list_priority = use_signal(|| "normal".to_string());
     //Recurrance bei Listen vorerst nicht
     //let mut new_list_rrule = use_signal(|| String::new());
@@ -166,7 +166,7 @@ pub fn CreateEditListModal(
                 let edited_list = TodoListLight {
                     id: existing_list.id.clone(),
                     name: title,
-                    description: description,
+                    description,
                     list_type: if group_id_str.is_empty() {
                         "private".to_string()
                     } else {

@@ -1,8 +1,15 @@
 /*
-Groups overview UI component
+Side Note Important! :  be aware that major parts of the css styling was made with LLM's (GroundLayer with ChatGpt & some details with Claude)
+                        refactoring parts were consulted with LLM (Claude)
+                        anything else is highlighted in the spot where it was used
+*/
+
+/*
+Groups overview UI component.
+
 Displays a list of groups as clickable rows. Clicking a group navigates
-to its detail page. This component is purely presentational - all data
-fetching is handled by the parent component
+to its detail page. This component is purely presentational — all data
+fetching is handled by the parent component.
 */
 
 use dioxus::prelude::*;
@@ -11,11 +18,11 @@ use server_fn::error::ServerFnError;
 
 use crate::Route;
 
-// Resource type for group list data
+// Resource type for group list data.
 // Tuple: (group_id, name, color_hex, member_count)
 pub type GroupsRes = Resource<Result<Vec<(String, String, String, i32)>, ServerFnError>>;
 
-// Renders the groups list or a loading/error state based on resource status
+/// Renders the groups list or a loading/error state based on resource status.
 #[component]
 pub fn GroupsOverview(groups_res: GroupsRes) -> Element {
     rsx! {
@@ -40,7 +47,7 @@ pub fn GroupsOverview(groups_res: GroupsRes) -> Element {
     }
 }
 
-// Single group row. Navigates to group detail page on click
+/// Single group row. Navigates to group detail page on click.
 #[component]
 fn GroupRow(id: String, name: String, color: String, member_count: i32) -> Element {
     let nav = use_navigator();
@@ -48,7 +55,6 @@ fn GroupRow(id: String, name: String, color: String, member_count: i32) -> Eleme
     rsx! {
         div {
             onclick: {
-                let nav = nav.clone();
                 let id = id.clone();
                 move |_| {
                     nav.push(Route::GroupDetail { id: id.clone() });

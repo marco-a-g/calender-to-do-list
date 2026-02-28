@@ -1,15 +1,13 @@
-use chrono::{DateTime, Datelike, Days, Local, Months, NaiveDateTime, TimeZone, Utc, Weekday};
+use chrono::{DateTime, Datelike, Days, Months, Utc};
 use dioxus::prelude::*;
 use reqwest::*;
-use serde::{Deserialize, Serialize};
 use server_fn::error::ServerFnError;
-use supabase::client::*;
 use uuid::Uuid;
 
 use crate::auth::backend::*;
-use crate::calendar::backend::change_calendar_event::{self, *};
+use crate::calendar::backend::change_calendar_event::*;
 use crate::calendar::backend::create_calendar_event::*;
-use crate::calendar::backend::utils::{check_deleted, check_input_sensibility};
+use crate::calendar::backend::utils::check_deleted;
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::date_handling::calculate_next_date;
 use crate::utils::{functions::*, structs::*};
@@ -41,9 +39,9 @@ pub async fn delete_instance_of_recurrent_event(
         // check if this is the only regular instance and handle orphans
         if rec_event.from_date_time == rec_event.recurrence.unwrap().recurrence_until {
             let exceptions = get_calendar_events_by_recurrence_id(recurrent_event_id).await?;
-            if exceptions.len() != 0 {
+            if !exceptions.is_empty() {
                 if let Some(p_o_t) = pass_on_to {
-                    if let None = p_o_t.recurrence {
+                    if p_o_t.recurrence.is_none() {
                         edit_calendar_event(
                             CalendarEvent {
                                 id: p_o_t.id,
@@ -135,7 +133,7 @@ pub async fn delete_instance_of_recurrent_event(
             return Ok(());
         }
         if cur_instance_date == rec_event.from_date_time {
-            if exception_event.len() > 0 {
+            if !exception_event.is_empty() {
                 let excep = exception_event.pop().unwrap();
                 delete_single_calendar_event(excep.id).await?;
             }
@@ -188,13 +186,13 @@ pub async fn delete_instance_of_recurrent_event(
             );
             let response_event_text = get_elements_from_remote_by_url_string_unchecked(url).await?;
             let skippy = parse_response_string_to_calendar_events(response_event_text).await?;
-            if skippy.len() == 0 {
+            if skippy.is_empty() {
                 break;
             } else {
                 cur_instance_date = next_date;
             }
         } else if cur_instance_date == rec_event.recurrence.unwrap().recurrence_until {
-            if exception_event.len() > 0 {
+            if !exception_event.is_empty() {
                 let excep = exception_event.pop().unwrap();
                 delete_single_calendar_event(excep.id).await?;
             }
@@ -359,69 +357,67 @@ pub async fn delete_instance_of_recurrent_event(
             );
             let response_event_text = get_elements_from_remote_by_url_string_unchecked(url).await?;
             let skippy = parse_response_string_to_calendar_events(response_event_text).await?;
-            if skippy.len() == 0 {
+            if skippy.is_empty() {
                 break;
             }
+        } else if !exception_event.is_empty() {
+            let excep = exception_event.pop().unwrap();
+            edit_calendar_event_unchecked(CalendarEvent {
+                id: excep.id,
+                summary: excep.summary,
+                description: excep.description,
+                calendar_id: excep.calendar_id,
+                created_at: excep.created_at,
+                created_by: excep.created_by,
+                from_date_time: excep
+                    .recurrence_exception
+                    .unwrap()
+                    .overrides
+                    .unwrap()
+                    .overrides_datetime,
+                to_date_time: excep.to_date_time,
+                attachment: excep.attachment,
+                recurrence: None,
+                recurrence_exception: Some(RecurrenceException {
+                    recurrence_id: excep.recurrence_exception.unwrap().recurrence_id,
+                    overrides: Some(Overrides {
+                        overrides_datetime: excep
+                            .recurrence_exception
+                            .unwrap()
+                            .overrides
+                            .unwrap()
+                            .overrides_datetime,
+                        skipped: true,
+                    }),
+                }),
+                location: excep.location,
+                categories: excep.categories,
+                is_all_day: excep.is_all_day,
+                last_mod: Utc::now(),
+            })
+            .await?;
+            return Ok(());
         } else {
-            if exception_event.len() > 0 {
-                let excep = exception_event.pop().unwrap();
-                edit_calendar_event_unchecked(CalendarEvent {
-                    id: excep.id,
-                    summary: excep.summary,
-                    description: excep.description,
-                    calendar_id: excep.calendar_id,
-                    created_at: excep.created_at,
-                    created_by: excep.created_by,
-                    from_date_time: excep
-                        .recurrence_exception
-                        .unwrap()
-                        .overrides
-                        .unwrap()
-                        .overrides_datetime,
-                    to_date_time: excep.to_date_time,
-                    attachment: excep.attachment,
-                    recurrence: None,
-                    recurrence_exception: Some(RecurrenceException {
-                        recurrence_id: excep.recurrence_exception.unwrap().recurrence_id,
-                        overrides: Some(Overrides {
-                            overrides_datetime: excep
-                                .recurrence_exception
-                                .unwrap()
-                                .overrides
-                                .unwrap()
-                                .overrides_datetime,
-                            skipped: true,
-                        }),
+            return create_calendar_event(
+                "nothing".to_string(),
+                None,
+                rec_event.calendar_id,
+                cur_instance_date,
+                None,
+                None,
+                None,
+                Some(RecurrenceException {
+                    recurrence_id: rec_event.id,
+                    overrides: Some(Overrides {
+                        overrides_datetime: cur_instance_date,
+                        skipped: true,
                     }),
-                    location: excep.location,
-                    categories: excep.categories,
-                    is_all_day: excep.is_all_day,
-                    last_mod: Utc::now(),
-                })
-                .await?;
-                return Ok(());
-            } else {
-                return create_calendar_event(
-                    "nothing".to_string(),
-                    None,
-                    rec_event.calendar_id,
-                    cur_instance_date,
-                    None,
-                    None,
-                    None,
-                    Some(RecurrenceException {
-                        recurrence_id: rec_event.id,
-                        overrides: Some(Overrides {
-                            overrides_datetime: cur_instance_date,
-                            skipped: true,
-                        }),
-                    }),
-                    None,
-                    None,
-                    false,
-                )
-                .await;
-            }
+                }),
+                None,
+                None,
+                false,
+            )
+            .await;
         }
     }
     Ok(())
@@ -434,55 +430,55 @@ pub async fn delete_calendar_event_without_changed_instances(
 ) -> core::result::Result<(), ServerFnError> {
     // check wether event is recurrent
     if let Some(parent_recurrent) = get_calendar_event_from_remote(event_id).await?.recurrence {
-        let mut children = get_calendar_events_by_recurrence_id(event_id).await?;
+        let children = get_calendar_events_by_recurrence_id(event_id).await?;
         let mut orphanage: Vec<(Uuid, StatusCode)> = Vec::new();
         let mut to_be_deleted: Vec<Uuid> = Vec::new();
         to_be_deleted.push(event_id);
         //check instances for skipped for deletion or orphaning
         for child in children {
-            if let Some(excep) = child.recurrence_exception
-                && let Some(overr) = excep.overrides
-                && overr.skipped
-            {
-                to_be_deleted.push(child.id);
-            } else {
-                let orphan = CalendarEvent {
-                    id: child.id,
-                    summary: child.summary,
-                    description: child.description,
-                    calendar_id: child.calendar_id,
-                    created_at: child.created_at,
-                    created_by: child.created_by,
-                    from_date_time: child.from_date_time,
-                    to_date_time: child.to_date_time,
-                    attachment: child.attachment,
-                    recurrence: child.recurrence,
-                    recurrence_exception: None,
-                    location: child.location,
-                    categories: child.categories,
-                    is_all_day: child.is_all_day,
-                    last_mod: Utc::now(),
-                };
-                let orphaned = edit_calendar_event_unchecked(orphan).await?;
-                orphanage.push((child.id, orphaned));
+            if let Some(excep) = child.recurrence_exception {
+                if let Some(overr) = excep.overrides {
+                    if overr.skipped {
+                        to_be_deleted.push(child.id);
+                    } else {
+                        let orphan = CalendarEvent {
+                            id: child.id,
+                            summary: child.summary,
+                            description: child.description,
+                            calendar_id: child.calendar_id,
+                            created_at: child.created_at,
+                            created_by: child.created_by,
+                            from_date_time: child.from_date_time,
+                            to_date_time: child.to_date_time,
+                            attachment: child.attachment,
+                            recurrence: child.recurrence,
+                            recurrence_exception: None,
+                            location: child.location,
+                            categories: child.categories,
+                            is_all_day: child.is_all_day,
+                            last_mod: Utc::now(),
+                        };
+                        let orphaned = edit_calendar_event_unchecked(orphan).await?;
+                        orphanage.push((child.id, orphaned));
+                    }
+                }
             }
         }
         let mut not_orphaned: Vec<(Uuid, StatusCode, ServerFnError)> = Vec::new();
         //check orphanage worked
         for orphan in orphanage {
-            match get_calendar_event_from_remote(orphan.0)
+            if let Some(_) = get_calendar_event_from_remote(orphan.0)
                 .await?
                 .recurrence_exception
             {
-                Some(_) => not_orphaned.push((
+                not_orphaned.push((
                     orphan.0,
                     orphan.1,
                     ServerFnError::new("orphaning did not work"),
-                )),
-                None => {}
+                ))
             }
         }
-        if not_orphaned.len() != 0 {
+        if !not_orphaned.is_empty() {
             return Err(ServerFnError::new(format!(
                 "delete_calendar_event_without_changed Error: {:?}",
                 not_orphaned
@@ -498,19 +494,18 @@ pub async fn delete_calendar_event_without_changed_instances(
         //check if elemnts were really deleted
         let mut failed_to_delete: Vec<(Uuid, StatusCode, ServerFnError)> = Vec::new();
         for hopefully_gone in deleted {
-            match check_deleted(hopefully_gone.0, hopefully_gone.1).await {
-                Err(e) => failed_to_delete.push((hopefully_gone.0, hopefully_gone.1, e)),
-                Ok(()) => {}
+            if let Err(e) = check_deleted(hopefully_gone.0, hopefully_gone.1).await {
+                failed_to_delete.push((hopefully_gone.0, hopefully_gone.1, e))
             }
         }
-        if failed_to_delete.len() != 0 {
+        if !failed_to_delete.is_empty() {
             return Err(ServerFnError::new(format!(
                 "Failed to delete the following elements (id, StatusCode, Error): {:?}",
                 failed_to_delete
             )));
         }
         sync_local_to_remote_db().await?;
-        return Ok(());
+        Ok(())
     }
     //element non-recurrent
     else {
@@ -535,19 +530,18 @@ pub async fn delete_calendar_event_with_all_instances(
         //check if elemnts were really deleted
         let mut failed_to_delete: Vec<(Uuid, StatusCode, ServerFnError)> = Vec::new();
         for hopefully_gone in deleted {
-            match check_deleted(hopefully_gone.0, hopefully_gone.1).await {
-                Err(e) => failed_to_delete.push((hopefully_gone.0, hopefully_gone.1, e)),
-                Ok(()) => {}
+            if let Err(e) = check_deleted(hopefully_gone.0, hopefully_gone.1).await {
+                failed_to_delete.push((hopefully_gone.0, hopefully_gone.1, e))
             }
         }
-        if failed_to_delete.len() != 0 {
+        if !failed_to_delete.is_empty() {
             return Err(ServerFnError::new(format!(
                 "Failed to delete the following elements (id, StatusCode, Error): {:?}",
                 failed_to_delete
             )));
         }
         sync_local_to_remote_db().await?;
-        return Ok(());
+        Ok(())
     }
     //element non-recurrent
     else {
@@ -562,14 +556,11 @@ pub async fn delete_single_calendar_event(
 ) -> core::result::Result<(), ServerFnError> {
     // check, if element is not recurrent
     let remote_event = get_calendar_event_from_remote(event_id).await?;
-    match remote_event.recurrence {
-        Some(_) => {
-            return Err(ServerFnError::new(format!(
-                "delete_single_calendar_event Error: CalendarEvent with id: {:?} is recurrent",
-                event_id
-            )));
-        }
-        None => {}
+    if remote_event.recurrence.is_some() {
+        return Err(ServerFnError::new(format!(
+            "delete_single_calendar_event Error: CalendarEvent with id: {:?} is recurrent",
+            event_id
+        )));
     }
     // delete element
     let delete = delete_single_calendar_event_unchecked(event_id).await?;

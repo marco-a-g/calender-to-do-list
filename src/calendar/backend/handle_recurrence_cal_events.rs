@@ -1,5 +1,5 @@
 use crate::utils::{date_handling::calculate_next_date, structs::CalendarEventLight};
-use chrono::{DateTime, Duration, Timelike, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -139,8 +139,8 @@ pub fn expand_recurring_events(
             }
             //aktuell betrachtete Daten weiterstellen je nach rrule
             current_date = calculate_next_date(current_date, &rrule, start_date_of_recurrance)?;
-            current_end = current_end
-                .and_then(|ce| Some(calculate_next_date(ce, &rrule, to_dt.unwrap()).ok()?));
+            current_end =
+                current_end.and_then(|ce| calculate_next_date(ce, &rrule, to_dt.unwrap()).ok());
         }
     }
     //Ergebnisvektor aus Mastern und "Fake"-events ausgeben

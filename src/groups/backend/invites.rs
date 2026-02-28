@@ -75,11 +75,6 @@ struct RoleCheck {
     role: String,
 }
 
-#[derive(Deserialize)]
-struct ExistsCheck {
-    id: String,
-}
-
 // Sends a group invitation to a user
 //#[server]
 pub async fn invite_user(
@@ -119,29 +114,6 @@ pub async fn invite_user(
         return Err(ServerFnError::new("Only owner or admin can invite users"));
     }
 
-    // Check if user is already a member or has pending invite
-    let exists_url = format!(
-        "{}/rest/v1/group_members?group_id=eq.{}&user_id=eq.{}&select=id",
-        SUPABASE_URL, group_id, invited_user_id
-    );
-
-    let exists_response = client
-        .get(&exists_url)
-        .header("apikey", ANON_KEY)
-        .header("Authorization", &auth)
-        .send()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Exists check error: {e}")))?;
-
-    let existing: Vec<ExistsCheck> = exists_response
-        .json()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Parse exists error: {e}")))?;
-
-    if !existing.is_empty() {
-        return Err(ServerFnError::new("User is already a member or invited"));
-    }
-
     // Create invite (role defaults to 'invited' in database)
     let insert_url = format!("{}/rest/v1/group_members", SUPABASE_URL);
 
@@ -178,7 +150,6 @@ struct GroupInfo {
 
 #[derive(Deserialize)]
 struct InviteRow {
-    group_id: String,
     groups: Option<GroupInfo>,
 }
 
