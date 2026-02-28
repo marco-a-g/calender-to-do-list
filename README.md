@@ -9,29 +9,31 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 ## ⚠️ Notes/Disclaimers for Team-LMU
 
 - **Arno:**
-   - Key contributions: Navbar, Groups Backend & Frontend, Calender Frontend (Rendering)
-   - Used (Chatgpt & Claude) for research, troubleshooting, refacotring, some components and help with proper documentation, All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions) were created with LLM but also manually adjusted if needed. 
-   - The biggest LLM usage was for the Pullrequest #50, for more informations look up the General paragraph regarding Rustversion compatibility
-- **Marco:** 
-   - Key contributions: Local DB setup, sync and fetch operations, To-Do components, frontend runtime expansion of recurring tasks regarding recurrence rules, and Dashboard.
-   - Used LLMs (Gemini) for research, troubleshooting, refactoring, cumbersome Tasks like reworking SQL Querys, Documentation. All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions), created with the help of LLMs due to no experience with frontend-development.
-   - The two placeholders in the Dashboard for future expansion (Newsfeed and Chat) are explicitly created fully by a LLM.
-- **Max:** 
-   - Key contributions:
-   - 
-   -
-- **Paul:** 
-   - Key contributions:
-   - 
-   -
+- Key contributions: Navbar, Groups Backend & Frontend, Calender Frontend (Rendering)
+- Used (Chatgpt & Claude) for research, troubleshooting, refacotring, some components and help with proper documentation, All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions) were created with LLM but also manually adjusted if needed. 
+- The biggest LLM usage was for the Pullrequest #50, for more informations look up the General paragraph regarding Rustversion compatibility
+- **Marco:**
+- Key contributions: Local DB setup, sync and fetch operations, To-Do components, frontend runtime expansion of recurring tasks regarding recurrence rules, and Dashboard.
+- Used LLMs (Gemini) for research, troubleshooting, refactoring, cumbersome Tasks like reworking SQL Querys, Documentation. All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions), created with the help of LLMs due to no experience with frontend-development.
+- The two placeholders in the Dashboard for future expansion (Newsfeed and Chat) are explicitly created fully by a LLM.
+- **Max:**
+- Key contributions:
+- 
+- 
+- **Paul:**
+- Key contributions:
+-  
+-  
 
 
 - **General:**
-   - server_fn, #[server], #[cfg(not(feature = "server"))]: Initially, we planned to offer two ways to access the application: as a desktop app and via a web browser using a standalone server. Hence, we began structuring our functions logic using Dioxus's server types. We later narrowed the project's scope to desktop-only and decided to keep these function signatures to facilitate an easierf transition to the web in the future.
-   - Two days before the deadline, we realized the assignment strictly required Rust 1.85, whereas we had been developing on a newer version we downloaded at the start of the course. Downgrading Rust triggered severe dependency conflicts and sub-crate incompatibilities. To resolve these complex issues and refactor the affected functions within the remaining time, we heavily relied on cargo clippy and LLM assistance. In the heat of the moment, these changes were implemented directly on an active working branch used for refactoring the group module. The resulting merge combines both the dependency resolution and the group module updates, not an isolated feature and may signal wrong git blame information as Arno committed these changes (e.g. Calendar backend functions even though Max wrote them, but refactoring implied some minor changes to fit 1.85.0)
-   - In some of our Pull-Requests on Github we used Github's Copilot to review our changes.
-   - Specific minor usage of LLMs is documented in the code itself.
-   - Due to Dioxus's dependency on native system libraries for UI rendering, running the app inside a Devcontainer won't work. As discussed, a detailed setup walkthrough is provided.  
+  - server_fn, #[server], #[cfg(not(feature = "server"))]: Initially, we planned to offer two ways to access the application: as a desktop app and via a web browser using a standalone server. Hence, we began structuring our functions logic using Dioxus's server types. We later narrowed the project's scope to desktop-only and decided to keep these function signatures to facilitate an easierf transition to the web in the future.
+  - Two days before the deadline, we realized the assignment strictly required Rust 1.85, whereas we had been developing on a newer version we downloaded at the start of the course. Downgrading Rust triggered severe dependency conflicts and sub-crate incompatibilities. To resolve these complex issues and refactor the affected functions within the remaining time, we heavily relied on cargo clippy and LLM assistance. In the heat of the moment, these changes were implemented directly on an active working branch used for refactoring the group module. The resulting merge combines both the dependency resolution and the group module updates, not an isolated feature and may signal wrong git blame information as Arno committed these changes (e.g. Calendar backend functions even though Max wrote them, but refactoring implied some minor changes to fit 1.85.0)
+  - In some of our Pull-Requests on Github we used Github's Copilot to review our changes.
+  - Specific minor usage of LLMs is documented in the code itself.
+  - Due to Dioxus's dependency on native system libraries for UI rendering, running the app inside a Devcontainer won't work. As discussed, a detailed setup walkthrough is provided.  
+  - The changes in this repo in "assets/tailwind.css" are generated by the framework during compiletime and not written by us.
+
 ---
 
 ## 🛠 System Requirements & Setup
@@ -43,14 +45,18 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 
 Since Planify is a native desktop app, Dioxus relies on the web rendering engine of the respective operating system. This first guide focuses on the Windows setup. 
 
-### 1. Windows-Specific Requirements
+---
+
+### Option A: Windows Setup
+
+#### 1. Windows-Specific Requirements
 To build the native Windows desktop application, Rust relies on the Microsoft C++ Linker (link.exe).
 
 If not already installed, please ensure the **Visual Studio Build Tools** are present on your system. You must have the **"Desktop development with C++"** workload installed, specifically including:
 * **MSVC v143**
 * **Windows 11 SDK** (or Windows 10 SDK, matching your OS)
 
-### 2. Install Dioxus CLI & WebAssembly Target
+#### 2. Install Dioxus CLI & WebAssembly Target
 The Dioxus Command Line Interface is the core tool for serving the app. It also requires the WebAssembly target for asset management. 
 
 To install the CLI, please follow the instructions provided by Dioxus. Below is an excerpt from the official Dioxus documentation:
@@ -73,44 +79,36 @@ Make sure to also add the WebAssembly target via your terminal:
 rustup target add wasm32-unknown-unknown
 ```
 
-### 3. Setup & Run
+#### 3. Setup & Run
 Follow these steps to run the app:
 
 1. **Clone the repository (if not already done):**
-   ```bash
-   git clone https://github.com/marco-a-g/calender-to-do-list.git
-   ```
+```bash
+   git clone https://github.com/marco-a-g/calender-to-do-list.git
+```
 
-2. **Build and serve the app:**
+2. **Build and serve the app (in the projekt directory):**
 
 Follow these steps to build and run the app:
 
-   ```bash
-   dx build --desktop
-   dx run --desktop
-   ```
+```bash
+   dx build --desktop
+   dx run --desktop
+```
 Or with dioxus own integrated hot-reloading feature:
 
-   ```bash
-   dx build --desktop
-   dx serve --desktop
-   ```
-   
-### 1. macOS-Specific Requirements
-To build the native macOS desktop application, Rust must be installed via **Rustup**, Rust's official toolchain manager.
-
-If not already installed, run the following command in your terminal:
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   dx build --desktop
+   dx serve --desktop
 ```
 
-After installation, install the stable toolchain and pin it to the required version:
-```bash
-rustup toolchain install stable
-rustup default 1.85.0
-```
+---
 
-### 2. Install Dioxus CLI & WebAssembly Target
+> **Note:** The reason we recommend the Windows setup is that the auto-generation and/or import of tailwind.css by the framework sometimes malfunctions. If this happens to you, it may be fixable by following the steps in the "Important" footnote.
+
+### Option B: macOS Setup
+
+#### 1. Install Dioxus CLI & WebAssembly Target
 The Dioxus Command Line Interface is the core tool for serving the app. It also requires the WebAssembly target for asset management.
 
 To install the CLI, please follow the instructions provided by Dioxus. Below is an excerpt from the official Dioxus documentation:
@@ -118,7 +116,7 @@ To install the CLI, please follow the instructions provided by Dioxus. Below is 
 > **Install the Dioxus CLI** > Dioxus ships with its own build tool that leverages `cargo` to provide integrated hot-reloading, bundling, and development servers for web and mobile. You can download the prebuilt binary with the following command:
 >
 > ```bash
-> curl -sSL https://dioxus.dev/install.sh | bash
+> curl -sSL [https://dioxus.dev/install.sh](https://dioxus.dev/install.sh) | bash
 > ```
 >
 > You can also download the cli with `cargo-binstall` (if cargo-binstall is installed):
@@ -137,28 +135,30 @@ Make sure to also add the WebAssembly target via your terminal:
 rustup target add wasm32-unknown-unknown
 ```
 
-### 3. Setup & Run
+#### 2. Setup & Run
 Follow these steps to run the app:
 
 1. **Clone the repository (if not already done):**
 ```bash
-   git clone https://github.com/marco-a-g/calender-to-do-list.git
+   git clone https://github.com/marco-a-g/calender-to-do-list.git
 ```
 
-2. **Build and serve the app:**
+2. **Build and serve the app (in the projekt directory):**
 
 Follow these steps to build and run the app:
 ```bash
-   dx build --desktop
-   dx run --desktop
+   dx build --desktop
+   dx run --desktop
 ```
 Or with dioxus own integrated hot-reloading feature:
 ```bash
-   dx build --desktop
-   dx serve --desktop
+   dx build --desktop
+   dx serve --desktop
 ```
 
 > ⚠️ **Important:** Always run `dx build --desktop` before `dx serve --desktop`. Due to a race condition, the Tailwind CSS assets may not be fully generated when the app opens. If the styling appears broken, press `r` in the terminal to trigger a hot-reload, which forces the app to pick up the generated Tailwind output.
+
+---
 
 ## Table of Contents
 
@@ -182,6 +182,8 @@ Planify is designed for productive team and/or self-organization:
 
 ## Features
 
+- All features are designed to be intuitively accessible via the UI. Any functionalities that may are non-obvious are documented below.
+
 ### Authentication & Profile
 - Login / Registration
 - Profile creation
@@ -198,7 +200,7 @@ Planify is designed for productive team and/or self-organization:
 ### To-Dos
 - To-do dashboard with filtering options
 - Filter To-Do's by Group, To-Do-List and due date
-- Detailed view for single To-Do's 
+- Detailed view for single To-Do's when clicking on a To-Do
 - Create, edit, delete, and complete To-Do's
 - Create, edit, delete To-Do-Lists
 - Recurring to-dos and series handling
@@ -215,7 +217,7 @@ Planify is designed for productive team and/or self-organization:
 - Group overview with color coding and member count
 - Create a group (including color selection)
 - Group detail page with tabs: Members, Files, Roles
-- Invitation workflow (user search, invite handling)
+- Invitation workflow (user search, invite handling), you need to type the name of the person you want to invite in the corresponding field for them to show up in the list
 - Leave / delete group (depending on permissions)
 
 ### Files in Groups
@@ -267,6 +269,6 @@ The app is organized into modular components:
 ## Documentation
 
 - To inspect all of our own documentation, excluding all of Dioxus' documentation, you can run:
-   ```bash
-   cargo doc --no-deps --open 
-   ```
+```bash
+   cargo doc --no-deps --open 
+```
