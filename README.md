@@ -9,9 +9,9 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 ## ⚠️ Notes/Disclaimers for Team-LMU
 
 - **Arno:**
-   - Key contributions:
-   - 
-   -
+   - Key contributions: Navbar, Groups Backend & Frontend, Calender Frontend (Rendering)
+   - Used (Chatgpt & Claude) for research, troubleshooting, refacotring, some components and help with proper documentation, All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions) were created with LLM but also manually adjusted if needed. 
+   - The biggest LLM usage was for the Pullrequest #50, for more informations look up the General paragraph
 - **Marco:** 
    - Key contributions: Local DB setup, sync and fetch operations, To-Do components, frontend runtime expansion of recurring tasks regarding recurrence rules, and Dashboard.
    - Used LLMs (Gemini) for research, troubleshooting, refactoring, cumbersome Tasks like reworking SQL Querys, Documentation. All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions), created with the help of LLMs due to no experience with frontend-development.
@@ -95,7 +95,70 @@ Or with dioxus own integrated hot-reloading feature:
    dx build --desktop
    dx serve --desktop
    ```
+   
+### 1. macOS-Specific Requirements
+To build the native macOS desktop application, Rust must be installed via **Rustup**, Rust's official toolchain manager.
 
+If not already installed, run the following command in your terminal:
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+After installation, install the stable toolchain and pin it to the required version:
+```bash
+rustup toolchain install stable
+rustup default 1.85.0
+```
+
+### 2. Install Dioxus CLI & WebAssembly Target
+The Dioxus Command Line Interface is the core tool for serving the app. It also requires the WebAssembly target for asset management.
+
+To install the CLI, please follow the instructions provided by Dioxus. Below is an excerpt from the official Dioxus documentation:
+
+> **Install the Dioxus CLI** > Dioxus ships with its own build tool that leverages `cargo` to provide integrated hot-reloading, bundling, and development servers for web and mobile. You can download the prebuilt binary with the following command:
+>
+> ```bash
+> curl -sSL https://dioxus.dev/install.sh | bash
+> ```
+>
+> You can also download the cli with `cargo-binstall` (if cargo-binstall is installed):
+> ```bash
+> cargo binstall dioxus-cli --force
+> ```
+>
+> If you want to build the CLI from source, you can install it with the following command:
+> ```bash
+> cargo install dioxus-cli
+> ```
+> 📣 *Installing from source can take up to 10 minutes and requires several dependencies. We strongly recommend downloading the prebuilt binaries.* > *If you get an OpenSSL error on installation, ensure the dependencies listed here are installed.*
+
+Make sure to also add the WebAssembly target via your terminal:
+```bash
+rustup target add wasm32-unknown-unknown
+```
+
+### 3. Setup & Run
+Follow these steps to run the app:
+
+1. **Clone the repository (if not already done):**
+```bash
+   git clone https://github.com/marco-a-g/calender-to-do-list.git
+```
+
+2. **Build and serve the app:**
+
+Follow these steps to build and run the app:
+```bash
+   dx build --desktop
+   dx run --desktop
+```
+Or with dioxus own integrated hot-reloading feature:
+```bash
+   dx build --desktop
+   dx serve --desktop
+```
+
+> ⚠️ **Important:** Always run `dx build --desktop` before `dx serve --desktop`. Due to a race condition, the Tailwind CSS assets may not be fully generated when the app opens. If the styling appears broken, press `r` in the terminal to trigger a hot-reload, which forces the app to pick up the generated Tailwind output.
 
 ## Table of Contents
 
