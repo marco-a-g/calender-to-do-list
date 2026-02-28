@@ -1,5 +1,4 @@
 use chrono::{Datelike, Days, NaiveTime, Utc};
-use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
 use server_fn::error::ServerFnError;
@@ -482,7 +481,7 @@ pub async fn edit_calendar_event(
                             to_be_orphaned.push(child);
                         }
                     }
-                    (Some(over), _, _) => to_be_del.push(child),
+                    (Some(_), _, _) => to_be_del.push(child),
                     (None, _, Some(true)) => to_be_orphaned.push(child),
                     _ => to_be_del.push(child),
                 }
@@ -574,7 +573,8 @@ pub async fn edit_single_calendar_event(
     )
     .await?;
 
-    let stat = edit_calendar_event_unchecked(new_version.clone()).await?;
+    edit_calendar_event_unchecked(new_version.clone()).await?;
+    
     let uploaded = get_calendar_event_from_remote(new_version.id).await?;
     if new_version.description != uploaded.description
         || new_version.from_date_time != uploaded.from_date_time

@@ -1,5 +1,4 @@
 use chrono::{DateTime, Datelike, Days, Months, Utc};
-use dioxus::prelude::*;
 use reqwest::*;
 use server_fn::error::ServerFnError;
 use uuid::Uuid;
@@ -69,7 +68,7 @@ pub async fn delete_instance_of_recurrent_event(
                         .await?;
                     }
                     for adopted in exceptions {
-                        if let Some(overr) = adopted.recurrence_exception.unwrap().overrides {
+                        if let Some(_) = adopted.recurrence_exception.unwrap().overrides {
                             delete_single_calendar_event(adopted.id).await?;
                         } else {
                             edit_calendar_event_unchecked(CalendarEvent {
@@ -97,7 +96,7 @@ pub async fn delete_instance_of_recurrent_event(
                     }
                 } else if let Some(true) = keep_orphans {
                     for adopted in exceptions {
-                        if let Some(overr) = adopted.recurrence_exception.unwrap().overrides {
+                        if let Some(_) = adopted.recurrence_exception.unwrap().overrides {
                             delete_single_calendar_event_unchecked(adopted.id).await?;
                         } else {
                             edit_calendar_event_unchecked(CalendarEvent {
@@ -213,6 +212,7 @@ pub async fn delete_instance_of_recurrent_event(
                 .unwrap()
                 .with_day(1)
                 .unwrap();
+            #[allow(unused)]
             let date_before = match rec_event.recurrence.unwrap().rrule {
                 Rrule::Daily => rec_event
                     .recurrence
@@ -425,11 +425,12 @@ pub async fn delete_instance_of_recurrent_event(
 
 /// deletes an (recurrent) event and turns all changed instances into single events
 // #[server]
+#[allow(unused)]
 pub async fn delete_calendar_event_without_changed_instances(
     event_id: Uuid,
 ) -> core::result::Result<(), ServerFnError> {
     // check wether event is recurrent
-    if let Some(parent_recurrent) = get_calendar_event_from_remote(event_id).await?.recurrence {
+    if let Some(_) = get_calendar_event_from_remote(event_id).await?.recurrence {
         let children = get_calendar_events_by_recurrence_id(event_id).await?;
         let mut orphanage: Vec<(Uuid, StatusCode)> = Vec::new();
         let mut to_be_deleted: Vec<Uuid> = Vec::new();
@@ -519,7 +520,7 @@ pub async fn delete_calendar_event_with_all_instances(
     event_id: Uuid,
 ) -> core::result::Result<(), ServerFnError> {
     // check wether event is recurrent and delete element and instances
-    if let Some(parent_recurrent) = get_calendar_event_from_remote(event_id).await?.recurrence {
+    if let Some(_) = get_calendar_event_from_remote(event_id).await?.recurrence {
         let mut children = get_calendar_events_ids_by_recurrence_id(event_id).await?;
         children.push(event_id);
         let mut deleted: Vec<(Uuid, StatusCode)> = Vec::new();
