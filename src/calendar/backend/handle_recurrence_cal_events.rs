@@ -1,3 +1,5 @@
+//! Function for expanding recurrent events for display in the frontend.
+
 use crate::utils::{date_handling::calculate_next_date, structs::CalendarEventLight};
 use chrono::{DateTime, Timelike, Utc};
 use std::collections::HashMap;

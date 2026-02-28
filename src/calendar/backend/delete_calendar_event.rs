@@ -1,3 +1,5 @@
+//! Functions for deleting calendar events.
+
 use chrono::{DateTime, Datelike, Days, Months, Utc};
 use reqwest::*;
 use server_fn::error::ServerFnError;
