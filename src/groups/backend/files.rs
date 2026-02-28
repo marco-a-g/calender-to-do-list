@@ -4,12 +4,9 @@ Supabase Storage backend for group files.
 Bucket: `group-files`
 Layout (matches storage policy): `private/{group_id}/{filename}`
 
-This module provides server functions to:
- - List files in the bucket under `private/{group_id}/`
- - Upload a file to `group-files/private/{group_id}/{filename}`
- - Delete a file from the same path
- - Create a signed, time-limited download URL
- */
+Provides functions to list, upload, delete and create signed download
+URLs for files within a group's storage folder.
+*/
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use serde::Deserialize;
@@ -20,7 +17,7 @@ const ROOT_PREFIX: &str = "private";
 // (group_id, object_id, filename, uploaded_at_date)
 pub type FileTransfer = (String, String, String, String);
 
-// Partial representation of a Storage object as returned by the list endpoint
+// Partial representation of a Storage object returned by the list endpoint.
 #[derive(Debug, Deserialize)]
 struct StorageObject {
     id: String,
@@ -28,6 +25,8 @@ struct StorageObject {
     created_at: String,
 }
 
+/// Lists all files under `private/{group_id}/` in the storage bucket.
+/// Strips directory entries and extracts just the filename from the path.
 pub async fn fetch_files(
     group_id: String,
     access_token: String,
@@ -77,6 +76,8 @@ pub async fn fetch_files(
     Ok(files)
 }
 
+/// Uploads a file to `private/{group_id}/{filename}`.
+/// Uses x-upsert to overwrite if a file with the same name already exists.
 pub async fn upload_file(
     group_id: String,
     filename: String,
@@ -110,6 +111,7 @@ pub async fn upload_file(
     Ok(())
 }
 
+/// Deletes a single file from the group's storage folder.
 pub async fn delete_file(
     group_id: String,
     filename: String,
@@ -138,6 +140,8 @@ pub async fn delete_file(
     Ok(())
 }
 
+/// Creates a signed download URL valid for 1 hour.
+/// The filename is URL-encoded to handle special characters.
 pub async fn get_file_url(
     group_id: String,
     filename: String,
@@ -180,6 +184,7 @@ pub async fn get_file_url(
 
     let result: SignedUrl = serde_json::from_str(&body_text).map_err(|e| e.to_string())?;
 
+    // Supabase may return an absolute or relative signed path
     let signed = if result.signed_url.starts_with('/') {
         format!(
             "{}/storage/v1{}",

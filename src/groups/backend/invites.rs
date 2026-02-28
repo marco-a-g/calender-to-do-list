@@ -1,16 +1,20 @@
-/* Server functions for group invitation management
-Handles user search, sending invites, and accepting/declining invitations
-All functions use the user's access token for Supabase RLS authentication */
+/*
+Server functions for group invitation management.
+
+Handles user search, sending invites, and accepting/declining invitations.
+All functions use the user's access token for Supabase RLS authentication.
+*/
+
 use server_fn::error::ServerFnError;
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use dioxus::prelude::*;
 use serde::Deserialize;
 
-// Search result containing user ID and username
+// (user_id, username)
 pub type UserSearchResult = (String, String);
 
-// Invite data: (group_id, group_name, group_color, invited_by_username)
+// (group_id, group_name, group_color, invited_by_username)
 pub type InviteTransfer = (String, String, String, String);
 
 fn bearer(token: &str) -> String {
@@ -23,7 +27,8 @@ struct ProfileRow {
     username: Option<String>,
 }
 
-// Searches for users by username using case-insensitive partial matching
+/// Searches for users by username (case-insensitive partial match).
+/// Requires at least 2 characters; returns up to 10 results.
 //#[server]
 pub async fn search_users_by_username(
     query: String,
@@ -75,7 +80,9 @@ struct RoleCheck {
     role: String,
 }
 
-// Sends a group invitation to a user
+/// Sends a group invitation to a user.
+/// Only owners and admins are allowed to invite.
+/// The new row gets role='invited' by database default.
 //#[server]
 pub async fn invite_user(
     group_id: String,
@@ -86,7 +93,7 @@ pub async fn invite_user(
     let client = reqwest::Client::new();
     let auth = bearer(&access_token);
 
-    // Verify inviter has permission (must be owner or admin)
+    // Verify inviter has permission
     let check_url = format!(
         "{}/rest/v1/group_members?group_id=eq.{}&user_id=eq.{}&select=role",
         SUPABASE_URL, group_id, invited_by_user_id
@@ -114,7 +121,7 @@ pub async fn invite_user(
         return Err(ServerFnError::new("Only owner or admin can invite users"));
     }
 
-    // Create invite (role defaults to 'invited' in database)
+    // Insert the invite row
     let insert_url = format!("{}/rest/v1/group_members", SUPABASE_URL);
 
     let body = serde_json::json!({
@@ -153,7 +160,8 @@ struct InviteRow {
     groups: Option<GroupInfo>,
 }
 
-// Retrieves all pending group invitations for the current user
+/// Fetches all pending invitations for the current user.
+/// Uses a PostgREST embedded join to get group details in one request.
 //#[server]
 pub async fn fetch_my_invites(
     user_id: String,
@@ -202,8 +210,8 @@ pub async fn fetch_my_invites(
     Ok(invites)
 }
 
-// Accepts a group invitation by changing the user's role from 'invited' to 'member'
-//[server]
+/// Accepts an invitation by flipping the role from 'invited' to 'member'.
+//#[server]
 pub async fn accept_invite(
     group_id: String,
     user_id: String,
@@ -238,7 +246,7 @@ pub async fn accept_invite(
     Ok(())
 }
 
-// Declines a group invitation by removing the group_members entry
+/// Declines an invitation by deleting the group_members row.
 //#[server]
 pub async fn decline_invite(
     group_id: String,

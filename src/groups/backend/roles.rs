@@ -1,8 +1,10 @@
 /*
-Server functions for role and permission management within groups
-Provides functionality for viewing member roles, promoting/demoting members,
-transferring group ownership, and removing members from groups
-All operations enforce permission checks (owner/admin privileges)
+Server functions for role and permission management within groups.
+
+Provides promote/demote, ownership transfer, and kick functionality.
+Every operation checks the actor's role first — owner-only or
+owner/admin depending on the action. Permission hierarchy:
+  owner > admin > member > invited
 */
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
@@ -20,7 +22,7 @@ struct RoleCheck {
     role: String,
 }
 
-// Fetches a user's role within a specific group
+/// Looks up a user's role within a group. Returns None if the user isn't a member.
 async fn get_user_role(
     client: &reqwest::Client,
     auth: &str,
@@ -56,7 +58,8 @@ async fn get_user_role(
     Ok(roles.first().map(|r| r.role.clone()))
 }
 
-// Changes a member's role (promote to admin or demote to member)
+/// Promotes a member to admin or demotes an admin back to member.
+/// Only the group owner is allowed to change roles.
 //#[server]
 pub async fn change_member_role(
     group_id: String,
@@ -82,7 +85,7 @@ pub async fn change_member_role(
         return Err(ServerFnError::new("Only the owner can change roles."));
     }
 
-    // Validate target user's current role
+    // Guard against invalid targets
     let target_role = get_user_role(&client, &auth, &group_id, &target_user_id).await?;
     match target_role.as_deref() {
         None => return Err(ServerFnError::new("User is not a member of this group.")),
@@ -118,7 +121,12 @@ pub async fn change_member_role(
     Ok(())
 }
 
-// Transfers group ownership to another member
+/// Transfers group ownership to another member.
+///
+/// Three steps in sequence:
+/// 1. Set owner_id in the groups table
+/// 2. Set the new owner's role to 'owner' in group_members
+/// 3. Demote the previous owner to 'admin'
 //#[server]
 pub async fn transfer_ownership(
     group_id: String,
@@ -133,13 +141,11 @@ pub async fn transfer_ownership(
         group_id, new_owner_id, current_owner_id
     );
 
-    // Verify current user is the owner
     let actor_role = get_user_role(&client, &auth, &group_id, &current_owner_id).await?;
     if actor_role.as_deref() != Some("owner") {
         return Err(ServerFnError::new("Only the owner can transfer ownership."));
     }
 
-    // Validate target user
     let target_role = get_user_role(&client, &auth, &group_id, &new_owner_id).await?;
     match target_role.as_deref() {
         None => return Err(ServerFnError::new("User is not a member of this group.")),
@@ -148,7 +154,7 @@ pub async fn transfer_ownership(
         _ => {}
     }
 
-    // Update owner_id in groups table
+    // Step 1: update groups table
     let groups_url = format!("{}/rest/v1/groups?id=eq.{}", SUPABASE_URL, group_id);
 
     let resp = client
@@ -171,7 +177,7 @@ pub async fn transfer_ownership(
         return Err(ServerFnError::new(format!("Update groups failed: {err}")));
     }
 
-    // Set new owner's role to 'owner'
+    // Step 2: set new owner's member role
     let new_owner_url = format!(
         "{}/rest/v1/group_members?group_id=eq.{}&user_id=eq.{}",
         SUPABASE_URL, group_id, new_owner_id
@@ -199,7 +205,7 @@ pub async fn transfer_ownership(
         )));
     }
 
-    // Demote previous owner to 'admin'
+    // Step 3: demote previous owner to admin
     let old_owner_url = format!(
         "{}/rest/v1/group_members?group_id=eq.{}&user_id=eq.{}",
         SUPABASE_URL, group_id, current_owner_id
@@ -230,7 +236,10 @@ pub async fn transfer_ownership(
     Ok(())
 }
 
-// Removes a member from the group
+/// Kicks a member from the group.
+///
+/// Permission hierarchy: owners can kick anyone (except themselves),
+/// admins can only kick regular members.
 //#[server]
 pub async fn kick_member(
     group_id: String,
@@ -245,7 +254,6 @@ pub async fn kick_member(
         group_id, target_user_id, actor_user_id
     );
 
-    // Check actor's permissions
     let actor_role = get_user_role(&client, &auth, &group_id, &actor_user_id).await?;
     let is_owner = actor_role.as_deref() == Some("owner");
     let is_admin = actor_role.as_deref() == Some("admin");
@@ -254,7 +262,7 @@ pub async fn kick_member(
         return Err(ServerFnError::new("Only owner or admin can kick members."));
     }
 
-    // Validate target and enforce permission hierarchy
+    // Enforce the hierarchy: admins can't kick other admins or the owner
     let target_role = get_user_role(&client, &auth, &group_id, &target_user_id).await?;
     match target_role.as_deref() {
         None => return Err(ServerFnError::new("User is not a member of this group.")),

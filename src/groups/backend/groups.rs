@@ -1,6 +1,9 @@
-/* Backend server functions for group management
-All functions use the user's access token for Supabase RLS authorization
-We intentionally do NOT use the service role key here - RLS enforces permissions */
+/*
+Backend server functions for group management.
+
+All functions use the user's access token for Supabase RLS authorization.
+We intentionally do NOT use the service role key — RLS enforces permissions.
+*/
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use crate::utils::functions::get_user_id_and_session_token;
@@ -18,7 +21,6 @@ struct SupabaseGroupRow {
     color: Option<String>,
 }
 
-// Payload for creating a new group via PostgREST
 #[derive(Debug, Serialize)]
 struct CreateGroupPayload {
     name: String,
@@ -26,7 +28,7 @@ struct CreateGroupPayload {
     owner_id: String,
 }
 
-// Fetches a single group by ID
+/// Fetches a single group by ID. Returns None if not found or RLS blocks access.
 //#[server]
 pub async fn fetch_group_by_id(
     id: String,
@@ -65,7 +67,7 @@ pub async fn fetch_group_by_id(
     }))
 }
 
-// Creates a new group owned by the specified user
+/// Creates a new group owned by the given user.
 //#[server]
 pub async fn create_group(
     name: String,
@@ -115,7 +117,7 @@ struct OwnerRow {
     owner_id: String,
 }
 
-// Checks if the given user is the owner of the specified group
+/// Checks whether the given user is the owner of a group.
 async fn is_owner(
     client: &reqwest::Client,
     url: &str,
@@ -144,7 +146,8 @@ async fn is_owner(
     Ok(rows.pop().map(|r| r.owner_id == user_id).unwrap_or(false))
 }
 
-// Deletes a group and all its members
+/// Deletes a group. Only the owner is allowed to do this.
+/// Member rows are cascade-deleted by the database.
 //#[server]
 pub async fn delete_group(
     group_id: String,
@@ -157,12 +160,10 @@ pub async fn delete_group(
     let auth = format!("Bearer {}", token);
     let client = reqwest::Client::new();
 
-    // Verify user is the owner
     if !is_owner(&client, url, key, &auth, &group_id, &user_id).await? {
         return Err(ServerFnError::new("Only the owner can delete this group."));
     }
 
-    // Delete the group
     let delete_endpoint = format!("{}/rest/v1/groups?id=eq.{}", url, group_id);
 
     let group_response = client
@@ -186,7 +187,12 @@ struct MemberRow {
     user_id: String,
 }
 
-// Removes the current user from a group
+/// Removes the current user from a group.
+///
+/// If the user is the owner, ownership is automatically transferred to the
+/// longest-standing member (by joined_at). If no other members remain the
+/// group is deleted entirely. A self-demotion step is needed before the
+/// delete because of an RLS constraint on owners.
 //#[server]
 pub async fn leave_group(
     group_id: String,
@@ -201,8 +207,9 @@ pub async fn leave_group(
 
     let user_is_owner = is_owner(&client, url, key, &auth, &group_id, &user_id).await?;
 
+    //LLM consulted: owner transfer logic on leave
     if user_is_owner {
-        // Find next owner candidate (excluding pending invites)
+        // Pick the next owner: oldest non-invited member that isn't us
         let members_endpoint = format!(
             "{url}/rest/v1/group_members?select=user_id,joined_at&group_id=eq.{group_id}&role=neq.invited&order=joined_at.asc"
         );
@@ -228,7 +235,7 @@ pub async fn leave_group(
             .map(|m| m.user_id.clone());
 
         if let Some(new_owner_id) = next_owner {
-            // Transfer ownership to next member
+            // Transfer ownership: update groups table + set new owner's role
             #[derive(Serialize)]
             struct UpdateOwnerPayload {
                 owner_id: String,
@@ -250,7 +257,6 @@ pub async fn leave_group(
                 .error_for_status()
                 .map_err(|e| ServerFnError::new(e.to_string()))?;
 
-            // Update new owner's role in group_members
             #[derive(Serialize)]
             struct UpdateRolePayload {
                 role: String,
@@ -274,7 +280,7 @@ pub async fn leave_group(
                 .error_for_status()
                 .map_err(|e| ServerFnError::new(e.to_string()))?;
         } else {
-            // No other members - delete the entire group
+            // Last member standing — just delete the group
             let delete_group_endpoint = format!("{url}/rest/v1/groups?id=eq.{group_id}");
 
             client
@@ -291,7 +297,7 @@ pub async fn leave_group(
         }
     }
 
-    // Demote owner before deleting (RLS constraint workaround)
+    // Demote ourselves first (RLS won't let an owner delete their own row)
     if user_is_owner {
         let demote_self_endpoint =
             format!("{url}/rest/v1/group_members?group_id=eq.{group_id}&user_id=eq.{user_id}");
@@ -307,7 +313,7 @@ pub async fn leave_group(
             .ok();
     }
 
-    // Remove user from group_members
+    // Finally remove ourselves from the group
     let delete_member_endpoint =
         format!("{url}/rest/v1/group_members?group_id=eq.{group_id}&user_id=eq.{user_id}");
 

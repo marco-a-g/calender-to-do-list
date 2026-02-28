@@ -1,5 +1,10 @@
-// Local members backend (SQLite)
-// Uses the central database pool and maps data for frontend display
+/*
+Local members backend (SQLite).
+
+Reads group members from the local database and enriches them with
+usernames from the profiles table. Returns a flat tuple for the frontend.
+*/
+
 use server_fn::error::ServerFnError;
 
 use crate::database::local::init_fetch::init_fetch_local_db::{
@@ -7,25 +12,23 @@ use crate::database::local::init_fetch::init_fetch_local_db::{
 };
 use dioxus::prelude::*;
 
-// Compact DTO returned to the frontend
+// Compact DTO returned to the frontend.
 // (group_id, user_id, username, role)
 pub type MemberTransfer = (String, String, String, String);
 
-// Returns all members for the given group_id from the local DB
-// Filters out 'invited' roles and enriches with username from profiles
+/// Returns all members for the given group from the local DB.
+/// Filters out pending invites and resolves usernames via the profiles table.
 //#[server]
 pub async fn fetch_members(group_id: String) -> Result<Vec<MemberTransfer>, ServerFnError> {
-    // Fetch all members and profiles from central functions
     let all_members = fetch_group_members_lokal_db().await?;
     let all_profiles = fetch_profiles_lokal_db().await?;
 
-    // Build a username lookup map
+    // Build a username lookup: profile_id -> username
     let username_map: std::collections::HashMap<String, String> = all_profiles
         .into_iter()
         .map(|p| (p.id, p.username))
         .collect();
 
-    // Filter by group_id, exclude 'invited', and map to transfer type
     let result: Vec<MemberTransfer> = all_members
         .into_iter()
         .filter(|m| m.group_id == group_id && m.role != "invited")
