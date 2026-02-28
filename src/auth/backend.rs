@@ -4,16 +4,21 @@ use std::sync::OnceLock;
 use supabase::Client;
 use uuid::Uuid;
 
+/// Holds the supabase client for remote connection
+///
+/// Since it stores the session, reuse it for all actions
 static SUPABASE_CLIENT: OnceLock<Client> = OnceLock::new();
 pub const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
 pub const ANON_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5cWF3bm5rcHVzZ3RuaG1lZWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NDM5MjksImV4cCI6MjA4MTQxOTkyOX0.0_m5aLSKNdqiqCNFWI8Hfa5iSOKrjf97qb9ZXxnboGA";
 
+/// Holds authentication status with user-id `Uuid` if authenticated
 #[derive(Clone, Debug, PartialEq)]
 pub enum AuthStatus {
     Unauthenticated,
     Authenticated { user_id: Uuid },
 }
 
+/// Different authentication views
 #[derive(Clone, Debug, PartialEq)]
 pub enum AuthView {
     Login,
@@ -21,6 +26,9 @@ pub enum AuthView {
     CreateProfile,
 }
 
+/// Error that contains all relevant cases for authentication
+///
+/// Implements from for `supabase::Error` and `ServerFnError`
 pub enum AuthError {
     ClientNotInitialized,
     ClientAlreadyInitialized,
@@ -70,7 +78,9 @@ impl fmt::Display for AuthError {
 
 /// Initialises the Supabase client
 ///
-/// Throws AuthError::ClientAlreadyInitialized
+/// ### Errors
+///
+/// Throws `AuthError::ClientAlreadyInitialized`
 pub fn init_client() -> Result<(), AuthError> {
     let client = Client::new(SUPABASE_URL, ANON_KEY)?;
     SUPABASE_CLIENT
@@ -80,17 +90,40 @@ pub fn init_client() -> Result<(), AuthError> {
     Ok(())
 }
 
+/// Get the supabase client
+///
+/// Reuse for requests since it also stores the session
+///
+/// ### Returns
+///
+/// Result: Current supabase client `supabase::Client`
+///
+/// ### Errors
+///
+/// Throws ``AuthError::ClientNotInitialized``
 pub fn get_client() -> Result<&'static Client, AuthError> {
     SUPABASE_CLIENT.get().ok_or(AuthError::ClientNotInitialized)
 }
 
-/// Log in to the application
-pub async fn login(username: &str, password: &str) -> Result<AuthStatus, AuthError> {
+/// Log in to the application using `email` and `password`
+///
+/// ### Returns
+///
+/// Result: `AuthStatus { user id }`
+///
+/// ### Errors
+///
+/// Throws ``AuthError::ClientNotInitialized`` if client not initialized
+///
+/// Throws ``AuthError::InvalidCredentials`` if given invalid credentials
+///
+/// Throws ``AuthError::´Supabase(error)`` for other supabase errors
+pub async fn login(email: &str, password: &str) -> Result<AuthStatus, AuthError> {
     let client = get_client()?;
 
     let response = client
         .auth()
-        .sign_in_with_email_and_password(username, password)
+        .sign_in_with_email_and_password(email, password)
         .await?;
 
     Ok(AuthStatus::Authenticated {
@@ -98,6 +131,15 @@ pub async fn login(username: &str, password: &str) -> Result<AuthStatus, AuthErr
     })
 }
 
+/// Sign up to the application using `email` and `password`
+///
+/// ### Errors
+///
+/// Throws ``AuthError::ClientNotInitialized`` if client not initialized
+///
+/// Throws ``AuthError::UserAlreadyExists`` if user already exists
+///
+/// Throws ``AuthError::´Supabase(error)`` for other supabase errors
 pub async fn signup(email: &str, password: &str) -> Result<(), AuthError> {
     let client = get_client()?;
 
@@ -109,6 +151,13 @@ pub async fn signup(email: &str, password: &str) -> Result<(), AuthError> {
     Ok(())
 }
 
+/// Log out from the application
+///
+/// ### Errors
+///
+/// Throws ``AuthError::ClientNotInitialized`` if client not initialized
+///
+/// Throws ``AuthError::´Supabase(error)`` for other supabase errors
 pub async fn logout() -> Result<(), AuthError> {
     let client = get_client()?;
 
