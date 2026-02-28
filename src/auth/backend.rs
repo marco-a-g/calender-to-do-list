@@ -1,3 +1,4 @@
+//! Authentication functionality
 use server_fn::ServerFnError;
 use std::fmt;
 use std::sync::OnceLock;
