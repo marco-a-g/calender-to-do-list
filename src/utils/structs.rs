@@ -1,5 +1,5 @@
 //! Contains the generally in planify used structs.
-//! 
+//!
 //! Structs called "...Light" are allways corresponding to normal structs but every value turned into string. They are used for syncing the local database to supabase and for displaying itmes in the frontend as here strings are needed.
 
 use chrono::{DateTime, Duration, Utc};
@@ -9,8 +9,8 @@ use std::fmt;
 use strum::EnumString;
 use uuid::Uuid;
 
-/// Recurrence frequency 
-/// 
+/// Recurrence frequency
+///
 /// Is currently limited do the frequency of recurrence. Building recurrent events is described at
 /// struct "Recurrent".
 /// Dates unavailable (e.g. 30.2.)must be taken care of or made unreachable!
@@ -244,7 +244,7 @@ pub struct CalendarEvent {
     pub last_mod: DateTime<Utc>,
 }
 
-/// List of to-do's 
+/// List of to-do's
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct ToDoList {
     pub id: Uuid,

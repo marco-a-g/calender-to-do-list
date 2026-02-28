@@ -31,9 +31,9 @@ struct NewCalendarEvent {
 }
 
 /// Crates a new calendar event.
-/// 
+///
 /// The id is set automatically by supabase. Recurrence is used if the Event is a recurrent event, recurrence_exception if it is an instance of an recurrent event that diverges from the regular instances.
-/// 
+///
 /// ## Arguments
 /// - `summary` - The short description of the event. Not more than 25 letters accepted.
 /// - `description`- Optional description of the event
