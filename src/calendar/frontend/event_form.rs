@@ -195,34 +195,54 @@ pub fn EventForm(
                         class: field_input_class(),
                         r#type: if is_all_day() { "date" } else { "datetime-local" },
                         value: "{from_date_formatted}",
-                        onchange: move |e| from_date.set(
-                            NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
-                            .map(|d| d.and_utc())
-                            .unwrap_or_else(|_| from_date())
-                        ),
+                        onchange: move |e| {
+                            if is_all_day() {
+                                from_date.set(
+                                    NaiveDate::parse_from_str(&e.value(), "%Y-%m-%d")
+                                    .unwrap_or_else(|_| from_date().date_naive())
+                                    .and_hms_opt(0, 0, 0)
+                                    .unwrap() // safe because 0,0,0 is always some
+                                    .and_utc()
+                                );
+                            } else {
+                                from_date.set(
+                                    NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
+                                    .map(|d| d.and_utc())
+                                    .unwrap_or_else(|_| from_date())
+                                );
+                            }
+                        }
                     }
                 }
 
-                if !is_all_day() {
-                    FormField {
-                        label: "to (optional)",
-                        input {
-                            class: field_input_class(),
-                            r#type: if is_all_day() { "date" } else { "datetime-local" },
-                            value: "{to_date_formatted}",
-                            onchange: move |e| {
-                                let value = e.value();
-                                if value.is_empty() {
-                                    to_date.set(None);
+                FormField {
+                    label: "to (optional)",
+                    input {
+                        class: field_input_class(),
+                        r#type: if is_all_day() { "date" } else { "datetime-local" },
+                        value: "{to_date_formatted}",
+                        onchange: move |e| {
+                            let value = e.value();
+                            if value.is_empty() {
+                                to_date.set(None);
+                            } else {
+                                if is_all_day() {
+                                    to_date.set(Some(
+                                        NaiveDate::parse_from_str(&value, "%Y-%m-%d")
+                                        .unwrap_or_else(|_| to_date().unwrap_or_default().date_naive())
+                                        .and_hms_opt(0, 0, 0)
+                                        .unwrap() // safe because 0,0,0 is always some
+                                        .and_utc()
+                                    ));
                                 } else {
                                     to_date.set(Some(
-                                        NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
+                                        NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M")
                                         .map(|d| d.and_utc())
                                         .unwrap_or_else(|_| to_date().unwrap_or_default())
                                     ));
                                 }
-                            },
-                        }
+                            }
+                        },
                     }
                 }
 
@@ -305,6 +325,8 @@ pub fn EventForm(
                                     });
                                 },
                                 EventFormMode::Edit(e) => {
+                                    println!("from_date: {:?}", from_date());
+                                    println!("to_date: {:?}", to_date());
                                     spawn(async move {
                                         match edit_single_calendar_event(CalendarEvent{
                                             id: id(),
