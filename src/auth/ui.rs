@@ -219,7 +219,6 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
                         spawn(async move {
                             match signup(&email(), &password()).await {
                                     Ok(_) => {
-                                        // später wird ja Email Verification eingeführt, dafür noch nen Screen
                                         info.set(Some("Signup successful".to_string()));
                                         error.set(None);
                                         auth_view.set(AuthView::CreateProfile);
