@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, Local, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::fmt;
@@ -45,6 +45,7 @@ impl fmt::Display for OwnerType {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString, Copy)]
+#[allow(unused)] //clippy does not understand that it is actually used
 pub enum Role {
     #[strum(ascii_case_insensitive)]
     Owner,
@@ -192,6 +193,7 @@ pub struct Profile {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[allow(unused)]
 pub struct Group {
     pub id: Uuid,
     pub name: String,
@@ -214,7 +216,8 @@ pub struct Calendar {
     pub last_mod: DateTime<Utc>,
 }
 
-///
+/// Any event in a calendar. Mind that an event must not be recurrent and a recurrence exception.
+/// For further detail see Recurrent.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct CalendarEvent {
     pub id: Uuid,
@@ -301,9 +304,9 @@ pub struct GroupMemberLight {
 
 /// A calendar is either
 /// - belonging to a user
-///     then list_type must be set to "private" and an owner_id must be provided.
+///  then list_type must be set to "private" and an owner_id must be provided.
 /// - or to a group
-///     then list_type must be set to "group" and a group_id must be provided.
+///  then list_type must be set to "group" and a group_id must be provided.
 /// There must only be one, either owner_id or group_id.
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct CalendarLight {

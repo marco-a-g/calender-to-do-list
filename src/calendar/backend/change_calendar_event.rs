@@ -27,7 +27,7 @@ pub struct CalendarEventUp {
     pub skipped: String,
 }
 
-/// For changing a single instance of an recurrent event. To delete  an instance use delete_instance_of_recurrent_event().
+/// For changing a single instance of an recurrent event. To delete  an instance use delete_instance_of_recurrent_event(), for changing a single event, that is not instance of an recurrent event, use edit_single_calendar_event().
 // #[server]
 pub async fn edit_instance_of_recurrent_event(
     instance: CalendarEvent,
@@ -109,7 +109,7 @@ pub async fn edit_calendar_event(
                     != old_version.from_date_time.date_naive()
             {
                 return Err(ServerFnError::new(
-                    "Due to unknown expectations it is not possible to change the starting date and the recurrence rule in the same step.",
+                    "Due to unknown expectations it is not possible to change the starting date and the recurrence rule within the same editing.",
                 ));
             }
 

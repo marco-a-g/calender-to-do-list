@@ -3,7 +3,7 @@ use chrono::{DateTime, Timelike, Utc};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Expands the recurrent events to all single instances within the year to be displayed
+/// Expands the recurrent events to all single instances within the year to be displayed. If no year is provided, the current year is used.
 pub fn expand_recurring_events(
     events: Vec<CalendarEventLight>,
     year: Option<chrono::DateTime<Utc>>, // defaults to now
