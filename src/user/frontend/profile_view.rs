@@ -83,7 +83,7 @@ pub fn ProfileView() -> Element {
         status.set(None); // makes loading icon appear when typing
 
         spawn(async move {
-            sleep(Duration::from_millis(500)).await; // check only after typing pause
+            sleep(Duration::from_millis(500)).await;
 
             // prevents race condition with checking only most recent input
             if username() != name {
@@ -162,7 +162,7 @@ pub fn ProfileView() -> Element {
                 }
 
                 div { // div for all rows
-                    div { class: "", // flex-1 overflow-y-auto pr-2 flex flex-col gap-3 // username
+                    div { class: "flex-1 overflow-y-auto pr-2 flex flex-col gap-3", // username div
                         style: "
                             position: relative;
                             display: flex;
