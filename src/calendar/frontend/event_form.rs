@@ -43,8 +43,7 @@ pub fn EventForm(
     /// Pre-filled start date when form is opened via a day click
     prefilled_date: Option<DateTime<Utc>>, // change to local
     on_close: EventHandler<()>,
-    on_saved: EventHandler<()>,
-    on_deleted: EventHandler<()>,
+    on_refresh: EventHandler<()>,
 ) -> Element {
     let initial_event = match &mode {
         EventFormMode::Edit(e) => e.clone(),
@@ -297,7 +296,7 @@ pub fn EventForm(
                                         match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
                                         Ok(()) => {
                                             println!("Event erstellt");
-                                            on_saved.call(());
+                                            on_refresh.call(());
                                         },
                                         Err(err) => {
                                             error_msg.set(Some(err.to_string()));
@@ -326,7 +325,7 @@ pub fn EventForm(
                                         }).await {
                                         Ok(()) => {
                                             println!("Event bearbeitet");
-                                            on_saved.call(());
+                                            on_refresh.call(());
                                         },
                                         Err(err) => {
                                             error_msg.set(Some(err.to_string()));
@@ -351,7 +350,7 @@ pub fn EventForm(
                                 match delete_instance_of_recurrent_event(recurrence_exception().map(|e| e.recurrence_id).unwrap_or_else(|| id()), from_date(), None, Some(true)).await {
                                     Ok(()) => {
                                         println!("Instanz gelöscht");
-                                        on_saved.call(());
+                                        on_refresh.call(());
                                     },
                                     Err(err) => {
                                         error_msg.set(Some(err.to_string()));
@@ -364,7 +363,7 @@ pub fn EventForm(
                                 match delete_calendar_event_with_all_instances(id()).await {
                                     Ok(()) => {
                                         println!("Event gelöscht");
-                                        on_saved.call(());
+                                        on_refresh.call(());
                                     },
                                     Err(err) => {
                                         error_msg.set(Some(err.to_string()));
@@ -377,7 +376,7 @@ pub fn EventForm(
                                 match delete_single_calendar_event(id()).await {
                                     Ok(()) => {
                                         println!("Event gelöscht");
-                                        on_saved.call(());
+                                        on_refresh.call(());
                                     },
                                     Err(err) => {
                                         error_msg.set(Some(err.to_string()));
@@ -416,7 +415,7 @@ pub fn EventForm(
                         }).await {
                         Ok(()) => {
                             println!("Event bearbeitet");
-                            on_saved.call(());
+                            on_refresh.call(());
                         },
                         Err(err) => {
                             error_msg.set(Some(err.to_string()));
@@ -450,7 +449,7 @@ pub fn EventForm(
                         None).await {
                         Ok(()) => {
                             println!("Event bearbeitet");
-                            on_saved.call(());
+                            on_refresh.call(());
                         },
                         Err(err) => {
                             error_msg.set(Some(err.to_string()));

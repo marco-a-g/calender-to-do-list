@@ -138,12 +138,7 @@ pub fn CalendarPage() -> Element {
                         selected_event.set(None);
                         prefilled_date.set(None);
                     },
-                    on_saved: move |_| {
-                        show_form.set(false);
-                        selected_event.set(None);
-                        handle_refresh(());
-                    },
-                    on_deleted: move |_| {
+                    on_refresh: move |_| {
                         show_form.set(false);
                         selected_event.set(None);
                         handle_refresh(());
