@@ -11,7 +11,7 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 - **Arno:**
    - Key contributions: Navbar, Groups Backend & Frontend, Calender Frontend (Rendering)
    - Used (Chatgpt & Claude) for research, troubleshooting, refacotring, some components and help with proper documentation, All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions) were created with LLM but also manually adjusted if needed. 
-   - The biggest LLM usage was for the Pullrequest #50, for more informations look up the General paragraph
+   - The biggest LLM usage was for the Pullrequest #50, for more informations look up the General paragraph regarding Rustversion compatibility
 - **Marco:** 
    - Key contributions: Local DB setup, sync and fetch operations, To-Do components, frontend runtime expansion of recurring tasks regarding recurrence rules, and Dashboard.
    - Used LLMs (Gemini) for research, troubleshooting, refactoring, cumbersome Tasks like reworking SQL Querys, Documentation. All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions), created with the help of LLMs due to no experience with frontend-development.
