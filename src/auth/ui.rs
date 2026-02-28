@@ -1,3 +1,4 @@
+//! Auth related UI elements
 use crate::auth::backend::*;
 use dioxus::prelude::*;
 
@@ -36,6 +37,13 @@ fn card_style(width: &str) -> String {
     )
 }
 
+/// UI Login Window
+///
+/// ### Arguments
+///
+/// `auth_status`
+///
+/// `auth_view`
 #[component]
 pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -> Element {
     let mut email = use_signal(String::new);
@@ -148,6 +156,11 @@ pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -
     }
 }
 
+/// UI Register Window
+///
+/// ### Arguments
+///
+/// `auth_view`
 #[component]
 pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
     let mut firstname = use_signal(String::new);
