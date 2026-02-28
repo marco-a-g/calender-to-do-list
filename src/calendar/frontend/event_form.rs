@@ -35,7 +35,7 @@ pub fn EventForm(
     /// All user calendars — used to populate the calendar selector dropdown
     calendars: Vec<Calendar>,
     /// Pre-filled start date when form is opened via a day click
-    prefilled_date: Option<DateTime<Utc>>, // change to local
+    prefilled_date: Option<DateTime<Utc>>,
     on_close: EventHandler<()>,
     on_refresh: EventHandler<()>,
 ) -> Element {
@@ -56,7 +56,7 @@ pub fn EventForm(
             is_all_day: false,
             recurrence: None,
             recurrence_exception: None,
-            // Ignore: following fields are not needed for this function and/or should only be handled by supabase, but there to complete this struct
+            // Ignore: following fields are not needed for this function and/or should only be handled by supabase, but are there to complete this struct
             id: Uuid::nil(),
             created_by: Uuid::nil(),
             created_at: Utc::now(),
@@ -224,7 +224,7 @@ pub fn EventForm(
                                     NaiveDate::parse_from_str(&value, "%Y-%m-%d")
                                     .unwrap_or_else(|_| from_date().date_naive())
                                     .and_hms_opt(0, 0, 0)
-                                    .unwrap() // safe because 0,0,0 is always some
+                                    .unwrap() // and_hms_opt(0, 0, 0) is unfailable
                                     .and_utc()
                                 ));
                             } else {
@@ -300,14 +300,12 @@ pub fn EventForm(
                         if is_edit && is_recurrent && !is_recurrence_exception {
                             show_recurrent_scope_dialog.set(true);
                         } else {
-                            // TODO: Call create_calendar_event or edit_single_calendar_event
-                            // distinguish between creating and editing event and call function
+                            // distinguish between creating and editing event
                             match &mode {
                                 EventFormMode::Create => {
                                     spawn(async move {
                                         match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
                                         Ok(()) => {
-                                            println!("Event erstellt");
                                             on_refresh.call(());
                                         },
                                         Err(err) => {
@@ -316,7 +314,7 @@ pub fn EventForm(
                                     }
                                     });
                                 },
-                                EventFormMode::Edit(e) => {
+                                EventFormMode::Edit(_) => {
                                     spawn(async move {
                                         match edit_single_calendar_event(CalendarEvent{
                                             id: id(),
@@ -336,7 +334,6 @@ pub fn EventForm(
                                             last_mod: last_mod(),
                                         }).await {
                                         Ok(()) => {
-                                            println!("Event bearbeitet");
                                             on_refresh.call(());
                                         },
                                         Err(err) => {
@@ -361,7 +358,6 @@ pub fn EventForm(
                             spawn(async move {
                                 match delete_instance_of_recurrent_event(recurrence_exception().map(|e| e.recurrence_id).unwrap_or(id()), from_date(), None, Some(true)).await {
                                     Ok(()) => {
-                                        println!("Instanz gelöscht");
                                         on_refresh.call(());
                                     },
                                     Err(err) => {
@@ -374,7 +370,6 @@ pub fn EventForm(
                             spawn(async move {
                                 match delete_calendar_event_with_all_instances(id()).await {
                                     Ok(()) => {
-                                        println!("Event gelöscht");
                                         on_refresh.call(());
                                     },
                                     Err(err) => {
@@ -387,7 +382,6 @@ pub fn EventForm(
                             spawn(async move {
                                 match delete_single_calendar_event(id()).await {
                                     Ok(()) => {
-                                        println!("Event gelöscht");
                                         on_refresh.call(());
                                     },
                                     Err(err) => {
@@ -426,7 +420,6 @@ pub fn EventForm(
                             last_mod: last_mod(),
                         }).await {
                         Ok(()) => {
-                            println!("Event bearbeitet");
                             on_refresh.call(());
                         },
                         Err(err) => {
@@ -438,7 +431,6 @@ pub fn EventForm(
                 on_all: move |_| {
                     show_recurrent_scope_dialog.set(false);
                     recurrent_scope.set(Some(RecurrentEditScope::All));
-                    // TODO: Call edit_calendar_event with keep_overridings / keep_orphans flags
                     spawn(async move {
                         match edit_calendar_event(CalendarEvent{
                             id: id(),
@@ -460,7 +452,6 @@ pub fn EventForm(
                         None,
                         None).await {
                         Ok(()) => {
-                            println!("Event bearbeitet");
                             on_refresh.call(());
                         },
                         Err(err) => {
@@ -539,7 +530,7 @@ pub fn RecurrencePicker(
                                 recurrence_until: NaiveDate::parse_from_str(&e.value(), "%Y-%m-%d")
                                     .unwrap_or_else(|_| current.recurrence_until.date_naive())
                                     .and_hms_opt(0, 0, 0)
-                                    .unwrap() // safe because 0,0,0 is always some
+                                    .unwrap() // and_hms_opt(0, 0, 0) is unfailable
                                     .and_utc(),
                                 ..current }));
                             },
