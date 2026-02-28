@@ -17,6 +17,7 @@ use crate::utils::{functions::*, structs::*};
 /// In this case pass_on_to will be used as new parent event (and therefore set to recurrent if it is not) for remaining instances.
 /// If pass_on_to is None, will be turned into single CalendarEvents (if keep_orphans == true) or they will be deleted (otherwise).
 // #[server]
+#[allow(clippy::diverging_sub_expression)] 
 pub async fn delete_instance_of_recurrent_event(
     recurrent_event_id: Uuid,
     instance_date: DateTime<Utc>,
@@ -221,31 +222,31 @@ pub async fn delete_instance_of_recurrent_event(
                     .unwrap()
                     .recurrence_until
                     .checked_sub_days(Days::new(1))
-                    .unwrap_or(#[allow(clippy::diverging_sub_expression)] return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
+                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
                 Rrule::Weekly => rec_event
                     .recurrence
                     .unwrap()
                     .recurrence_until
                     .checked_sub_days(Days::new(7))
-                    .unwrap_or(#[allow(clippy::diverging_sub_expression)] return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
+                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
                 Rrule::Fortnight => rec_event
                     .recurrence
                     .unwrap()
                     .recurrence_until
                     .checked_sub_days(Days::new(14))
-                    .unwrap_or(#[allow(clippy::diverging_sub_expression)] return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
+                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
                 Rrule::MonthlyOnDate => rec_event
                     .recurrence
                     .unwrap()
                     .recurrence_until
                     .checked_sub_months(Months::new(1))
-                    .unwrap_or(#[allow(clippy::diverging_sub_expression)] return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
+                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
                 Rrule::Annual => rec_event
                     .recurrence
                     .unwrap()
                     .recurrence_until
                     .checked_sub_months(Months::new(12))
-                    .unwrap_or(#[allow(clippy::diverging_sub_expression)] return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
+                    .unwrap_or(return Err(ServerFnError::new("Rrule Error: Finding the previous element was not possible due to chrono missmatch"))),
                 Rrule::OnWeekDays => {
                     if rec_event
                         .recurrence
