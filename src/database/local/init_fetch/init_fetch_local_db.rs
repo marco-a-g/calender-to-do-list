@@ -10,17 +10,43 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::{LazyLock, OnceLock};
 
-// Local DB-Config
+/// Globally accessible FilePath to local database.
 const DB_PATH: &str = "src/database/local/local_Database.db";
+
+/// Initializes base SQLite connection configuration.
+///
+/// `LazyLock` enforces that the connection string is formatted and paresd exactly once.
+/// Automatically creates local Database file if it does not exist yet at specified `DB_PATH`.
+///
+/// # Panics
+///
+/// Initialization panics and stops application if URL is invalid and cannot be parsed by `SqliteConnectOptions::from_str`.
 static CONNECTION_OPTIONS: LazyLock<SqliteConnectOptions> = LazyLock::new(|| {
     let url = format!("sqlite:{}", DB_PATH);
     SqliteConnectOptions::from_str(&url)
         .expect("Fehler: DB URL Format falsch")
         .create_if_missing(true)
 });
+
+/// Globally accessible database connection pool.
+///
+/// Utilizes `OnceLock` to ensure that connection pool is initialized exactly once.
 pub static POOL_LOCAL_DB: OnceLock<SqlitePool> = OnceLock::new();
 
-//#[server]
+/// Initializes the local SQLite database, creating the file and schema if it does not exist.
+///
+/// Called once during  application startup.
+/// - Checks if the connection pool is already initialized, returning true early.
+/// - Deletes the existing database for a clean recreation on startup.
+/// - Executes initial schema, creating necessary tables (`profiles`, `groups`,
+///    `group_members`, `calendars`, `calendar_events`, `todo_lists`,, `todo_events`)
+/// - Stores the connection pool inside the `OnceLock`, for global access.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - Connection to the database file cannot be created.
+/// - SQL execution fails
 pub async fn init_database() -> Result<(), ServerFnError> {
     if POOL_LOCAL_DB.get().is_some() {
         return Ok(());
@@ -169,13 +195,26 @@ pub async fn init_database() -> Result<(), ServerFnError> {
     Ok(())
 }
 
+/// Retrieves a static reference to the initialized local SQLite database connection pool.
+///
+/// Accesses global connection pool, that is initialized prior in form of a OnceLock
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if  pool has not been initialized yet
 pub fn get_pool_lokal_db() -> Result<&'static sqlx::SqlitePool, ServerFnError> {
     POOL_LOCAL_DB
         .get()
         .ok_or_else(|| ServerFnError::new("Datenbank getter fehlgeschlagen"))
 }
 
-//#[server]
+/// Retrieves all Groups from the local database as a vector of GroupLight.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
+/// - SQL query fails to execute or result cannot be mapped to the `GroupLight`.
 pub async fn fetch_groups_lokal_db() -> Result<Vec<GroupLight>, ServerFnError> {
     let pool = get_pool_lokal_db()?;
     let groups = sqlx::query_as::<_, GroupLight>("SELECT * FROM groups")
@@ -185,7 +224,13 @@ pub async fn fetch_groups_lokal_db() -> Result<Vec<GroupLight>, ServerFnError> {
     Ok(groups)
 }
 
-//#[server]
+/// Retrieves all todo-lists from the local database as a vector of TodoListLight.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
+/// - SQL query fails to execute or result cannot be mapped to the `TodoListLight`.
 pub async fn fetch_todo_lists_lokal_db() -> Result<Vec<TodoListLight>, ServerFnError> {
     let pool = get_pool_lokal_db()?;
     //hier anders weil in lokaler db heißt coloumn type und in structs list_type
@@ -202,7 +247,13 @@ pub async fn fetch_todo_lists_lokal_db() -> Result<Vec<TodoListLight>, ServerFnE
     Ok(lists)
 }
 
-//#[server]
+/// Retrieves all todos from the local database as a vector of TodoEventLight.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
+/// - SQL query fails to execute or result cannot be mapped to the `TodoEventLight`.
 pub async fn fetch_todo_events_lokal_db() -> Result<Vec<TodoEventLight>, ServerFnError> {
     let pool = get_pool_lokal_db()?;
     let tasks = sqlx::query_as::<_, TodoEventLight>("SELECT * FROM todo_events")
@@ -212,7 +263,13 @@ pub async fn fetch_todo_events_lokal_db() -> Result<Vec<TodoEventLight>, ServerF
     Ok(tasks)
 }
 
-//#[server]
+/// Retrieves all "member of Group" entries from the local database as a vector of GroupMemberLight.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
+/// - SQL query fails to execute or result cannot be mapped to the `GroupMemberLight`.
 pub async fn fetch_group_members_lokal_db() -> Result<Vec<GroupMemberLight>, ServerFnError> {
     let pool = get_pool_lokal_db()?;
     let members = sqlx::query_as::<_, GroupMemberLight>("SELECT * FROM group_members")
@@ -222,7 +279,13 @@ pub async fn fetch_group_members_lokal_db() -> Result<Vec<GroupMemberLight>, Ser
     Ok(members)
 }
 
-//#[server]
+/// Retrieves all userprofiles from the local database as a vector of ProfileLight.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
+/// - SQL query fails to execute or result cannot be mapped to the `ProfileLight`.
 pub async fn fetch_profiles_lokal_db() -> Result<Vec<ProfileLight>, ServerFnError> {
     let pool = get_pool_lokal_db()?;
     let profiles = sqlx::query_as::<_, ProfileLight>("SELECT * FROM profiles")
@@ -232,7 +295,13 @@ pub async fn fetch_profiles_lokal_db() -> Result<Vec<ProfileLight>, ServerFnErro
     Ok(profiles)
 }
 
-//#[server]
+/// Retrieves all calendars-events from the local database as a vector of CalendarEventLight.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
+/// - SQL query fails to execute or result cannot be mapped to the `CalendarEventLight`.
 pub async fn fetch_calendar_events_lokal_db() -> Result<Vec<CalendarEventLight>, ServerFnError> {
     let pool = get_pool_lokal_db()?;
     let events = sqlx::query_as::<_, CalendarEventLight>("SELECT * FROM calendar_events")
@@ -242,7 +311,13 @@ pub async fn fetch_calendar_events_lokal_db() -> Result<Vec<CalendarEventLight>,
     Ok(events)
 }
 
-//#[server]
+/// Retrieves all calendars from the local database as a vector of CalendarLight.
+///
+/// # Errors
+///
+/// Returns a `ServerFnError` if:
+/// - Database connection pool cannot be retrieved (`get_pool_lokal_db`).
+/// - SQL query fails to execute or result cannot be mapped to the `CalendarLight`.
 pub async fn fetch_calendars_lokal_db() -> Result<Vec<CalendarLight>, ServerFnError> {
     let pool = get_pool_lokal_db()?;
     let calendars =

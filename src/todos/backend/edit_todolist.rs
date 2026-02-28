@@ -42,6 +42,18 @@ struct UpdateTodoListTransfer {
 }
 
 // ToDoListLight in UpdateTodoListTransfer Objekt
+/// Converts a frontend to-do list model into a Supabase-compatible update payload.
+///
+/// Parses raw string identifiers into `Uuid`s and formats HTML date input strings into UTC objects.
+/// Enforces logic regarding list types: "private" lists are stripped of their `group_id`, "group" lists are stripped of their `owner_id`.
+///
+/// ## Arguments
+///
+/// * `light` - The `TodoListLight` instance to transform.
+///
+/// ## Errors
+///
+/// Returns a boxed dynamic error if the date formatting (`html_input_to_db`) fails.
 fn light_list_into_update(
     light: TodoListLight,
 ) -> Result<UpdateTodoListTransfer, Box<dyn std::error::Error>> {
@@ -100,6 +112,19 @@ fn light_list_into_update(
 }
 
 // #[server]
+/// Updates an existing to-do list in remote database.
+///
+/// Manages the update process by authenticating the current user, mapping the frontend `TodoListLight` model into a `UpdateTodoListTransfer` payload, and dispatches an PATCH request to the API of the remote database.
+///
+/// Triggers `sync_local_to_remote_db()` after succesfull update.
+///
+/// ## Arguments
+///
+/// * `list` - The modified `TodoListLight` object containing the updated fields.
+///
+/// ## Errors
+///
+/// Returns a `ServerFnError` if user-authentication fails, if UUID string parsing fails, or if remote database returns a non-success status code.
 pub async fn edit_todo_list(list: TodoListLight) -> Result<StatusCode, ServerFnError> {
     println!("Starting update_todo_list for '{}'", list.name);
 

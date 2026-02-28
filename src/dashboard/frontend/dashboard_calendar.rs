@@ -3,6 +3,13 @@ use chrono::{DateTime, Datelike, Duration, Local};
 use dioxus::prelude::*;
 
 // Aus Datetime nur Uhrzeit holen, Hilfsfunktion bei Dashboard
+/// Extracts the time (HH:MM) in UTC from a datetime string.
+///
+/// Falls back to returning an empty string if provided string is invalid or cannot be parsed.
+///
+/// ## Arguments
+///
+/// * `datetime` - A string slice containing the RFC 3339 formatted datetime.
 fn extract_time_for_dashboard(datetime: &str) -> String {
     match chrono::DateTime::parse_from_rfc3339(datetime) {
         Ok(dt) => {
@@ -19,6 +26,14 @@ fn extract_time_for_dashboard(datetime: &str) -> String {
     }
 }
 
+/// UI-Element that renders a weekly calendar dashboard widget displaying events for the current week.
+///
+/// Dynamically calculates the current week and groups the provided calendar events into daily columns. Multi-day events are checked and  visually segregated "all-day" events from time-specific events.
+///
+/// ## Arguments
+///
+/// * `evts` - A vector of tuples containing the event and its associated group metadata:
+///            `(CalendarEventLight, group_name, group_color)`.
 #[component]
 pub fn DashboardCalendar(evts: Vec<(CalendarEventLight, String, String)>) -> Element {
     //Wochengrenzen vorbereiten

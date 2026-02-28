@@ -23,6 +23,24 @@ struct UpdateSkippedOfExistingExceptions {
 }
 
 // #[server]
+/// Deletes a to-do event or manages skipped exceptions for recurring tasks in Supabase.
+///
+/// Manages deletion process to handle different scenarios.
+/// Depending on the task, it routes the network request into one of three operatinos:
+///
+/// 1. **Master of Recurring Tasks series:** Calculates the next scheduled recurrence date and sends `PATCH` request to shift the master's `due_datetime` forward, without deleting the Master itself.
+/// 2. **Recurring Instances:** Creates an Exception-event(`POST`) when deleting a recurring instance or updates (`PATCH`) an already existing exception on that specific date, marking it with`skipped: true`.
+/// 3. **Standard Tasks:** Sends a `DELETE` request to delete the task from the remote database.
+///
+/// Triggers `sync_local_to_remote_db()` after succesfull deletion/skip.
+///
+/// ## Arguments
+///
+/// * `todo` - The `TodoEventLight` instance representing the task to be deleted or skipped.
+///
+/// ## Errors
+///
+/// Returns a `ServerFnError` if user authentication fails, if datetime calculations fail or if the Supabase request fails or returns an error status.
 pub async fn delete_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerFnError> {
     println!("Starting delete_todo_event for: '{}'", todo.summary);
 

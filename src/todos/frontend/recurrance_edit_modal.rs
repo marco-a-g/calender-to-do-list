@@ -6,6 +6,18 @@ pub enum EditRecurrenceMode {
     WholeSeries,
 }
 
+/// UI-Element that renders a modal to determine the edit mode for a recurring task.
+///
+/// Acts as an "bridge" when a user attempts to edit a master recurring to-do.
+/// Asks the user to specify whether changes should apply to the `WholeSeries`(updating the master record) or `OnlyInstance` (creating exception for the current date).
+///
+/// Conditionally rendered via `show_modal` signal and passes the user's choice back to the parent component using the `on_confirm`.
+///
+/// ## Arguments
+///
+/// * `show_modal` - A signal controlling visibility of the modal.
+/// * `on_close` - An event handler triggered when the user cancels the action or clicks the backdrop.
+/// * `on_confirm` - An event handler that passes the chosen `EditRecurrenceMode`.
 #[component]
 pub fn EditRecurrenceChoiceModal(
     show_modal: Signal<bool>,
@@ -28,7 +40,6 @@ pub fn EditRecurrenceChoiceModal(
                 // Icon / Header
                 div {
                     div {
-                        // NEU: SVG entfernt, font-size hinzugefügt, Emoji eingesetzt
                         style: "background: rgba(58, 107, 255, 0.1); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; color: #3A6BFF; font-size: 24px;",
                         "🔄"
                     }

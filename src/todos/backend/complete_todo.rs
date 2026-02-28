@@ -24,6 +24,24 @@ struct UpdateMasterDate {
 }
 
 // #[server]
+/// Marks a to-do event as completed in the remote database.
+///
+/// Manages completion process to handle different scenarios.
+/// Depending on the task, it routes the network request into one of three operatinos:
+///
+/// 1. **Master of Recurring Tasks series:** Calculates the next scheduled recurrence date and creates (`POST`) an exception for the current date marked as completed, and then moves (`PATCH`) the master task's `due_datetime` forward to the next scheduled occurrence.
+/// 2. **Recurring Instances:** If the instance is already an exception, it updates (`PATCH`) it to marked completed. If it is not already an Exception, it creates (`POST`) a new completed exception for that date tied to the master task.
+/// 3. **Standard Tasks:** Updates (`PATCH`) the task's `completed` status to `true`.
+///
+/// Triggers `sync_local_to_remote_db()` after succesfull completion.
+///
+/// ## Arguments
+///
+/// * `todo` - The `TodoEventLight` instance representing the task to be marked as complete.
+///
+/// ## Errors
+///
+/// Returns a `ServerFnError` if user authentication fails, if datetime calculations fail or if the Supabase request fails or returns an error status.
 pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerFnError> {
     println!("Starting complete_todo_event for: '{}'", todo.summary);
     let client = reqwest::Client::new();

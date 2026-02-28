@@ -5,6 +5,23 @@ use server_fn::error::ServerFnError;
 use sqlx::{Sqlite, Transaction};
 use std::collections::HashSet;
 
+/// Synchronizes "member of Group entries" from remote database to local database within the provided transaction-queue. Is called by `sync_local_to_remote_db()` function, where the transaction-queue is created.
+///
+/// Fetches all "member of Group entries" from Supabase through REST API GET request.
+/// Insers new "member of Group entries" or updates existing ones based on UUID.
+/// Deletes local "member of Group entries" events that no longer exist in the remote database
+///
+/// ## Arguments
+///
+/// * `tx` - Reference to active SQLite transaction.
+/// * `token` - Access token of the authenticated user.
+///
+/// ## Errors
+///
+/// Returns a `ServerFnError` if:
+/// - The HTTP request to Supabase fails.
+/// - Parseing into a Vec of GroupMemberLight fails.
+/// - Any Part of the SQL execution fails.
 pub async fn sync_members(
     tx: &mut Transaction<'_, Sqlite>,
     token: &str,

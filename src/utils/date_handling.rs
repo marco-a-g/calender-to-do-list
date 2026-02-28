@@ -25,6 +25,20 @@ impl From<ParseError> for DateFormattingError {
 }
 
 //HTML Eingaben über Eingabemaske bsp. "2026-01-30" in "2026-01-30T00:00:00Z" (für Supabase) ISO Date → RFC 3339
+/// Converts raw HTML date input string into UTC `DateTime`.
+///
+/// Normalizes date strings from HTML frontend inputs by:
+/// - Evaluating empty or whitespace-only strings as `None`.
+/// - Replaces spaces with 'T' parsing as a full RFC 3339 datetime.
+/// - Fallback to parsing a standard ISO 8601 calendar date (`YYYY-MM-DD`), appending 00:00:00 in the UTC timezone.
+///
+/// ## Arguments
+///
+/// * `date_str` - The raw string value submitted by frontend.
+///
+/// ## Errors
+///
+/// Returns a `DateFormattingError` if fails to parse as either a valid RFC 3339 datetime or a valid `YYYY-MM-DD` string.
 pub fn html_input_to_db(date_str: &str) -> Result<Option<DateTime<Utc>>, DateFormattingError> {
     if date_str.trim().is_empty() {
         return Ok(None);
@@ -42,6 +56,19 @@ pub fn html_input_to_db(date_str: &str) -> Result<Option<DateTime<Utc>>, DateFor
 }
 
 // RFC 3339 → Deutsches Ausgabe-Datum, also: "2026-01-30T18:00:00+00" in "30.01.2026"
+/// Converts an optional database datetime string into German date format (DD.MM.YYYY) for usage in Frontend.
+///
+/// Parses provided String as a full RFC 3339 datetime (using systems local timezone)
+/// Fallback to parsing it as a naive ISO 8601 date (`YYYY-MM-DD`).
+/// If input is `None` or empty string, returns an empty string rather than error.
+///
+/// ## Arguments
+///
+/// * `date_str` - AReference to an `Option<String>` containing raw database value.
+///
+/// ## Errors
+///
+/// Returns a `DateFormattingError` if parse as a valid RFC 3339 datetime or a naive `YYYY-MM-DD` date fails.
 pub fn db_to_display_only_date(date_str: &Option<String>) -> Result<String, DateFormattingError> {
     match date_str {
         Some(s) if !s.is_empty() => {
@@ -60,6 +87,19 @@ pub fn db_to_display_only_date(date_str: &Option<String>) -> Result<String, Date
 }
 
 // aus DB in HTML Input Value (Bei Edit Mode relevant)
+/// Converts a database datetime string into the `YYYY-MM-DD` format required by HTML date inputs.
+///
+/// Parses a stored RFC 3339 datetime or naive date string and formats it specifically for pre-filling `<input type="date">` fields.
+/// Used for example when editing a rendered component that uses a datetime Element (e.g., inside the Edit Todo modal).
+/// If input is empty or `None`, returns an empty string.
+///
+/// ## Arguments
+///
+/// * `iso_string` - A Reference to an `Option<String>` containing raw database datetime.
+///
+/// ## Errors
+///
+/// Returns a `DateFormattingError` if the string cannot be parsed as a valid RFC 3339 datetime or a naive `YYYY-MM-DD` string.
 pub fn db_to_html_input(iso_string: &Option<String>) -> Result<String, DateFormattingError> {
     match iso_string {
         Some(s) if !s.is_empty() => {
@@ -78,6 +118,21 @@ pub fn db_to_html_input(iso_string: &Option<String>) -> Result<String, DateForma
 
 //generiert das nächste Datum einer wiederholenden Instanz, wird innerhalb des recurrance Handlers für Todos und CalenderEvents genutzt
 //current bezieht sich hierbei auf das aktuelle Datum im loop im recurrance_handler
+
+/// Calculates the next occurrence of a recurring datetime based on a specific recurrence-rule.
+///
+/// Calculates the next date in a recurring series during the expansion loop of recurring To-Dos or Calendar-Events (`expand_recurring_todos` or `expand_recurring_events`).
+/// "Edge-Cases" are handeled by subfunctions (e.g. last day of month in monthly reccuring events, or handling 29. of February in Leapyear), therefore  original start-date of reccurance is passed to those subfunctions.
+///
+/// ## Arguments
+///
+/// * `current` - Date of the current iteration in the recurrence loop.
+/// * `rrule` - String slice representing recurrence rule.
+/// * `start_date_of_rec` - The original starting datetime of the master event, handed over to subfunctions for Edge-Cases in next date calculation.
+///
+/// ## Errors
+///
+/// Returns boxed dynamic error if the provided `rrule` string does not match the supported recurrence Rule patterns.
 pub fn calculate_next_date(
     current: DateTime<Utc>,
     rrule: &str,
@@ -104,6 +159,22 @@ pub fn calculate_next_date(
 }
 
 //für monatlich wiederholende Todos auf den selben Tag
+/// Adds a specified number of months to a date, preserving the day of the month if possible.
+///
+/// Handles "Edge-Cases" of varying month lengths.
+/// If original date is a day that does not exist in target month (e.g. from January 31st to February), the resulting date is moved to the last valid day of target month.
+///
+/// To prevent errors during mutation, the day is temporarily set to the 1st before applying the new year and month.
+///
+/// ## Arguments
+///
+/// * `date` - Base datetime to manipulate.
+/// * `months_to_add` - The number of months to jump forward.
+/// * `preferered_day_on_exception` - The target day of the month (usually the day of the master event).
+///
+/// ## Errors
+///
+/// Returns a boxed dynamic error if date manipulation results are out-of-bounds (e.g., invalid year, month, or day calculation).
 fn add_months_same_date(
     date: DateTime<Utc>,
     months_to_add: u32,
@@ -131,6 +202,18 @@ fn add_months_same_date(
 }
 
 //gibt den letzten Tag des Monats aus, bzw. Anzahl an Tage in dem Monat
+/// Calculates the number of days/the last day of a given month.
+///
+/// Calculates the last day of the month by instantiating the first day of the following month and stepping backward by one day.
+///
+/// ## Arguments
+///
+/// * `year` - The full calendar year.
+/// * `month` - The month.
+///
+/// # Returns
+///
+/// Returns an `Option<u32>` representing the last day of the requested month or `None` if input month is out of bounds.
 fn handle_last_day_of_month(year: i32, month: u32) -> Option<u32> {
     if month == 12 {
         // im Dezember -> ersten Tag des neuen Jahres nehmen und davon dann vorgänger
@@ -145,6 +228,20 @@ fn handle_last_day_of_month(year: i32, month: u32) -> Option<u32> {
     }
 }
 
+/// Calculates the same `n-th` occurrence of a weekday in the following month.
+///
+/// E.g. a recurring event is scheduled for the "3rd Friday" of the current month.
+/// Calculates the exact date of the "3rd Friday" in the next month.
+///
+/// If current month has a 5th occurrence of a weekday, but the next month only has 4 occurrences, result is automatically set to the last available occurrence of that month.
+///
+/// ## Arguments
+///
+/// * `date` - The base datetime..
+///
+/// ## Errors
+///
+/// Returns a boxed dynamic error if any datetime mutations result in an invalid or out-of-bounds date.
 fn add_month_on_same_weekday(
     date: DateTime<Utc>,
 ) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {

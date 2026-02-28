@@ -3,6 +3,15 @@ use crate::utils::structs::{GroupLight, TodoEventLight, TodoListLight};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
+/// UI-Element displaying a list of completed to-do events.
+///
+/// Takes a list of completed tasks and visually maps them to their respective parent to-do lists and groups (badges).
+///
+/// ## Arguments
+///
+/// * `history_tasks` - Vector of completed `TodoEventLight` TodoEvents to display.
+/// * `all_lists` - Vector of all available `TodoListLight` ToDoLists for context mapping.
+/// * `all_groups` - vector of all available `GroupLight` Groups for context mapping.
 #[component]
 pub fn HistoryView(
     history_tasks: Vec<TodoEventLight>,
@@ -49,6 +58,17 @@ pub fn HistoryView(
     }
 }
 
+/// UI-Element for completed to-do items within the history view.
+///
+/// Displays a completed todo. Processes and renders contextual metadata, like due date and colored badges representing the todos's parent list and group.
+///
+/// "Shadow lists" (The List per User/Group that inhabits all Todos, that are not assigned to a specific ToDoList) will not be displayed as a list badge.
+///
+/// ## Arguments
+///
+/// * `task` - The completed `TodoEventLight` to display.
+/// * `parent_list` - An `Option` containing the associated `TodoListLight`, used for badge labeling and coloring.
+/// * `parent_group` - An `Option` containing the associated `GroupLight`, used for badge labeling and coloring.
 #[component]
 fn HistoryItem(
     task: TodoEventLight,

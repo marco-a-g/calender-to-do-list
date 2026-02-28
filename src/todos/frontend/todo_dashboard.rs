@@ -25,6 +25,18 @@ use std::str::FromStr;
 use tokio::join;
 use uuid::Uuid;
 
+/// UI-Element that renders the primary To-Do dashboard component..
+///
+/// Main ToDo component that fetches all necessary datapoints (groups, lists, to-dos,
+/// profiles, and calendar events) from local database. Uses `use_effect`to dynamically expand recurring tasks once  raw data is loaded.
+///
+/// Uses Signals to manage:
+/// - Active filters (category and list selections).
+/// - Modal visibility and context (Create/Edit todo, Create/Edit list, Todo details).
+/// - Task resolution state (separating active todo from completed history).
+/// - Recurrence editing settings (single instance vs. entire series).
+///
+/// UI is composed of a sidebar for filtering, an area for active tasks, a panel for actions and the completed task history.
 #[component]
 pub fn ToDoDashboard() -> Element {
     let today_date = use_signal(|| Local::now().format("%A, %d.%m.%Y").to_string());

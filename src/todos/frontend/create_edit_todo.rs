@@ -10,6 +10,14 @@ use crate::utils::structs::{
 use chrono::Local;
 use dioxus::prelude::*;
 use uuid::Uuid;
+
+/// UI-Element that renders a button for creating new to-dos.
+///
+/// Forwards interaction events to the parent ToDoDashboard component (sets show_create_edit_todo_modal on true).
+///
+/// ## Arguments
+///
+/// * `onclick` - An `EventHandler` that catches and passes the `MouseEvent` when button is clicked.
 #[component]
 pub fn CreateToDoButton(onclick: EventHandler<MouseEvent>) -> Element {
     rsx! {
@@ -35,6 +43,25 @@ pub fn CreateToDoButton(onclick: EventHandler<MouseEvent>) -> Element {
 }
 
 //Umfunktioniert in Create ToDo + Edit ToDo Maske -> nur header ändert sich
+/// UI-Element that renders a modal for creating and editing to-dos.
+///
+/// Dynamically adapts its form layout and backend submission logic based on the presence of the `todo_to_edit` signal. If an existing todo is provided, it acts as "Edit-Mode"; otherwise, it acts as "Creation-Mode".
+///
+/// Parses and resolves "shadow lists" (The List per User/Group that inhabits all Todos, that are not assigned to a specific ToDoList) back to their parent groups.
+/// Filters available to-do lists based on  selected group.
+/// Filtesr assignees based on the selected group.
+/// Enforces valid recurrence rules (disabling the `rrule` fields for fake recurrence instances).
+///
+/// ## Arguments
+///
+/// * `groups` - Vector of available `GroupLight` for assignment.
+/// * `all_lists` - Vector of all `TodoListLight` to allow list categorization.
+/// * `all_profiles` - Vector of `ProfileLight` to resolve assignees.
+/// * `all_group_members` - Vector of `GroupMemberLight` to filter assignees by group.
+/// * `show_modal` - A `Signal` managing the modal's visibility.
+/// * `on_refresh` - An `EventHandler` triggered upon todo creation or modification.
+/// * `todo_to_edit` - A `Signal` containing the `Option<TodoEventLight>` to edit.
+/// * `edit_series_mode` - A boolean `Signal` indicating if edits on a mater of a recurring series should apply to the master only or the entire series.
 #[component]
 pub fn CreateEditToDoModal(
     groups: Vec<GroupLight>,

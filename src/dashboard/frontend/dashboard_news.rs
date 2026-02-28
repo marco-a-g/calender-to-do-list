@@ -2,6 +2,10 @@ use dioxus::prelude::*;
 use serde::Deserialize;
 
 //Mit LLM generierter Newsfeed mit Artikeln von dev.to die #Rust als Tag haben, um leeren Platz im Dashboard vorübergehend zu füllen
+/// UI-Element that renders recent Rust articles from Dev.to.
+///
+/// Completely generated with LLM to temporarily cover empty space in Dasboard.
+/// Fetches the latest 3 articles tagged with `#rust` from the Dev.to public API and renders them as clickable links.
 #[component]
 pub fn DashboardNewsWidget() -> Element {
     let news_resource = use_resource(|| async move {
