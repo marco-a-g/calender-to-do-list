@@ -229,7 +229,7 @@ pub fn EventForm(
                                 if is_all_day() {
                                     to_date.set(Some(
                                         NaiveDate::parse_from_str(&value, "%Y-%m-%d")
-                                        .unwrap_or_else(|_| to_date().unwrap_or_default().date_naive())
+                                        .unwrap_or_else(|_| from_date().date_naive())
                                         .and_hms_opt(0, 0, 0)
                                         .unwrap() // safe because 0,0,0 is always some
                                         .and_utc()
@@ -238,7 +238,7 @@ pub fn EventForm(
                                     to_date.set(Some(
                                         NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M")
                                         .map(|d| d.and_utc())
-                                        .unwrap_or_else(|_| to_date().unwrap_or_default())
+                                        .unwrap_or_else(|_| from_date())
                                     ));
                                 }
                             }
