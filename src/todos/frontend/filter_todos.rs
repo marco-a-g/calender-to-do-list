@@ -22,7 +22,7 @@ pub enum ListFilter {
 /// Distinguishes between standard Todo-Lists and event-linked to-do lists within each Group.
 /// Uses signals to pass the user's selected category and list filters back to the "Master" Tododashboard.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `groups` - A vector of all available `GroupLight` Groups.
 /// * `all_lists` - A vector of all available `TodoListLight` ToDoLists.

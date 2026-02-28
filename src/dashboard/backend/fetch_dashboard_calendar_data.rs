@@ -13,7 +13,7 @@ use tokio::join;
 ///
 /// Events are mapped into a tuple of  `(event, group_name, group_color)` to provide the necessary metadata for rendering for the dashboard UI.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a boxed dynamic error if the database queries fail or the recurrence expansion fails.
 pub async fn fetch_calendar_dashboard_tuples()

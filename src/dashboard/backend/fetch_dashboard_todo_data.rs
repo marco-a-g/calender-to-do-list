@@ -13,7 +13,7 @@ use tokio::join;
 ///
 /// Todos get sorted and mapped into a tuple of Strings (task_name, due_date, group_name, group_color)` for read-only rendering in dashboard.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a boxed dynamic error if the user session cannot be validated, if the database queries fail or the recurrence expansion fails.
 pub async fn fetch_todos_dashboard_tuples()

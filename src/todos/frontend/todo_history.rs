@@ -7,7 +7,7 @@ use std::collections::HashMap;
 ///
 /// Takes a list of completed tasks and visually maps them to their respective parent to-do lists and groups (badges).
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `history_tasks` - Vector of completed `TodoEventLight` TodoEvents to display.
 /// * `all_lists` - Vector of all available `TodoListLight` ToDoLists for context mapping.
@@ -64,7 +64,7 @@ pub fn HistoryView(
 ///
 /// "Shadow lists" (The List per User/Group that inhabits all Todos, that are not assigned to a specific ToDoList) will not be displayed as a list badge.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `task` - The completed `TodoEventLight` to display.
 /// * `parent_list` - An `Option` containing the associated `TodoListLight`, used for badge labeling and coloring.

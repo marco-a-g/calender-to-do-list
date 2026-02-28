@@ -13,11 +13,11 @@ use uuid::Uuid;
 /// Manages the deletion process by authenticating the current user and dispatching a DELETE request to the API of the remote database.
 /// Triggers `sync_local_to_remote_db()` after succesfull deletion.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `list_id` - The `Uuid` of the to-do list to be  deleted.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `ServerFnError` if the user session authentication fails, if the network request fails or if the Supabase API responds with a non-success HTTP status code.
 pub async fn delete_todo_list(list_id: Uuid) -> Result<StatusCode, ServerFnError> {

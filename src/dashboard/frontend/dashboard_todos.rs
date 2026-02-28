@@ -6,7 +6,7 @@ use dioxus::prelude::*;
 /// Displays a read-only list of to-do items. If there are no ToDos assigned to the user and due this week it renders a placeholder message.
 /// Todos are rendered with due date and group badge.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `todos` - A vector of tuples containing the metadata for each task: `(task_name, optional_due_date, group_name, group_color)`.
 #[component]

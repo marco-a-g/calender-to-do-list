@@ -11,7 +11,7 @@ use uuid::Uuid;
 ///
 /// Provides Buttons to delete the task directly from the database or to trigger the edit process via `on_edit`.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `selected_todo` - A Dioxus `Signal` containing the `Option<TodoEventLight>` to display.
 /// * `groups` - A vector of all `GroupLight` entities for contextual mapping.

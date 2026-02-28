@@ -15,7 +15,7 @@ use uuid::Uuid;
 ///
 /// Forwards interaction events to the parent ToDoDashboard component (sets show_create_edit_list_modal on true).
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `onclick` - An `EventHandler` that catches and passes the `MouseEvent` when button is clicked.
 #[component]
@@ -50,7 +50,7 @@ pub fn CreateListButton(onclick: EventHandler<MouseEvent>) -> Element {
 /// Filters available calendar events based on the currently selected group.
 /// Handles backend submissions for creation, updates and deletion of todo-lists.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `groups` - A vector of available `GroupLight` for assignment.
 /// * `all_events` - A vector of available `CalendarEventLight` for event linking.

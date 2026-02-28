@@ -32,11 +32,11 @@ impl From<ParseError> for DateFormattingError {
 /// - Replaces spaces with 'T' parsing as a full RFC 3339 datetime.
 /// - Fallback to parsing a standard ISO 8601 calendar date (`YYYY-MM-DD`), appending 00:00:00 in the UTC timezone.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `date_str` - The raw string value submitted by frontend.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `DateFormattingError` if fails to parse as either a valid RFC 3339 datetime or a valid `YYYY-MM-DD` string.
 pub fn html_input_to_db(date_str: &str) -> Result<Option<DateTime<Utc>>, DateFormattingError> {
@@ -62,11 +62,11 @@ pub fn html_input_to_db(date_str: &str) -> Result<Option<DateTime<Utc>>, DateFor
 /// Fallback to parsing it as a naive ISO 8601 date (`YYYY-MM-DD`).
 /// If input is `None` or empty string, returns an empty string rather than error.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `date_str` - AReference to an `Option<String>` containing raw database value.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `DateFormattingError` if parse as a valid RFC 3339 datetime or a naive `YYYY-MM-DD` date fails.
 pub fn db_to_display_only_date(date_str: &Option<String>) -> Result<String, DateFormattingError> {
@@ -93,11 +93,11 @@ pub fn db_to_display_only_date(date_str: &Option<String>) -> Result<String, Date
 /// Used for example when editing a rendered component that uses a datetime Element (e.g., inside the Edit Todo modal).
 /// If input is empty or `None`, returns an empty string.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `iso_string` - A Reference to an `Option<String>` containing raw database datetime.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `DateFormattingError` if the string cannot be parsed as a valid RFC 3339 datetime or a naive `YYYY-MM-DD` string.
 pub fn db_to_html_input(iso_string: &Option<String>) -> Result<String, DateFormattingError> {
@@ -124,13 +124,13 @@ pub fn db_to_html_input(iso_string: &Option<String>) -> Result<String, DateForma
 /// Calculates the next date in a recurring series during the expansion loop of recurring To-Dos or Calendar-Events (`expand_recurring_todos` or `expand_recurring_events`).
 /// "Edge-Cases" are handeled by subfunctions (e.g. last day of month in monthly reccuring events, or handling 29. of February in Leapyear), therefore  original start-date of reccurance is passed to those subfunctions.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `current` - Date of the current iteration in the recurrence loop.
 /// * `rrule` - String slice representing recurrence rule.
 /// * `start_date_of_rec` - The original starting datetime of the master event, handed over to subfunctions for Edge-Cases in next date calculation.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns boxed dynamic error if the provided `rrule` string does not match the supported recurrence Rule patterns.
 pub fn calculate_next_date(
@@ -166,13 +166,13 @@ pub fn calculate_next_date(
 ///
 /// To prevent errors during mutation, the day is temporarily set to the 1st before applying the new year and month.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `date` - Base datetime to manipulate.
 /// * `months_to_add` - The number of months to jump forward.
 /// * `preferered_day_on_exception` - The target day of the month (usually the day of the master event).
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a boxed dynamic error if date manipulation results are out-of-bounds (e.g., invalid year, month, or day calculation).
 fn add_months_same_date(
@@ -206,7 +206,7 @@ fn add_months_same_date(
 ///
 /// Calculates the last day of the month by instantiating the first day of the following month and stepping backward by one day.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `year` - The full calendar year.
 /// * `month` - The month.
@@ -235,11 +235,11 @@ fn handle_last_day_of_month(year: i32, month: u32) -> Option<u32> {
 ///
 /// If current month has a 5th occurrence of a weekday, but the next month only has 4 occurrences, result is automatically set to the last available occurrence of that month.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `date` - The base datetime..
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a boxed dynamic error if any datetime mutations result in an invalid or out-of-bounds date.
 fn add_month_on_same_weekday(

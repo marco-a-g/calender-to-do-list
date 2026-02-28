@@ -13,7 +13,7 @@ pub enum EditRecurrenceMode {
 ///
 /// Conditionally rendered via `show_modal` signal and passes the user's choice back to the parent component using the `on_confirm`.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `show_modal` - A signal controlling visibility of the modal.
 /// * `on_close` - An event handler triggered when the user cancels the action or clicks the backdrop.

@@ -25,7 +25,7 @@ use supabase::Client;
 /// Sequentially synchronizes profiles, groups, members, calendars, events, todos, and lists.
 /// If any of the sub-functions fail, function aborts therefore no transaction happens
 /// Sets Signal for SyncIndicator UI-Component
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `ServerFnError` in the following cases:
 /// Client retrieval fails or sessiontoken is invalid

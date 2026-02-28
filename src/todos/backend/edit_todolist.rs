@@ -47,11 +47,11 @@ struct UpdateTodoListTransfer {
 /// Parses raw string identifiers into `Uuid`s and formats HTML date input strings into UTC objects.
 /// Enforces logic regarding list types: "private" lists are stripped of their `group_id`, "group" lists are stripped of their `owner_id`.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `light` - The `TodoListLight` instance to transform.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a boxed dynamic error if the date formatting (`html_input_to_db`) fails.
 fn light_list_into_update(
@@ -118,11 +118,11 @@ fn light_list_into_update(
 ///
 /// Triggers `sync_local_to_remote_db()` after succesfull update.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `list` - The modified `TodoListLight` object containing the updated fields.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `ServerFnError` if user-authentication fails, if UUID string parsing fails, or if remote database returns a non-success status code.
 pub async fn edit_todo_list(list: TodoListLight) -> Result<StatusCode, ServerFnError> {

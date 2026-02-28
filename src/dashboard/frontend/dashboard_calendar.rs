@@ -7,7 +7,7 @@ use dioxus::prelude::*;
 ///
 /// Falls back to returning an empty string if provided string is invalid or cannot be parsed.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `datetime` - A string slice containing the RFC 3339 formatted datetime.
 fn extract_time_for_dashboard(datetime: &str) -> String {
@@ -30,7 +30,7 @@ fn extract_time_for_dashboard(datetime: &str) -> String {
 ///
 /// Dynamically calculates the current week and groups the provided calendar events into daily columns. Multi-day events are checked and and visually segregated "all-day" events from time-specific events.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `evts` - A vector of tuples containing the event and its associated group metadata:
 ///            `(CalendarEventLight, group_name, group_color)`.

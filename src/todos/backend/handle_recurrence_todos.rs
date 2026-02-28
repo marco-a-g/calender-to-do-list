@@ -12,11 +12,11 @@ use uuid::Uuid;
 ///
 /// Exceptions are mapped back to their respective dates, overriding or "hiding" the generated virtual instances.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `todos` - Vector of `TodoEventLight`.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a boxed dynamic error if datetime parsing fails or the recurrence rule calculation (`calculate_next_date`) encounters an invalid pattern.
 pub fn expand_recurring_todos(

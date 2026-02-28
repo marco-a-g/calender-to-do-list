@@ -35,11 +35,11 @@ struct UpdateMasterDate {
 ///
 /// Triggers `sync_local_to_remote_db()` after succesfull completion.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `todo` - The `TodoEventLight` instance representing the task to be marked as complete.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `ServerFnError` if user authentication fails, if datetime calculations fail or if the Supabase request fails or returns an error status.
 pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerFnError> {

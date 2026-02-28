@@ -11,12 +11,12 @@ use std::collections::HashSet;
 /// Insers new Calendar-Events or updates existing ones based on UUID.
 /// Deletes local Calendar-Events events that no longer exist in the remote database
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `tx` - Reference to active SQLite transaction.
 /// * `token` - Access token of the authenticated user.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `ServerFnError` if:
 /// - The HTTP request to Supabase fails.

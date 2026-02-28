@@ -15,7 +15,7 @@ use uuid::Uuid;
 ///
 /// Forwards interaction events to the parent ToDoDashboard component (sets show_create_edit_todo_modal on true).
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `onclick` - An `EventHandler` that catches and passes the `MouseEvent` when button is clicked.
 #[component]
@@ -52,7 +52,7 @@ pub fn CreateToDoButton(onclick: EventHandler<MouseEvent>) -> Element {
 /// Filtesr assignees based on the selected group.
 /// Enforces valid recurrence rules (disabling the `rrule` fields for fake recurrence instances).
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `groups` - Vector of available `GroupLight` for assignment.
 /// * `all_lists` - Vector of all `TodoListLight` to allow list categorization.

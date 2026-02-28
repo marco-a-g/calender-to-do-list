@@ -12,7 +12,7 @@ use dioxus::prelude::*;
 /// After filtering, it uses the `categorize_todos` helper to sort tasks into three brackets: "Due Today / Overdue","Due in the next 7 days", and "Due Later or no Due-Date".
 /// Builds a contextual header that displays metadata (description, priority, due date) specific to the currently selected list.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `todos` - A vector of all active `TodoEventLight`.
 /// * `all_lists` - A vector of all available `TodoListLight`.
@@ -309,7 +309,7 @@ pub fn OpenToDoView(
 /// Displays metadata for the specific task like title, dynamic due date styling, priority, assigned user, and badges (group, list, or linked calendar event).
 /// Flags master recurring tasks with specific icon.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `task` - The specific `TodoEventLight` to render.
 /// * `parent_list` - The list containing the task.
@@ -535,7 +535,7 @@ fn ToDoItem(
 /// Tasks with missing dates, invalid date strings, or parsing failures are assigned to the "Due Later" bracket.
 /// Each bucket is then sorted.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `list` - A reference to a vector of `TodoEventLight`.
 ///

@@ -40,11 +40,11 @@ struct UpdateTodoTransfer {
 ///
 /// If an individual field fails to parse, logs a warning falls back to `None` for that attribute, ensures update process does not crash.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `light` - The `TodoEventLight` instance containing the modified data to transform.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns `Result<..., Box<dyn Error>>` strictly to maintain consistency with other data mapping operations, but currently falls back to `None` on internal parsing errors, logging them.
 fn light_todo_into_update(
@@ -155,11 +155,11 @@ fn light_todo_into_update(
 ///
 /// Triggers `sync_local_to_remote_db()` after succesfull edit.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `todo` - The modified `TodoEventLight` object containing the updated fields.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `ServerFnError` if user authentication fails, if mapping into transfer object fails or if the Supabase request fails or returns an error status.
 pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerFnError> {

@@ -61,7 +61,7 @@ pub struct TodoFrontendInput {
 /// - **Dates:** Converts HTML input strings into UTC `DateTime` objects. Failures are logged and fall back to `None`.
 /// - **Recurrence:** Parses string-based recurrence rules and  end dates into the nested `Recurrent` struct, must both must be present and valid for the recurrence to be applied.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `todo_list_id` - The raw UUID (String) of the parent to-do list.
 /// * `summary` - The title of the to-do task.
@@ -72,7 +72,7 @@ pub struct TodoFrontendInput {
 /// * `recurrence_until` - An optional HTML date input string defining the end of recurrence.
 /// * `assigned_to_user` - An optional UUID (String)of the user responsible for the task.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a boxed dynamic error if the required `todo_list_id` is provided but is an invalid UUID string that cannot be parsed.
 pub fn frontend_input_to_todo(
@@ -186,11 +186,11 @@ pub fn frontend_input_to_todo(
 /// Extracts the values from the nested `recurrence` (converting the `Rrule` stuct into its string equivalent) and `recurrence_exception` (extracting `recurrence_id`,`overrides_datetime`, and `skipped`) structs.
 /// Formats the `Priority` enum into standard lowercase string and converts a `nil` list UUID into a `None` value.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `todo` - The `TodoEvent` object to be transformed.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns `Result<..., Box<dyn Error>>` to maintain consistency with other data mapping operations, but currently does not throw errors.
 pub fn todo_event_into_to_do_transfer(
@@ -261,11 +261,11 @@ pub fn todo_event_into_to_do_transfer(
 ///
 /// Triggers `sync_local_to_remote_db()` after succesfull creation.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `todo` - The `ToDoTransfer` containing the todos data.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `ServerFnError` if user authentication fails, list fetching or shadow-list mapping fails or if the Supabase request fails or returns an error status.
 // #[server]
@@ -354,13 +354,13 @@ pub async fn create_todo_event(mut todo: ToDoTransfer) -> Result<StatusCode, Ser
 /// 2. **Explicit List ID:** Checks if the provided ID matches an existing to-do list.
 /// 3. **Group ID:** If the ID isn't a direct list ID, assumes it is a group ID and searches for the corresponding group's shadow list.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `id_to_check` - An optional `Uuid` that could represent specific list, a group, or be empty (`None`).
 /// * `user_uuid` - The `Uuid` of the current user, used to resolve personal shadow lists.
 /// * `all_lists` - A slice containing all available `TodoListLight` to search against.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a boxed dynamic error if a matching real list or required shadow list cannot be found or if UUID string parsing fails.
 fn map_id_to_shadow_list(

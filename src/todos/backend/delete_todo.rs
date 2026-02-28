@@ -34,11 +34,11 @@ struct UpdateSkippedOfExistingExceptions {
 ///
 /// Triggers `sync_local_to_remote_db()` after succesfull deletion/skip.
 ///
-/// # Arguments
+/// ## Arguments
 ///
 /// * `todo` - The `TodoEventLight` instance representing the task to be deleted or skipped.
 ///
-/// # Errors
+/// ## Errors
 ///
 /// Returns a `ServerFnError` if user authentication fails, if datetime calculations fail or if the Supabase request fails or returns an error status.
 pub async fn delete_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerFnError> {
