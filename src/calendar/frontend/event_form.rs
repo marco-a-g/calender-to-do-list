@@ -297,7 +297,7 @@ pub fn EventForm(
                                         match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
                                         Ok(()) => {
                                             println!("Event erstellt");
-                                            on_close.call(());
+                                            on_saved.call(());
                                         },
                                         Err(err) => {
                                             error_msg.set(Some(err.to_string()));
@@ -326,7 +326,7 @@ pub fn EventForm(
                                         }).await {
                                         Ok(()) => {
                                             println!("Event bearbeitet");
-                                            on_close.call(());
+                                            on_saved.call(());
                                         },
                                         Err(err) => {
                                             error_msg.set(Some(err.to_string()));
@@ -351,7 +351,7 @@ pub fn EventForm(
                                 match delete_instance_of_recurrent_event(recurrence_exception().map(|e| e.recurrence_id).unwrap_or_else(|| id()), from_date(), None, Some(true)).await {
                                     Ok(()) => {
                                         println!("Instanz gelöscht");
-                                        on_close.call(());
+                                        on_saved.call(());
                                     },
                                     Err(err) => {
                                         error_msg.set(Some(err.to_string()));
@@ -364,7 +364,7 @@ pub fn EventForm(
                                 match delete_calendar_event_with_all_instances(id()).await {
                                     Ok(()) => {
                                         println!("Event gelöscht");
-                                        on_close.call(());
+                                        on_saved.call(());
                                     },
                                     Err(err) => {
                                         error_msg.set(Some(err.to_string()));
@@ -377,7 +377,7 @@ pub fn EventForm(
                                 match delete_single_calendar_event(id()).await {
                                     Ok(()) => {
                                         println!("Event gelöscht");
-                                        on_close.call(());
+                                        on_saved.call(());
                                     },
                                     Err(err) => {
                                         error_msg.set(Some(err.to_string()));
@@ -416,7 +416,7 @@ pub fn EventForm(
                         }).await {
                         Ok(()) => {
                             println!("Event bearbeitet");
-                            on_close.call(());
+                            on_saved.call(());
                         },
                         Err(err) => {
                             error_msg.set(Some(err.to_string()));
@@ -450,7 +450,7 @@ pub fn EventForm(
                         None).await {
                         Ok(()) => {
                             println!("Event bearbeitet");
-                            on_close.call(());
+                            on_saved.call(());
                         },
                         Err(err) => {
                             error_msg.set(Some(err.to_string()));
