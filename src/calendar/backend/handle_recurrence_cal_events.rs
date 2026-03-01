@@ -75,8 +75,7 @@ pub fn expand_recurring_events(
         let start_date_of_recurrance =
             DateTime::parse_from_rfc3339(&from_dt).map(|d| d.with_timezone(&Utc))?;
 
-        //Dauer des einzelevents berechnen
-        let duration = to_dt.map(|t| t - start_date_of_recurrance);
+        // Dauer des einzelevents berechnen
 
         // Until date in DateTime parsen, wenn vorhanden, sonst None setzen
         let end_date_of_recurrance = match master.recurrence_until.clone() {
@@ -109,8 +108,8 @@ pub fn expand_recurring_events(
                     break;
                 }
             }
-            //sind Wiederholungsinstanzen bis 1 Jahr in die Zukunft erreicht? => aufhören
-            if current_date > (now.checked_add_months(chrono::Months::new(13)).unwrap()) {
+            //sind Wiederholungsinstanzen bis 2 Jahre in die Zukunft erreicht? => aufhören
+            if current_date > (now.checked_add_months(chrono::Months::new(24)).unwrap()) {
                 break;
             }
 
@@ -123,10 +122,11 @@ pub fn expand_recurring_events(
             //Gibt es für dieses Event eine exception in K-V-Store => exception behandeln
             if let Some(exception) = exceptions.get(&lookup_key) {
                 // ist geskipped => keine Fake instzanz von dem event pushen
-                //ist es nicht geskipped => pushen in result
+                // ist es nicht geskipped => pushen in result
                 if !exception.skipped {
                     result.push(exception.clone());
                 }
+                first_iter = false;
             } else {
                 //Keine exception => Instanz erzeugen
                 //erster Durchlauf => Master ist die Instanz
