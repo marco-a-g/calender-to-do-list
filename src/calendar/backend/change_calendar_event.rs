@@ -689,10 +689,18 @@ pub async fn edit_calendar_event_unchecked(
         from_date_time: changed_event.from_date_time.to_string(),
         to_date_time: changed_event.to_date_time.map(|t| t.to_string()),
         attachment: changed_event.attachment,
-        rrule: changed_event
-            .recurrence
-            .as_ref()
-            .map(|r| r.rrule.to_string().to_lowercase()),
+        rrule: changed_event.recurrence.as_ref().map(|r| {
+            match r.rrule {
+                Rrule::Daily => "daily",
+                Rrule::Weekly => "weekly",
+                Rrule::Fortnight => "fortnight",
+                Rrule::OnWeekDays => "weekdays",
+                Rrule::MonthlyOnDate => "monthly_on_date",
+                Rrule::MonthlyOnWeekday => "monthly_on_weekday",
+                Rrule::Annual => "annual",
+            }
+            .to_string()
+        }),
         recurrence_until: changed_event
             .recurrence
             .as_ref()
