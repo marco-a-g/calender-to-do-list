@@ -1,3 +1,4 @@
+//! Profile overview
 use crate::user::backend::{get_own_username, is_username_available, update_username};
 use dioxus::{core::Element, prelude::*};
 use std::time::Duration;
@@ -39,6 +40,7 @@ fn input_style_disabled() -> &'static str {
     "
 }
 
+/// Profile overview with option to view and change profile settings
 #[component]
 pub fn ProfileView() -> Element {
     let mut username = use_signal(String::new); // dynamic signal for input field
