@@ -677,8 +677,8 @@ pub async fn edit_calendar_event_unchecked(
     let current_user = get_user_id_and_session_token().await?;
     // set is_all_day to true if an event takes more than 24 hours
     let mut all_d = changed_event.is_all_day;
-    if let Some(to_dt) = to_date_time {
-        if to_dt - from_date_time > chrono::Duration::hours(24) {
+    if let Some(to_dt) = changed_event.to_date_time {
+        if to_dt - changed_event.from_date_time > chrono::Duration::hours(24) {
             all_d = true;
         }
     }

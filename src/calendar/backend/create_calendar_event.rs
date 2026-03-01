@@ -1,6 +1,6 @@
 //! Functions for creating a new calendar event.
 
-use chrono::{DateTime, TimeDelta, Utc};
+use chrono::{DateTime, Utc};
 use reqwest::*;
 use serde::{Deserialize, Serialize};
 use server_fn::error::ServerFnError;
