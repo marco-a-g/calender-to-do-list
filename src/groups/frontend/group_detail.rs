@@ -4,13 +4,11 @@ Side Note Important! :  be aware that major parts of the css styling was made wi
                         anything else is highlighted in the spot where it was used
 */
 
-/*
-Groups UI module: list view and detail page.
-
-Two main pages:
-- GroupsPage:       Overview of user's groups with create-group functionality.
-- GroupDetailPage:  Single group view with tabs for members, files, and roles.
-*/
+//! Groups UI module: list view and detail page.
+//!
+//! Two main pages:
+//! - GroupsPage:       Overview of user's groups with create-group functionality.
+//! - GroupDetailPage:  Single group view with tabs for members, files, and roles.
 
 use dioxus::prelude::*;
 use dioxus_router::use_navigator;

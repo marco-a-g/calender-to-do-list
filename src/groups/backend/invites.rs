@@ -1,16 +1,16 @@
-/* Server functions for group invitation management
-Handles user search, sending invites, and accepting/declining invitations
-All functions use the user's access token for Supabase RLS authentication */
+//! Server functions for group invitation management.
+//! Handles user search, sending invites, and accepting/declining invitations.
+//! All functions use the user's access token for Supabase RLS authentication.
 use server_fn::error::ServerFnError;
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use dioxus::prelude::*;
 use serde::Deserialize;
 
-// Search result containing user ID and username
+/// Search result containing user ID and username.
 pub type UserSearchResult = (String, String);
 
-// Invite data: (group_id, group_name, group_color, invited_by_username)
+/// Invite data: (group_id, group_name, group_color, invited_by_username)
 pub type InviteTransfer = (String, String, String, String);
 
 fn bearer(token: &str) -> String {
@@ -23,7 +23,7 @@ struct ProfileRow {
     username: Option<String>,
 }
 
-// Searches for users by username using case-insensitive partial matching
+/// Searches for users by username using case-insensitive partial matching.
 //#[server]
 pub async fn search_users_by_username(
     query: String,
@@ -75,7 +75,7 @@ struct RoleCheck {
     role: String,
 }
 
-// Sends a group invitation to a user
+/// Sends a group invitation to a user.
 //#[server]
 pub async fn invite_user(
     group_id: String,
@@ -153,7 +153,7 @@ struct InviteRow {
     groups: Option<GroupInfo>,
 }
 
-// Retrieves all pending group invitations for the current user
+/// Retrieves all pending group invitations for the current user.
 //#[server]
 pub async fn fetch_my_invites(
     user_id: String,
@@ -202,7 +202,7 @@ pub async fn fetch_my_invites(
     Ok(invites)
 }
 
-// Accepts a group invitation by changing the user's role from 'invited' to 'member'
+/// Accepts a group invitation by changing the user's role from 'invited' to 'member'.
 //[server]
 pub async fn accept_invite(
     group_id: String,
@@ -238,7 +238,7 @@ pub async fn accept_invite(
     Ok(())
 }
 
-// Declines a group invitation by removing the group_members entry
+/// Declines a group invitation by removing the group_members entry.
 //#[server]
 pub async fn decline_invite(
     group_id: String,

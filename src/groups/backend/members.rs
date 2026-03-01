@@ -1,5 +1,5 @@
-// Local members backend (SQLite)
-// Uses the central database pool and maps data for frontend display
+//! Local members backend (SQLite).
+//! Uses the central database pool and maps data for frontend display.
 use server_fn::error::ServerFnError;
 
 use crate::database::local::init_fetch::init_fetch_local_db::{
@@ -7,12 +7,12 @@ use crate::database::local::init_fetch::init_fetch_local_db::{
 };
 use dioxus::prelude::*;
 
-// Compact DTO returned to the frontend
-// (group_id, user_id, username, role)
+/// Compact DTO returned to the frontend.
+/// (group_id, user_id, username, role)
 pub type MemberTransfer = (String, String, String, String);
 
-// Returns all members for the given group_id from the local DB
-// Filters out 'invited' roles and enriches with username from profiles
+/// Returns all members for the given group_id from the local DB.
+/// Filters out 'invited' roles and enriches with username from profiles.
 //#[server]
 pub async fn fetch_members(group_id: String) -> Result<Vec<MemberTransfer>, ServerFnError> {
     // Fetch all members and profiles from central functions

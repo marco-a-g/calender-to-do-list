@@ -1,9 +1,7 @@
-/*
-Server functions for role and permission management within groups
-Provides functionality for viewing member roles, promoting/demoting members,
-transferring group ownership, and removing members from groups
-All operations enforce permission checks (owner/admin privileges)
-*/
+//! Server functions for role and permission management within groups.
+//! Provides functionality for viewing member roles, promoting/demoting members,
+//! transferring group ownership, and removing members from groups.
+//! All operations enforce permission checks (owner/admin privileges).
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use dioxus::prelude::*;
@@ -20,7 +18,7 @@ struct RoleCheck {
     role: String,
 }
 
-// Fetches a user's role within a specific group
+/// Fetches a user's role within a specific group.
 async fn get_user_role(
     client: &reqwest::Client,
     auth: &str,
@@ -56,7 +54,7 @@ async fn get_user_role(
     Ok(roles.first().map(|r| r.role.clone()))
 }
 
-// Changes a member's role (promote to admin or demote to member)
+/// Changes a member's role (promote to admin or demote to member).
 //#[server]
 pub async fn change_member_role(
     group_id: String,
@@ -118,7 +116,7 @@ pub async fn change_member_role(
     Ok(())
 }
 
-// Transfers group ownership to another member
+/// Transfers group ownership to another member.
 //#[server]
 pub async fn transfer_ownership(
     group_id: String,
@@ -230,7 +228,7 @@ pub async fn transfer_ownership(
     Ok(())
 }
 
-// Removes a member from the group
+/// Removes a member from the group.
 //#[server]
 pub async fn kick_member(
     group_id: String,

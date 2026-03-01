@@ -4,12 +4,10 @@ Side Note Important! :  be aware that major parts of the css styling was made wi
                         anything else is highlighted in the spot where it was used
 */
 
-/*
-Members tab for the group detail page.
-
-Displays all group members with their roles fetched from the local SQLite
-cache (offline-first). The list updates reactively when the resource resolves.
-*/
+//! Members tab for the group detail page.
+//!
+//! Displays all group members with their roles fetched from the local SQLite
+//! cache (offline-first). The list updates reactively when the resource resolves.
 
 use crate::groups::backend::members::fetch_members;
 use dioxus::prelude::*;

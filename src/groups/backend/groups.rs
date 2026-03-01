@@ -1,6 +1,6 @@
-/* Backend server functions for group management
-All functions use the user's access token for Supabase RLS authorization
-We intentionally do NOT use the service role key here - RLS enforces permissions */
+//! Backend server functions for group management.
+//! All functions use the user's access token for Supabase RLS authorization.
+//! We intentionally do NOT use the service role key here - RLS enforces permissions.
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use crate::utils::functions::get_user_id_and_session_token;
@@ -18,7 +18,7 @@ struct SupabaseGroupRow {
     color: Option<String>,
 }
 
-// Payload for creating a new group via PostgREST
+/// Payload for creating a new group via PostgREST.
 #[derive(Debug, Serialize)]
 struct CreateGroupPayload {
     name: String,
@@ -26,7 +26,7 @@ struct CreateGroupPayload {
     owner_id: String,
 }
 
-// Fetches a single group by ID
+/// Fetches a single group by ID.
 //#[server]
 pub async fn fetch_group_by_id(
     id: String,
@@ -65,7 +65,7 @@ pub async fn fetch_group_by_id(
     }))
 }
 
-// Creates a new group owned by the specified user
+/// Creates a new group owned by the specified user.
 //#[server]
 pub async fn create_group(
     name: String,
@@ -115,7 +115,7 @@ struct OwnerRow {
     owner_id: String,
 }
 
-// Checks if the given user is the owner of the specified group
+/// Checks if the given user is the owner of the specified group.
 async fn is_owner(
     client: &reqwest::Client,
     url: &str,
@@ -144,7 +144,7 @@ async fn is_owner(
     Ok(rows.pop().map(|r| r.owner_id == user_id).unwrap_or(false))
 }
 
-// Deletes a group and all its members
+/// Deletes a group and all its members.
 //#[server]
 pub async fn delete_group(
     group_id: String,
@@ -186,7 +186,7 @@ struct MemberRow {
     user_id: String,
 }
 
-// Removes the current user from a group
+/// Removes the current user from a group.
 //#[server]
 pub async fn leave_group(
     group_id: String,
