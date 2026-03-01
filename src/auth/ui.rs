@@ -1,3 +1,7 @@
+/*
+Side note:  be aware that major parts of the css styling were made with LLMs
+*/
+
 //! Auth related UI elements
 use crate::auth::backend::*;
 use dioxus::prelude::*;

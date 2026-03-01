@@ -1,3 +1,8 @@
+/*
+Side note:  be aware that major parts of the css styling were made with LLMs
+            anything else is highlighted in the spot where it was used
+*/
+
 //! Profile overview
 use crate::user::backend::{get_own_username, is_username_available, update_username};
 use dioxus::{core::Element, prelude::*};
