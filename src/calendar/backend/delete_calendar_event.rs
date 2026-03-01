@@ -1,5 +1,6 @@
+//! Functions for deleting calendar events.
+
 use chrono::{DateTime, Datelike, Days, Months, Utc};
-use dioxus::prelude::*;
 use reqwest::*;
 use server_fn::error::ServerFnError;
 use uuid::Uuid;
@@ -12,10 +13,20 @@ use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::date_handling::calculate_next_date;
 use crate::utils::{functions::*, structs::*};
 
-/// Deletes an Instance of an recurrent event. In case this is the last regular instance of the recurrent event the whole event will be deleted.
+/// Deletes an Instance of an recurrent event.
+///
+/// In case this is the last regular instance of the recurrent event the whole event will be deleted.
 /// In this case pass_on_to will be used as new parent event (and therefore set to recurrent if it is not) for remaining instances.
-/// If pass_on_to is None, will be turned into single CalendarEvents (if keep_orphans == true) or they will be deleted (otherwise).
-// #[server]
+///
+/// ## Arguments
+/// - `recurrent_event_id`- `Uuid` of the recurrent parent event.
+/// - `instance_date`- DateTime of the instance to be deleted
+/// - `pass_on_to`- if the deleted instance is the last regular instance of the event, `pass_on_to` will be used as new parent event (and therefore set to recurrent if it is not) if pass_on_to is None, these orphans will be handled as `keep_orphans`
+/// - ´keep_orphans´-  orphans will be turned into single CalendarEvents (if keep_orphans == true) or they will be deleted (otherwise)
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+#[allow(clippy::diverging_sub_expression)] // clippy suspects some unwrap_or... without reason
 pub async fn delete_instance_of_recurrent_event(
     recurrent_event_id: Uuid,
     instance_date: DateTime<Utc>,
@@ -69,7 +80,7 @@ pub async fn delete_instance_of_recurrent_event(
                         .await?;
                     }
                     for adopted in exceptions {
-                        if let Some(overr) = adopted.recurrence_exception.unwrap().overrides {
+                        if adopted.recurrence_exception.unwrap().overrides.is_some() {
                             delete_single_calendar_event(adopted.id).await?;
                         } else {
                             edit_calendar_event_unchecked(CalendarEvent {
@@ -97,7 +108,7 @@ pub async fn delete_instance_of_recurrent_event(
                     }
                 } else if let Some(true) = keep_orphans {
                     for adopted in exceptions {
-                        if let Some(overr) = adopted.recurrence_exception.unwrap().overrides {
+                        if adopted.recurrence_exception.unwrap().overrides.is_some() {
                             delete_single_calendar_event_unchecked(adopted.id).await?;
                         } else {
                             edit_calendar_event_unchecked(CalendarEvent {
@@ -213,6 +224,7 @@ pub async fn delete_instance_of_recurrent_event(
                 .unwrap()
                 .with_day(1)
                 .unwrap();
+            #[allow(unused)] //is not unused - allthough clippy thinks so
             let date_before = match rec_event.recurrence.unwrap().rrule {
                 Rrule::Daily => rec_event
                     .recurrence
@@ -424,12 +436,23 @@ pub async fn delete_instance_of_recurrent_event(
 }
 
 /// deletes an (recurrent) event and turns all changed instances into single events
+///
+/// ## Arguments
+/// - `event_id`- `Uuid` of the event to be deleted
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
 // #[server]
+#[allow(unused)]
 pub async fn delete_calendar_event_without_changed_instances(
     event_id: Uuid,
 ) -> core::result::Result<(), ServerFnError> {
     // check wether event is recurrent
-    if let Some(parent_recurrent) = get_calendar_event_from_remote(event_id).await?.recurrence {
+    if get_calendar_event_from_remote(event_id)
+        .await?
+        .recurrence
+        .is_some()
+    {
         let children = get_calendar_events_by_recurrence_id(event_id).await?;
         let mut orphanage: Vec<(Uuid, StatusCode)> = Vec::new();
         let mut to_be_deleted: Vec<Uuid> = Vec::new();
@@ -467,9 +490,10 @@ pub async fn delete_calendar_event_without_changed_instances(
         let mut not_orphaned: Vec<(Uuid, StatusCode, ServerFnError)> = Vec::new();
         //check orphanage worked
         for orphan in orphanage {
-            if let Some(_) = get_calendar_event_from_remote(orphan.0)
+            if get_calendar_event_from_remote(orphan.0)
                 .await?
                 .recurrence_exception
+                .is_some()
             {
                 not_orphaned.push((
                     orphan.0,
@@ -514,12 +538,22 @@ pub async fn delete_calendar_event_without_changed_instances(
 }
 
 ///used to delete an (recurrent or non recurrent) calendar_event completely with all instances.
+///
+/// ## Arguments
+/// - `event_id`- `Uuid` of the event to be deleted
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
 // #[server]
 pub async fn delete_calendar_event_with_all_instances(
     event_id: Uuid,
 ) -> core::result::Result<(), ServerFnError> {
     // check wether event is recurrent and delete element and instances
-    if let Some(parent_recurrent) = get_calendar_event_from_remote(event_id).await?.recurrence {
+    if get_calendar_event_from_remote(event_id)
+        .await?
+        .recurrence
+        .is_some()
+    {
         let mut children = get_calendar_events_ids_by_recurrence_id(event_id).await?;
         children.push(event_id);
         let mut deleted: Vec<(Uuid, StatusCode)> = Vec::new();
@@ -549,7 +583,14 @@ pub async fn delete_calendar_event_with_all_instances(
     }
 }
 
-/// to delete a non-recurrent element. Will return an Error if the element is recurrent.
+/// to delete a non-recurrent element.
+///
+/// ## Arguments
+/// - `event_id`- `Uuid` of the event to be deleted
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+/// Will return an Error if the element is recurrent.
 // #[server]
 pub async fn delete_single_calendar_event(
     event_id: Uuid,
@@ -573,7 +614,15 @@ pub async fn delete_single_calendar_event(
     Ok(())
 }
 
-//returns 204 No Content even when delete is successful so an additional approval is necessary.
+/// Just to be used in functions that check for attached parent or child events.
+///
+/// If not handled, parent or child events might be deleted by supabase.
+/// ## Arguments
+/// - `event_id`- `Uuid` of the event to be deleted
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+/// Might returns `204 - No Content` even when delete is successful so an additional approval is necessary..
 // #[server]
 async fn delete_single_calendar_event_unchecked(
     event_id: Uuid,

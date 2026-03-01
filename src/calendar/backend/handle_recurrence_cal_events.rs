@@ -1,9 +1,19 @@
+//! Function for expanding recurrent events for display in the frontend.
+
 use crate::utils::{date_handling::calculate_next_date, structs::CalendarEventLight};
 use chrono::{DateTime, Timelike, Utc};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Expands the recurrent events to all single instances within the year to be displayed
+/// Expands the recurrent events to all single instances within the year to be displayed.
+///
+/// Creates all missing Instances for the recurrent events also handling overriding exceptions.
+/// Instances are created with new Ids for easier handling in the frontend. These must not be used for manipulating the events.
+///
+/// ## Arguments
+/// - `events`- a vector of `CalendarEventLight` as taken out of the local database.
+/// - `year`- The year for which the recurrent events are expanded. If no year is provided, the current year is used.
+///
 pub fn expand_recurring_events(
     events: Vec<CalendarEventLight>,
     year: Option<chrono::DateTime<Utc>>, // defaults to now

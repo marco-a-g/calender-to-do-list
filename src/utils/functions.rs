@@ -1,16 +1,14 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
+//! Helper functions used all over planify.
 
-use chrono::{DateTime, Datelike, Utc, Weekday};
-use dioxus::prelude::*;
-use reqwest::*;
+use chrono::{DateTime, Datelike, Utc};
 use server_fn::error::ServerFnError;
 use std::*;
 use uuid::Uuid;
 
 use crate::auth::backend::*;
-use crate::{auth::backend::*, utils::structs::*};
+use crate::utils::structs::*;
 
+/// For any request to supabase
 // #[server]
 pub async fn get_user_id_and_session_token() -> core::result::Result<(Uuid, String), ServerFnError>
 {
@@ -39,6 +37,14 @@ pub async fn get_user_id_and_session_token() -> core::result::Result<(Uuid, Stri
     Ok((user_id, token_str))
 }
 
+/// To fetch a `CalendarEvent` from supabase by `Id`
+///
+/// ## Arguments
+/// - `id`- `Uuid` of the `CalendarEvent` to be fetched
+///
+/// ## Errors
+/// Returnd a `ServerFnError` when either the request fails or there is no event with the given id in the supabase database.
+///
 pub async fn get_calendar_event_from_remote(
     id: Uuid,
 ) -> core::result::Result<CalendarEvent, ServerFnError> {
@@ -53,6 +59,13 @@ pub async fn get_calendar_event_from_remote(
     }
 }
 
+/// To fetch `CalendarEvent`s from supabase that are exceptions of a recurrent event.
+///
+/// ## Arguments
+/// - `recurrence_id`- `Uuid` of the parent `CalendarEvent`
+///
+/// ## Errors
+/// Returnd a `ServerFnError` when either the request fails and an empty Vec when there is no child event.
 pub async fn get_calendar_events_by_recurrence_id(
     recurrence_id: Uuid,
 ) -> core::result::Result<Vec<CalendarEvent>, ServerFnError> {
@@ -66,6 +79,13 @@ pub async fn get_calendar_events_by_recurrence_id(
     Ok(cal_events)
 }
 
+/// Get all ´Uuid´s from supabase that refer to exceptions of a recurrent event.
+///
+/// ## Arguments
+/// - `rec_id`- `Uuid` of the parent `CalendarEvent`
+///
+/// ## Errors
+/// Returnd a `ServerFnError` when either the request fails and an empty Vec when there is no child event.
 pub async fn get_calendar_events_ids_by_recurrence_id(
     rec_id: Uuid,
 ) -> core::result::Result<Vec<Uuid>, ServerFnError> {
@@ -80,6 +100,12 @@ pub async fn get_calendar_events_ids_by_recurrence_id(
     Ok(ids)
 }
 
+/// Not used at the moment.
+///
+/// ## Arguments
+/// - `event`- the `CalendarEvent` to be parsed
+///
+#[allow(unused)]
 pub fn parse_calendar_event_to_light(event: CalendarEvent) -> CalendarEventLight {
     CalendarEventLight {
         id: event.id.to_string(),
@@ -118,6 +144,14 @@ pub fn parse_calendar_event_to_light(event: CalendarEvent) -> CalendarEventLight
     }
 }
 
+/// For turning user input into `CalendarEvent`s to ensure type safety.
+///
+/// ## Arguments
+/// - `ev_light`- the `CalendarEventLight` to be parsed
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+///
 pub fn parse_calendar_event_light_to_calendar_event(
     ev_light: CalendarEventLight,
 ) -> core::result::Result<CalendarEvent, ServerFnError> {
@@ -210,8 +244,16 @@ pub fn parse_calendar_event_light_to_calendar_event(
     Ok(cal_event)
 }
 
-/// used to get elements from the remote database. The string must lead to the supabase database table including the query.
-/// it returns the .text element of the json as a string.
+/// used to get elements from the supabase database.
+///
+/// Returns the `.text` element of the json as a string.
+///
+/// ## Arguments
+/// - `url_query`- The string must lead to the supabase database table including the query.
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+///
 // #[server]
 pub async fn get_elements_from_remote_by_url_string_unchecked(
     url_query: String,
@@ -242,6 +284,13 @@ pub async fn get_elements_from_remote_by_url_string_unchecked(
 }
 
 /// for parsing an string formated answer of an supabase query into an calendar_event.
+///
+/// ## Arguments
+/// - `response_event_text`- the response .text as a string to be parsed
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+///
 // #[server]
 pub async fn parse_response_string_to_calendar_events(
     response_event_text: String,
@@ -255,7 +304,14 @@ pub async fn parse_response_string_to_calendar_events(
     Ok(cal_events)
 }
 
-/// check for overriding recurrence exception if overrides_datetime is valid according to the recurrent element.
+/// check for overriding recurrence exception if `overrides_datetime` is valid according to the parent event.
+///
+/// ## Arguments
+/// - `child_overrides_dt`- the `overrides_datetime` of the child
+/// - `parent_from_datetime`- beginning of the first instance of the recurrent event
+/// - `parent_recurrence_until`- end of recurrence
+/// - `rrule`- recurrence frequency
+///
 pub fn check_overriding_recurrence(
     child_overrides_dt: DateTime<Utc>,
     parent_from_dt: DateTime<Utc>,

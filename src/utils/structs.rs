@@ -1,13 +1,19 @@
-use chrono::{DateTime, Duration, Local, Utc};
+//! Contains the generally in planify used structs.
+//!
+//! Structs called "...Light" are allways corresponding to normal structs but every value turned into string. They are used for syncing the local database to supabase and for displaying itmes in the frontend as here strings are needed.
+
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::fmt;
 use strum::EnumString;
 use uuid::Uuid;
 
+/// Recurrence frequency
+///
 /// Is currently limited do the frequency of recurrence. Building recurrent events is described at
 /// struct "Recurrent".
-/// Dates that unavailable (e.g. 30.2.)must be taken care of or made unreachable!
+/// Dates unavailable (e.g. 30.2.)must be taken care of or made unreachable!
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString, Copy)]
 pub enum Rrule {
     #[strum(ascii_case_insensitive)]
@@ -31,6 +37,7 @@ impl fmt::Display for Rrule {
     }
 }
 
+/// Used to calyssify an owner to link an id to the right database table
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString, Copy)]
 pub enum OwnerType {
     #[strum(ascii_case_insensitive)]
@@ -44,7 +51,9 @@ impl fmt::Display for OwnerType {
     }
 }
 
+/// Role of a person in a group
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString, Copy)]
+#[allow(unused)] //clippy does not understand that it is actually used
 pub enum Role {
     #[strum(ascii_case_insensitive)]
     Owner,
@@ -61,6 +70,7 @@ impl fmt::Display for Role {
     }
 }
 
+/// used for priorising to-dos
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, EnumString, Copy)]
 pub enum Priority {
     #[strum(ascii_case_insensitive)]
@@ -79,6 +89,7 @@ impl fmt::Display for Priority {
 }
 
 /// Used for building an exception of an recurrent element.
+///
 /// If RecurrenceException is not None, recurrence id must refer to the id of an recurrent
 /// element of the same type as this element (e.g. CalendarEvents) marking this element an
 /// exception to the recurrent element.
@@ -104,6 +115,7 @@ impl fmt::Display for RecurrenceException {
 }
 
 /// Describes which instance of the recurrent element should be overridden.
+///
 /// overrides_datetime must match from_date_time of the instance that shall be replaced.
 /// skipped is used when the overridden instance is not replaced but simply skipped.
 /// If skipped is set to true, the RecurrenceException will not be displayed and the only value
@@ -124,6 +136,7 @@ impl fmt::Display for Overrides {
 }
 
 /// Used to describe a recurrent event.
+///
 /// rrule is currently limited to the frequency of the recurrence.
 /// In case, there should be an irregularity within a recurrent event or the recurrence is skipped,
 /// construct a different event that shows the irregularity (as explained at RecurrenceException)
@@ -174,7 +187,9 @@ impl fmt::Display for OwnedBy {
     }
 }
 
-/// Used to describe the members of a group. Membership is defined within a group, not within a user.
+/// Used to describe the members of a group.
+///
+/// Membership is defined within a group, not within a user.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct GroupMemberOf {
     pub id: Uuid, //id used in the database table "group_members"
@@ -184,6 +199,7 @@ pub struct GroupMemberOf {
     pub joined_at: DateTime<Utc>,
 }
 
+/// Profile for a user
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Profile {
     pub id: Uuid,
@@ -191,7 +207,9 @@ pub struct Profile {
     pub created_at: DateTime<Utc>,
 }
 
+/// Not used at the moment but potentially to be implemented to ensure type-safety when creating a group.
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[allow(unused)]
 pub struct Group {
     pub id: Uuid,
     pub name: String,
@@ -214,7 +232,10 @@ pub struct Calendar {
     pub last_mod: DateTime<Utc>,
 }
 
+/// Any event in a calendar.
 ///
+/// Mind that an event must not be recurrent and a recurrence exception.
+/// For further detail see Recurrent.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct CalendarEvent {
     pub id: Uuid,
@@ -234,6 +255,7 @@ pub struct CalendarEvent {
     pub last_mod: DateTime<Utc>,
 }
 
+/// List of to-do's
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct ToDoList {
     pub id: Uuid,
@@ -251,6 +273,10 @@ pub struct ToDoList {
     pub last_mod: DateTime<Utc>,
 }
 
+/// Any todo item.
+///
+/// Mind that a todo must not be recurrent and a recurrence exception.
+/// For further detail see Recurrent.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct TodoEvent {
     pub id: Uuid,
@@ -269,10 +295,7 @@ pub struct TodoEvent {
     pub last_mod: DateTime<Utc>,
 }
 
-/// Structs for the communication between the databases
-/// The following structs (named "...Light")are only used to synchronise the local SQL-Light
-/// database with the remote database.
-/// Should not be used in the front end to avoid type problems!
+/// Database and display version of `Profile`
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct ProfileLight {
     pub id: String,
@@ -280,6 +303,7 @@ pub struct ProfileLight {
     pub created_at: String,
 }
 
+/// Database and display version of `Group`
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct GroupLight {
     pub id: String,
@@ -290,6 +314,7 @@ pub struct GroupLight {
     pub color: String,
 }
 
+/// Database and display version of `GroupMember`
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct GroupMemberLight {
     pub id: String,
@@ -299,11 +324,14 @@ pub struct GroupMemberLight {
     pub joined_at: String,
 }
 
+/// Database and display version of `Calendar`
+///
 /// A calendar is either
 /// - belonging to a user
-///     then list_type must be set to "private" and an owner_id must be provided.
+///   then list_type must be set to "private" and an owner_id must be provided.
 /// - or to a group
-///     then list_type must be set to "group" and a group_id must be provided.
+///   then list_type must be set to "group" and a group_id must be provided.
+///
 /// There must only be one, either owner_id or group_id.
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow, PartialEq)]
 pub struct CalendarLight {
@@ -319,6 +347,8 @@ pub struct CalendarLight {
     pub last_mod: String,
 }
 
+/// Database and display version of `CalendarEvent`
+///
 /// For use of recurrence_id see RecurrenceException.
 /// recurrence_id must be None for recurrent events.
 /// overrides_datetime must be None if recurrence_id is None. (See Overrides)
@@ -345,6 +375,8 @@ pub struct CalendarEventLight {
     pub last_mod: String,
 }
 
+/// Database and display version of `TodoList`
+///
 /// a TodoList is either belonging to a user, then list_type must be set to "private" and a
 /// owner_id must be provided or to a group, then list_type must be set to "group" and a group_id
 /// must be provided. There must only be one, either owner_id or group_id.
@@ -375,6 +407,8 @@ pub struct TodoListLight {
     pub last_mod: String,
 }
 
+/// Database and display version of `TodoEvent`
+///
 /// For use of recurrence_id see RecurrenceException.
 /// recurrence_id must be None for recurrent events.
 /// overrides_datetime must be None if recurrence_id is None. (See Overrides)

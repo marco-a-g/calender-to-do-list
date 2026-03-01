@@ -1,5 +1,4 @@
 use chrono::{Datelike, Days, NaiveTime, Utc};
-use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
 use server_fn::error::ServerFnError;
@@ -10,6 +9,7 @@ use crate::calendar::backend::{delete_calendar_event::*, utils::check_input_sens
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::{functions::*, structs::*};
 
+/// Only used for the Upload to supabase.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct CalendarEventUp {
     // pub calendar_id: String,
@@ -28,7 +28,18 @@ pub struct CalendarEventUp {
     pub skipped: String,
 }
 
-/// For changing a single instance of an recurrent event. To delete  an instance use delete_instance_of_recurrent_event().
+/// For changing a single instance of an recurrent event.
+///
+/// To delete  an instance use `delete_instance_of_recurrent_event()`, for changing a single event, that is not instance of an recurrent event, use `edit_single_calendar_event()`.
+///
+/// ## Arguments
+/// - `instance`- the changed instance of the event.
+///
+/// The function checks wether the instance allready exists in supabase or otherwise (when the `Id` of the given instance is just a fake one for the frontend) creates a new instance for the change.
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+///
 // #[server]
 pub async fn edit_instance_of_recurrent_event(
     instance: CalendarEvent,
@@ -36,7 +47,6 @@ pub async fn edit_instance_of_recurrent_event(
     //check validity of new version itself
     check_input_sensibility(
         instance.summary.clone(),
-        instance.calendar_id,
         instance.from_date_time,
         instance.to_date_time,
         instance.recurrence,
@@ -72,17 +82,27 @@ pub async fn edit_instance_of_recurrent_event(
     .await
 }
 
-/// For making changes to a calendar event. Mind that for a recurrent event you may not change the beginning of the recurrent event and the frequency within one change.
+/// For changing a calendar event.
+///
+/// Mind that for a recurrent event you may not change the beginning of the recurrent event and the frequency within one change.
+///
+/// ## Arguments
+/// - `new_version`- changed version of the `CalendarEvent`.
+/// - `keep_overridings`- set this to true if recurrence exceptions that override dates that leave the range of the events recurrence, defaults to false
+/// - `keep_orphans`- set this to true to keep recurrence exceptions as single elements if the event is turned to non-recurrent, defaults to false.
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+///
 // #[server]
 pub async fn edit_calendar_event(
     new_version: CalendarEvent,
-    keep_overridings: Option<bool>, // set this to true if recurrence exceptions that override dates that leave the range of the events recurrence, defaults to false
-    keep_orphans: Option<bool>, // set this to true to keep recurrence exceptions as single elements if the event is turned to non-recurrent, defaults to false
+    keep_overridings: Option<bool>,
+    keep_orphans: Option<bool>,
 ) -> core::result::Result<(), ServerFnError> {
     //check validity of new version itself
     check_input_sensibility(
         new_version.summary.clone(),
-        new_version.calendar_id,
         new_version.from_date_time,
         new_version.to_date_time,
         new_version.recurrence,
@@ -110,7 +130,7 @@ pub async fn edit_calendar_event(
                     != old_version.from_date_time.date_naive()
             {
                 return Err(ServerFnError::new(
-                    "Due to unknown expectations it is not possible to change the starting date and the recurrence rule in the same step.",
+                    "Due to unknown expectations it is not possible to change the starting date and the recurrence rule within the same editing.",
                 ));
             }
 
@@ -482,7 +502,7 @@ pub async fn edit_calendar_event(
                             to_be_orphaned.push(child);
                         }
                     }
-                    (Some(over), _, _) => to_be_del.push(child),
+                    (Some(_), _, _) => to_be_del.push(child),
                     (None, _, Some(true)) => to_be_orphaned.push(child),
                     _ => to_be_del.push(child),
                 }
@@ -546,6 +566,13 @@ pub async fn edit_calendar_event(
 }
 
 ///used for changing a calendar event, that is a non-recurrent event (before) and not an recurrence exception
+///
+/// ## Arguments
+/// - `new_version`- the changed version of the event.
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+///
 // #[server]
 pub async fn edit_single_calendar_event(
     new_version: CalendarEvent,
@@ -566,7 +593,6 @@ pub async fn edit_single_calendar_event(
     //check validity of new version itself
     check_input_sensibility(
         new_version.summary.clone(),
-        new_version.calendar_id,
         new_version.from_date_time,
         new_version.to_date_time,
         new_version.recurrence,
@@ -574,7 +600,8 @@ pub async fn edit_single_calendar_event(
     )
     .await?;
 
-    let stat = edit_calendar_event_unchecked(new_version.clone()).await?;
+    edit_calendar_event_unchecked(new_version.clone()).await?;
+
     let uploaded = get_calendar_event_from_remote(new_version.id).await?;
     if new_version.description != uploaded.description
         || new_version.from_date_time != uploaded.from_date_time
@@ -594,6 +621,16 @@ pub async fn edit_single_calendar_event(
     Ok(())
 }
 
+/// Only to be used within a function that checks for input sensibility.
+///
+/// ## Arguments
+/// - `changed_event`- the changed version of the event.
+///
+/// The function checks wether the instance allready exists in supabase or otherwise (when the `Id` of the given instance is just a fake one for the frontend) creates a new instance for the change.
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+///
 // #[server]
 pub async fn edit_calendar_event_unchecked(
     changed_event: CalendarEvent,

@@ -1,5 +1,6 @@
+//! Functions for creating a new calendar event.
+
 use chrono::{DateTime, Utc};
-use dioxus::prelude::*;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
 use server_fn::error::ServerFnError;
@@ -10,6 +11,7 @@ use crate::calendar::backend::utils::check_input_sensibility;
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use crate::utils::{functions::*, structs::*};
 
+/// Only used for upstream to supabase.
 #[derive(Debug, Deserialize, Serialize)]
 struct NewCalendarEvent {
     summary: String,
@@ -28,7 +30,27 @@ struct NewCalendarEvent {
     is_all_day: String,
 }
 
+/// Crates a new calendar event.
+///
+/// The id is set automatically by supabase. Recurrence is used if the Event is a recurrent event, recurrence_exception if it is an instance of an recurrent event that diverges from the regular instances.
+///
+/// ## Arguments
+/// - `summary` - The short description of the event. Not more than 25 letters accepted.
+/// - `description`- Optional description of the event
+/// - `calendar_id`- `Uuid` of the calendar the event is attached to.
+/// - `from_date_time`- Beginning of the event. Timezone Utc.
+/// - `to_date_time`- End of the Event. TimeZone Utc. In case of a recurrent event this is the End of the first instance.
+/// - `attachment`- Link to a supabase bucket for stored files.
+/// - `recurrence`- Defining recurrence of the event.
+/// - `recurrence_exception`- If this event is an exception to an recurrent event. Must not be set if recurrence is set.
+/// - `location`- Location where the event takes place.
+/// - `categories`- tags for categorising events.
+/// - `ìs_all_day`- for full-day-events
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
 // #[server]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_calendar_event(
     summary: String,
     description: Option<String>,
@@ -44,7 +66,6 @@ pub async fn create_calendar_event(
 ) -> core::result::Result<(), ServerFnError> {
     match check_input_sensibility(
         summary.clone(),
-        calendar_id,
         from_date_time,
         to_date_time,
         recurrence,
@@ -88,8 +109,29 @@ pub async fn create_calendar_event(
     Ok(())
 }
 
+/// Only to be used in functions where input validity is checked.
+///
+/// The id is set automatically by supabase. Recurrence is used if the Event is a recurrent event, recurrence_exception if it is an instance of an recurrent event that diverges from the regular instances.
+///
+/// ## Arguments
+/// - `summary` - The short description of the event. Not more than 25 letters accepted.
+/// - `description`- Optional description of the event
+/// - `calendar_id`- `Uuid` of the calendar the event is attached to.
+/// - `from_date_time`- Beginning of the event. Timezone Utc.
+/// - `to_date_time`- End of the Event. TimeZone Utc. In case of a recurrent event this is the End of the first instance.
+/// - `attachment`- Link to a supabase bucket for stored files.
+/// - `recurrence`- Defining recurrence of the event.
+/// - `recurrence_exception`- If this event is an exception to an recurrent event. Must not be set if recurrence is set.
+/// - `location`- Location where the event takes place.
+/// - `categories`- tags for categorising events.
+/// - `ìs_all_day`- for full-day-events
+///
+/// ## Errors
+/// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
+/// Returns the status of the upload to allow the calling function to know the `Uuid` of the created event.
 // #[server]
-pub async fn create_calendar_event_unchecked(
+#[allow(clippy::too_many_arguments)]
+async fn create_calendar_event_unchecked(
     summary: String,
     description: Option<String>,
     calendar_id: Uuid,
