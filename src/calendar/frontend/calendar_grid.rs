@@ -437,8 +437,6 @@ fn EventChip(
 
     let prefix = if event.is_all_day {
         String::new()
-    } else if time_str.is_empty() {
-        String::new()
     } else {
         format!("{time_str}{to_str} ")
     };

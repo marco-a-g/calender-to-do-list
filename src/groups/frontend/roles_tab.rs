@@ -31,6 +31,8 @@ type PendingAction = (String, String, String);
 ///
 /// Fetches members + profiles from local DB, resolves usernames,
 /// and renders each row with context-dependent action buttons.
+// rsx! macro does not support else if chains in class attributes
+#[allow(clippy::collapsible_else_if)]
 #[component]
 pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
     let group_id_for_fetch = group_id.clone();
@@ -163,7 +165,7 @@ pub fn RolesTab(group_id: String, current_user_id: String) -> Element {
             // Status banner (success / error / in-progress)
             if let Some(status) = action_status.read().as_ref() {
                 div {
-                    class:      if status.starts_with("✓") {
+                    class:        if status.starts_with("✓") {
                         "mb-3 p-3 rounded-xl bg-green-500/10 border border-green-400/30 text-green-300 text-sm"
                     } else if status.starts_with("Error") {
                         "mb-3 p-3 rounded-xl bg-red-500/10 border border-red-400/30 text-red-300 text-sm"
