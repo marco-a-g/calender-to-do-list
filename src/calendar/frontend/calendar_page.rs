@@ -186,6 +186,7 @@ pub fn CalendarPage() -> Element {
                 EventForm {
                     mode,
                     calendars: calendars_full,
+                    events: all_events_light.clone(),
                     prefilled_date: prefilled_date(),
                     on_close: move |_| {
                         show_form.set(false);

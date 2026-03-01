@@ -19,7 +19,10 @@ use crate::{
             delete_single_calendar_event,
         },
     },
-    utils::structs::{Calendar, CalendarEvent, Recurrent, Rrule},
+    utils::{
+        functions::parse_calendar_event_light_to_calendar_event,
+        structs::{Calendar, CalendarEvent, CalendarEventLight, Recurrent, Rrule},
+    },
 };
 
 /// Current event mode
@@ -51,12 +54,16 @@ pub fn EventForm(
     mode: EventFormMode,
     /// All user calendars — used to populate the calendar selector dropdown
     calendars: Vec<Calendar>,
+    /// All visible events
+    events: Vec<CalendarEventLight>,
     /// Pre-filled start date when form is opened via a day click
     prefilled_date: Option<DateTime<Utc>>,
     on_close: EventHandler<()>,
     on_refresh: EventHandler<()>,
 ) -> Element {
-    let initial_event = match &mode {
+    let mut action_mode = use_signal(|| mode);
+
+    let initial_event = match action_mode() {
         EventFormMode::Edit(e) | EventFormMode::View(e) => *e.clone(),
         EventFormMode::Create => CalendarEvent {
             calendar_id: calendars.first().map(|c| c.id).unwrap_or(Uuid::nil()),
@@ -86,28 +93,76 @@ pub fn EventForm(
     let mut selected_calendar_id = use_signal(|| initial_event.calendar_id);
     let mut from_date = use_signal(|| initial_event.from_date_time);
     let mut to_date = use_signal(|| initial_event.to_date_time);
-    let attachment = use_signal(|| initial_event.attachment);
+    let mut attachment = use_signal(|| initial_event.attachment);
     let mut location = use_signal(|| initial_event.location);
     let mut categories = use_signal(|| initial_event.categories);
     let mut is_all_day = use_signal(|| initial_event.is_all_day);
     // only needed for information display later
-    let id = use_signal(|| initial_event.id);
-    let created_at = use_signal(|| initial_event.created_at);
-    let created_by = use_signal(|| initial_event.created_by);
-    let last_mod = use_signal(|| initial_event.last_mod);
+    let mut id = use_signal(|| initial_event.id);
+    let mut created_at = use_signal(|| initial_event.created_at);
+    let mut created_by = use_signal(|| initial_event.created_by);
+    let mut last_mod = use_signal(|| initial_event.last_mod);
     // Recurrence signals
-    let recurrence = use_signal(|| initial_event.recurrence);
-    let recurrence_exception = use_signal(|| initial_event.recurrence_exception);
+    let mut recurrence = use_signal(|| initial_event.recurrence);
+    let mut recurrence_exception = use_signal(|| initial_event.recurrence_exception);
     let is_recurrent = recurrence().is_some();
     let is_recurrence_exception = recurrence_exception().is_some();
     // other signals
     let mut show_recurrent_scope_dialog = use_signal(|| false);
     let mut recurrent_scope: Signal<Option<RecurrentEditScope>> = use_signal(|| None);
-    let mut mode = use_signal(|| mode);
-    let is_edit = use_memo(move || matches!(mode(), EventFormMode::Edit(_)));
-    let is_view = use_memo(move || matches!(mode(), EventFormMode::View(_)));
+
+    let is_edit = use_memo(move || matches!(action_mode(), EventFormMode::Edit(_)));
+    let is_view = use_memo(move || matches!(action_mode(), EventFormMode::View(_)));
     let is_loading = use_signal(|| false);
     let mut error_msg: Signal<Option<String>> = use_signal(|| None);
+
+    let default_calendar_id = calendars.first().map(|c| c.id).unwrap_or(Uuid::nil());
+    use_effect(move || {
+        let next = match action_mode() {
+            EventFormMode::Edit(e) | EventFormMode::View(e) => *e.clone(),
+            EventFormMode::Create => CalendarEvent {
+                calendar_id: default_calendar_id,
+                summary: String::new(),
+                description: None,
+                from_date_time: prefilled_date
+                    .unwrap_or_else(Utc::now)
+                    .with_nanosecond(0) // cut nanoseconds off, else input field can't display it
+                    .unwrap(), // with_nanosecond(0) is unfailable
+                to_date_time: Some(prefilled_date.unwrap_or_else(Utc::now) + Duration::hours(1)),
+                attachment: None,
+                location: None,
+                categories: None,
+                is_all_day: false,
+                recurrence: None,
+                recurrence_exception: None,
+                // Ignore: following fields are not needed for this function and/or should only be handled by supabase, but are there to complete this struct
+                id: Uuid::nil(),
+                created_by: Uuid::nil(),
+                created_at: Utc::now(),
+                last_mod: Utc::now(),
+            },
+        };
+
+        summary.set(next.summary);
+        description.set(next.description);
+        selected_calendar_id.set(next.calendar_id);
+        from_date.set(next.from_date_time);
+        to_date.set(next.to_date_time);
+        attachment.set(next.attachment);
+        location.set(next.location);
+        categories.set(next.categories);
+        is_all_day.set(next.is_all_day);
+        id.set(next.id);
+        created_at.set(next.created_at);
+        created_by.set(next.created_by);
+        last_mod.set(next.last_mod);
+        recurrence.set(next.recurrence);
+        recurrence_exception.set(next.recurrence_exception);
+    });
+
+    // for checking if this is a parent
+    let initial_is_recurrent = is_recurrent;
+    let initial_is_recurrence_exception = is_recurrence_exception;
 
     // memo created by Github Copilot (GPT)
     let from_date_formatted = use_memo(move || {
@@ -330,24 +385,100 @@ pub fn EventForm(
                     disabled: is_loading(),
                     onclick: move |_| {
                         // Editing a recurring parent requires choosing the scope first
-                        if is_edit() && is_recurrent && !is_recurrence_exception {
-                            show_recurrent_scope_dialog.set(true);
-                        } else {
+                        // if is_edit() && is_recurrent && !is_recurrence_exception {
+                        //     show_recurrent_scope_dialog.set(true);
+                        // } else {
                             // distinguish between creating and editing event
-                            match mode() {
-                                EventFormMode::Create => {
-                                    spawn(async move {
-                                        match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
-                                        Ok(()) => {
-                                            on_refresh.call(());
+                        match action_mode() {
+                            EventFormMode::Create => {
+                                spawn(async move {
+                                    match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
+                                    Ok(()) => {
+                                        on_refresh.call(());
+                                    },
+                                    Err(err) => {
+                                        error_msg.set(Some(err.to_string()));
+                                    },
+                                }
+                                });
+                            },
+                            EventFormMode::Edit(_) => {
+                                // wenn recurrence oder recurrence exception:
+                                if initial_is_recurrent || initial_is_recurrence_exception {
+                                    match recurrent_scope() {
+                                        // wenn recurrent_scope() == RecurrentEditScope::All
+                                        Some(RecurrentEditScope::All) => {
+                                            // wenn recurrence oder ist parent (wenn user recurrence löscht hat parent kein recurrence mehr also anderer check)
+                                            // if is_recurrent  || initial_is_recurrent {
+                                                println!("edit_calendar_event");
+                                                spawn(async move {
+                                                    match edit_calendar_event(CalendarEvent{
+                                                        id: id(),
+                                                        summary: summary(),
+                                                        description: description(),
+                                                        calendar_id: selected_calendar_id(),
+                                                        created_at: created_at(),
+                                                        created_by: created_by(),
+                                                        from_date_time: from_date(),
+                                                        to_date_time: to_date(),
+                                                        attachment: attachment(),
+                                                        recurrence: recurrence(),
+                                                        recurrence_exception: recurrence_exception(),
+                                                        location: location(),
+                                                        categories: categories(),
+                                                        is_all_day: is_all_day(),
+                                                        last_mod: last_mod(),
+                                                    },
+                                                    None,
+                                                    None).await {
+                                                    Ok(()) => {
+                                                        on_refresh.call(());
+                                                    },
+                                                    Err(err) => {
+                                                        error_msg.set(Some(err.to_string()));
+                                                    },
+                                                    }
+                                                });
+                                            // wenn recurrence_exception
+                                            // } else {
+                                            //     //
+                                            // }
                                         },
-                                        Err(err) => {
-                                            error_msg.set(Some(err.to_string()));
+                                        // wenn recurrent_scope() == RecurrentEditScope::OnlyThis
+                                        Some(RecurrentEditScope::OnlyThis) => {
+                                            println!("edit_instance_of_recurrent_event");
+                                            spawn(async move {
+                                                match edit_instance_of_recurrent_event(CalendarEvent{
+                                                    id: id(),
+                                                    summary: summary(),
+                                                    description: description(),
+                                                    calendar_id: selected_calendar_id(),
+                                                    created_at: created_at(),
+                                                    created_by: created_by(),
+                                                    from_date_time: from_date(),
+                                                    to_date_time: to_date(),
+                                                    attachment: attachment(),
+                                                    recurrence: recurrence(),
+                                                    recurrence_exception: recurrence_exception(),
+                                                    location: location(),
+                                                    categories: categories(),
+                                                    is_all_day: is_all_day(),
+                                                    last_mod: last_mod(),
+                                                }).await {
+                                                Ok(()) => {
+                                                    on_refresh.call(());
+                                                },
+                                                Err(err) => {
+                                                    error_msg.set(Some(err.to_string()));
+                                                },
+                                                }
+                                            });
                                         },
+                                        None => {},
                                     }
-                                    });
-                                },
-                                EventFormMode::Edit(_) => {
+                                // wenn normales event:
+                                } else {
+                                    println!("edit_single_calendar_event");
                                     spawn(async move {
                                         match edit_single_calendar_event(CalendarEvent{
                                             id: id(),
@@ -374,13 +505,22 @@ pub fn EventForm(
                                         },
                                     }
                                     });
-                                },
-                                EventFormMode::View(e) => {
-                                    mode.set(EventFormMode::Edit(e));
-                                },
-                            }
-
+                                }
+                            },
+                            EventFormMode::View(e) => {
+                                // wenn recurrence oder exception:
+                                if is_recurrent || is_recurrence_exception {
+                                    //  erst show_recurrent_scope_dialog()
+                                    println!("Ist recurrent oder exception");
+                                    show_recurrent_scope_dialog.set(true);
+                                } else { // wenn nicht recurrent:
+                                    //  einf auf Edit
+                                    action_mode.set(EventFormMode::Edit(e));
+                                }
+                            },
                         }
+
+
                     },
                     if is_view() {
                         "Edit"
@@ -443,64 +583,29 @@ pub fn EventForm(
                 on_only_this: move |_| {
                     show_recurrent_scope_dialog.set(false);
                     recurrent_scope.set(Some(RecurrentEditScope::OnlyThis));
-                    spawn(async move {
-                        match edit_instance_of_recurrent_event(CalendarEvent{
-                            id: id(),
-                            summary: summary(),
-                            description: description(),
-                            calendar_id: selected_calendar_id(),
-                            created_at: created_at(),
-                            created_by: created_by(),
-                            from_date_time: from_date(),
-                            to_date_time: to_date(),
-                            attachment: attachment(),
-                            recurrence: recurrence(),
-                            recurrence_exception: recurrence_exception(),
-                            location: location(),
-                            categories: categories(),
-                            is_all_day: is_all_day(),
-                            last_mod: last_mod(),
-                        }).await {
-                        Ok(()) => {
-                            on_refresh.call(());
-                        },
-                        Err(err) => {
-                            error_msg.set(Some(err.to_string()));
-                        },
-                        }
-                    });
+                    if let EventFormMode::View(e) = action_mode() {
+                        action_mode.set(EventFormMode::Edit(e));
+                    }
                 },
                 on_all: move |_| {
                     show_recurrent_scope_dialog.set(false);
                     recurrent_scope.set(Some(RecurrentEditScope::All));
-                    spawn(async move {
-                        match edit_calendar_event(CalendarEvent{
-                            id: id(),
-                            summary: summary(),
-                            description: description(),
-                            calendar_id: selected_calendar_id(),
-                            created_at: created_at(),
-                            created_by: created_by(),
-                            from_date_time: from_date(),
-                            to_date_time: to_date(),
-                            attachment: attachment(),
-                            recurrence: recurrence(),
-                            recurrence_exception: recurrence_exception(),
-                            location: location(),
-                            categories: categories(),
-                            is_all_day: is_all_day(),
-                            last_mod: last_mod(),
-                        },
-                        None,
-                        None).await {
-                        Ok(()) => {
-                            on_refresh.call(());
-                        },
-                        Err(err) => {
-                            error_msg.set(Some(err.to_string()));
-                        },
+                    if is_recurrent {
+                        println!("Übergebe normal");
+                        if let EventFormMode::View(e) = action_mode() {
+                            action_mode.set(EventFormMode::Edit(e));
                         }
-                    });
+                    } else {
+                        // aus events das parent raussuchen und übergeben
+                        println!("übergebe parent");
+                        let parent_event = events
+                            .iter()
+                            .find(|e| recurrence_exception().unwrap().recurrence_id.to_string() == e.id)
+                            .and_then(|e| parse_calendar_event_light_to_calendar_event(e.clone()).ok());
+                        if let Some(event) = parent_event {
+                            action_mode.set(EventFormMode::Edit(Box::new(event)));
+                        }
+                    }
                 },
                 on_cancel: move |_| show_recurrent_scope_dialog.set(false),
             }
