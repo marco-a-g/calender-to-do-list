@@ -233,7 +233,8 @@ pub fn OpenToDoView(
                     for task in today_list {
                         // alle due heute/overdue ToDos rendern
                         ToDoItem {
-                            key: "{task.id}",
+                            //LLM: Key differenzieren um Abstürze bei gleichen ids zu vermeiden
+                            key: "{task.id}-{task.due_datetime.as_deref().unwrap_or_default()}",
                             task: task.clone(),
                             parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
                             parent_group: all_lists //alle Gruppen > ToDoList > ToDo finden
@@ -259,7 +260,8 @@ pub fn OpenToDoView(
                     for task in week_list {
                     // alle due in einer woche ToDos rendern
                         ToDoItem {
-                            key: "{task.id}",
+                            //LLM: Key differenzieren um Abstürze bei gleichen ids zu vermeiden
+                            key: "{task.id}-{task.due_datetime.as_deref().unwrap_or_default()}",
                             task: task.clone(),
                             parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
                             parent_group: all_lists //alle Gruppen > ToDoList > ToDo finden
@@ -284,7 +286,8 @@ pub fn OpenToDoView(
                     for task in later_list {
                         //alle Due Later todos rendern
                         ToDoItem {
-                            key: "{task.id}",
+                            //LLM: Key differenzieren um Abstürze bei gleichen ids zu vermeiden
+                            key: "{task.id}-{task.due_datetime.as_deref().unwrap_or_default()}",
                             task: task.clone(),
                             parent_list: all_lists.iter().find(|l| l.id == task.todo_list_id).cloned(),
                             parent_group: all_lists //alle Gruppen > ToDoList > ToDo finden

@@ -237,21 +237,20 @@ pub fn CreateEditToDoModal(
                     Some(new_task_assignee())
                 };
 
-                // Unterscheidung für Edit und Create hier
+                // Unterscheidung für Edit und Create ab hier
                 if let Some(existing_todo) = todo_to_edit() {
                     //Hier Edit
-                    //Unterscheidung für Ganze reihe oder nur diese Instanz
-                    // Prüfen: Ist es ein Master, der sich wiederholt?
+                    //Unterscheidung für Ganze reihe oder nur diese Instanz, dafür prüfen: Ist es ein Master, der sich wiederholt?
                     let is_master_recurring =
                         existing_todo.recurrence_id.is_none() && existing_todo.rrule.is_some();
 
-                    //uuid, rrule, und overides datetime extrahieren, anhand von Fallunterscheidung in: ist recurring todo und soll ganze serie bearbeiten
+                    //Recid, rrule, und overides datetime extrahieren, anhand von Fallunterscheidung in: ist recurring todo und soll ganze serie bearbeiten
                     let (target_rec_id, target_rrule, target_overrides) = if is_master_recurring {
                         // Ganze Reihe editieren -> Auf Mastereintrag arbeiten
                         if edit_series_mode() {
                             (None, rrule, None)
                         } else {
-                            // Nur einzelne Instanz eines recurring todos ändern
+                            // Nur einzelne Master Instanz eines recurring todos ändern
                             (
                                 Some(existing_todo.id.clone()),
                                 None,
@@ -259,12 +258,19 @@ pub fn CreateEditToDoModal(
                             )
                         }
                     } else {
-                        // Nicht Recurring todo ändern oder existierende Exception eines Masters
-                        (
-                            existing_todo.recurrence_id.clone(),
-                            rrule,
-                            existing_todo.overrides_datetime.clone(),
-                        )
+                        //Nicht Master sondern bestehende Exception, Fake instanz oder standalone
+                        // Overrides je nach Fall extrahieren
+                        let overrides = if existing_todo.overrides_datetime.is_some() {
+                            //Ist bereits exception, overrides datetime nehmen nicht mehr due sonst bug
+                            existing_todo.overrides_datetime.clone()
+                        } else if existing_todo.recurrence_id.is_some() {
+                            // Virtuelle Fake instanz original due date als overrides nutzen
+                            existing_todo.due_datetime.clone()
+                        } else {
+                            // normales standalone nicht-recurring Todo, kriegt kein overrides
+                            None
+                        };
+                        (existing_todo.recurrence_id.clone(), rrule, overrides)
                     };
 
                     // Edit-Modus
