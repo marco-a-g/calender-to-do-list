@@ -20,8 +20,9 @@ Side Note Important! :  be aware that major parts of the css styling was made wi
 //! Helper functions:
 //! - `days_in_month`:  Calculates the number of days in a given month/year.
 //! - `month_name`:     Maps month number (1–12) to English name.
+//! - `occurs_on_day`:  Checks wether an event overlaps a given day cell.
 
-use chrono::{DateTime, Datelike, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Utc};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -368,13 +369,8 @@ fn MonthGrid(
                     // Filter events for this specific day
                     let mut day_events: Vec<CalendarEventLight> = events
                         .iter()
-                        .filter(|e| {
-                            e.from_date_time
-                                .parse::<DateTime<Utc>>()
-                                .map(|dt| dt.date_naive() == cell_naive)
-                                .unwrap_or(false)
-                        })
-                        .filter(|e| !e.skipped) // exclude skipped recurrence exceptions
+                        .filter(|e| occurs_on_day(e, cell_naive))
+                        .filter(|e| !e.skipped)
                         .cloned()
                         .collect();
 
@@ -633,4 +629,45 @@ fn month_name(month: u32) -> &'static str {
         12 => "December",
         _ => "",
     }
+}
+
+/// Returns true if the event overlaps the given calendar day
+///
+/// Month cells represent the interval day 00:00, next_day 00:00 (end exclusive),
+/// which makes multi-day and cross-midnight events show up on all affected days
+fn occurs_on_day(e: &CalendarEventLight, day: NaiveDate) -> bool {
+    // Day slot: 00:00, next 00:00
+    let day_start = Utc.from_utc_datetime(&day.and_hms_opt(0, 0, 0).unwrap());
+    let day_end = day_start + Duration::days(1);
+
+    // Event start (invalid timestamps are ignored)
+    let start = match e.from_date_time.parse::<DateTime<Utc>>() {
+        Ok(dt) => dt,
+        Err(_) => return false,
+    };
+
+    // Event end (defaults: all-day -> +1 day, timed -> instant)
+    let end = match e
+        .to_date_time
+        .as_deref()
+        .and_then(|s| s.parse::<DateTime<Utc>>().ok())
+    {
+        Some(dt) => dt,
+        None => {
+            if e.is_all_day {
+                let sd = start.date_naive();
+                let midnight = Utc.from_utc_datetime(&sd.and_hms_opt(0, 0, 0).unwrap());
+                midnight + Duration::days(1)
+            } else {
+                start
+            }
+        }
+    };
+
+    // Ignore broken intervals
+    if end < start {
+        return false;
+    }
+
+    start < day_end && end > day_start
 }
