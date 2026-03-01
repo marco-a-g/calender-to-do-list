@@ -1,3 +1,27 @@
+/*
+Side Note Important! :  be aware that major parts of the css styling was made with LLM's (GroundLayer with ChatGpt & some details with Claude)
+                        refactoring parts were consulted with LLM (Claude)
+                        anything else is highlighted in the spot where it was used
+*/
+
+//! Calendar page — top-level view for the calendar feature.
+//!
+//! Composes `CalendarGrid` and `EventForm` into a single page layout:
+//! - Left:  Calendar grid (month/week/day view with event chips)
+//! - Right: Slide-in event form (create or edit, appears on day/event click)
+//!
+//! Data flow:
+//! 1. `use_resource` fetches calendars, events, groups, and profiles from local SQLite
+//! 2. Recurring events are expanded into individual instances via `expand_recurring_events`
+//! 3. Events are filtered by `active_calendar_ids` (empty = show all)
+//! 4. Calendar colors are resolved from group colors via `build_calendar_color_map`
+//! 5. `CalendarLight` structs are converted to full `Calendar` structs for the grid
+//!
+//! Helper functions:
+//! - `resolve_calendar_name`:    Resolves display name (group name or username)
+//! - `light_to_calendar`:        Converts `CalendarLight` -> `Calendar` with parsed UUIDs/dates
+//! - `build_calendar_color_map`: Maps calendar_id -> hex color from the owning group
+
 use chrono::Utc;
 use dioxus::prelude::*;
 use std::collections::HashMap;
@@ -18,6 +42,15 @@ use crate::utils::structs::{
     ProfileLight,
 };
 
+/// Main calendar page component.
+///
+/// State management:
+/// - displayed_date:       Which month/week/day is currently shown
+/// - view_mode:            Month, Week, or Day toggle
+/// - selected_event:       Currently selected event for editing (None = no selection)
+/// - show_form:            Whether the event form panel is visible
+/// - prefilled_date:       Date to pre-fill when creating a new event from a day click
+/// - active_calendar_ids:  Filter — which calendars are visible (empty = all)
 #[component]
 pub fn CalendarPage() -> Element {
     let displayed_date = use_signal(|| Utc::now());
@@ -29,6 +62,7 @@ pub fn CalendarPage() -> Element {
 
     let active_calendar_ids: Signal<Vec<String>> = use_signal(|| Vec::new());
 
+    // Fetch all required data from local DB in parallel using tokio::join!
     let mut db_resource = use_resource(move || async move {
         join!(
             fetch_calendars_lokal_db(),
@@ -38,28 +72,39 @@ pub fn CalendarPage() -> Element {
         )
     });
 
+    // Destructure the parallel fetch results with graceful fallbacks.
+    // Recurring events are expanded into individual instances here.
+    // If groups or profiles fail, we continue with empty vecs (non-critical data).
     let (calendars_light, all_events_light, groups, profiles) = match &*db_resource.read() {
+        // All four fetches succeeded
         Some((Ok(cals), Ok(evts), Ok(grps), Ok(profs))) => {
             let expanded = expand_recurring_events(evts.clone(), Some(Utc::now()))
                 .unwrap_or_else(|_| evts.clone());
             (cals.clone(), expanded, grps.clone(), profs.clone())
         }
+        // Groups or profiles failed still usable without them
         Some((Ok(cals), Ok(evts), _, _)) => {
             let expanded = expand_recurring_events(evts.clone(), Some(Utc::now()))
                 .unwrap_or_else(|_| evts.clone());
             (cals.clone(), expanded, vec![], vec![])
         }
+        // Events failed show empty calendar
         Some((Ok(cals), _, _, _)) => (cals.clone(), vec![], vec![], vec![]),
+        // Everything failed or still loading
         _ => (vec![], vec![], vec![], vec![]),
     };
 
+    // Build color lookup: calendar_id -> hex color (from owning group)
+    // Wrapped in Arc for cheap cloning into child components
     let calendar_color_by_id = Arc::new(build_calendar_color_map(&calendars_light, &groups));
 
+    // Convert Light structs to full Calendar structs (with parsed UUIDs and dates)
     let calendars_full: Vec<Calendar> = calendars_light
         .iter()
         .map(|c| light_to_calendar(c, &groups, &profiles))
         .collect();
 
+    // Apply calendar filter: empty active_calendar_ids means show all
     let visible_events: Vec<CalendarEventLight> = {
         let ids = active_calendar_ids();
         if ids.is_empty() {
@@ -73,16 +118,19 @@ pub fn CalendarPage() -> Element {
         }
     };
 
+    // Callback to refresh data after event creation/edit/deletion
     let mut handle_refresh = move |_| {
         db_resource.restart();
     };
 
+    // Derive form mode from state: Edit if event selected, Create if form open without event
     let form_mode = use_memo(move || match selected_event() {
         Some(event) => Some(EventFormMode::Edit(event)),
         None if show_form() => Some(EventFormMode::Create),
         _ => None,
     });
 
+    // Show loading spinner while initial data fetch is in progress
     if db_resource.read().is_none() {
         return rsx! {
             div {
@@ -97,6 +145,7 @@ pub fn CalendarPage() -> Element {
         div {
             style: "width: 100%; height: 90vh; display: flex; overflow: hidden; color: white; background: #080910; padding: 20px; box-sizing: border-box; gap: 16px;",
 
+            // Left panel: calendar grid
             div {
                 style: "
                     flex: 1;
@@ -116,11 +165,13 @@ pub fn CalendarPage() -> Element {
                     displayed_date,
                     view_mode,
                     active_calendar_ids,
+                    // Day click -> open create form with pre-filled date
                     on_day_click: move |date| {
                         prefilled_date.set(Some(date));
                         selected_event.set(None);
                         show_form.set(true);
                     },
+                    // Event click -> parse Light to full CalendarEvent, open edit form
                     on_event_click: move |light: CalendarEventLight| {
                         selected_event.set(parse_calendar_event_light_to_calendar_event(light).ok());
                         show_form.set(true);
@@ -128,6 +179,7 @@ pub fn CalendarPage() -> Element {
                 }
             }
 
+            // Right panel: event form (slide-in, only visible when form_mode is Some)
             if let Some(mode) = form_mode() {
                 EventForm {
                     mode,
@@ -149,6 +201,11 @@ pub fn CalendarPage() -> Element {
     }
 }
 
+/// Resolves a human-readable name for a calendar.
+///
+/// - Group calendars: uses the group name
+/// - Private calendars: uses the owner's username
+/// - Fallback: "Calendar (first 8 chars of ID)"
 fn resolve_calendar_name(
     c: &CalendarLight,
     groups: &[GroupLight],
@@ -170,11 +227,17 @@ fn resolve_calendar_name(
     format!("Calendar ({})", &c.id[..8])
 }
 
+/// Converts a CalendarLight (flat strings from SQLite) to a full Calendar struct.
+///
+/// Parses UUIDs and timestamps, resolves the display name, and determines
+/// the owner type (Group vs Private) from the calendar_type field.
+/// Uses Uuid::nil() and Utc::now() as safe fallbacks for unparseable values.
 fn light_to_calendar(
     c: &CalendarLight,
     groups: &[GroupLight],
     profiles: &[ProfileLight],
 ) -> Calendar {
+    // Try owner_id first, fall back to group_id, then Uuid::nil()
     let owner_id = c
         .owner_id
         .as_deref()
@@ -202,6 +265,9 @@ fn light_to_calendar(
     }
 }
 
+/// Builds a map from calendar_id -> hex color string.
+///
+/// For group calendars, the color comes from the group's color field.
 fn build_calendar_color_map(
     calendars: &[CalendarLight],
     groups: &[GroupLight],
@@ -211,6 +277,7 @@ fn build_calendar_color_map(
         .map(|cal| {
             let fallback = "#9ca3af".to_string();
 
+            // Look up the owning group's color; fallback if no group or no match
             let color = cal
                 .group_id
                 .as_ref()
