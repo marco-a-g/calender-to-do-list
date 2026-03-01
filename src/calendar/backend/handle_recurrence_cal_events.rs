@@ -109,8 +109,8 @@ pub fn expand_recurring_events(
                     break;
                 }
             }
-            //sind Wiederholungsinstanzen bis 1 Jahr in die Zukunft erreicht? => aufhören
-            if current_date > (now.checked_add_months(chrono::Months::new(13)).unwrap()) {
+            //sind Wiederholungsinstanzen bis 2 Jahre in die Zukunft erreicht? => aufhören
+            if current_date > (now.checked_add_months(chrono::Months::new(24)).unwrap()) {
                 break;
             }
 
