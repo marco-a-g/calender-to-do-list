@@ -17,9 +17,10 @@ use uuid::Uuid;
 pub fn expand_recurring_events(
     events: Vec<CalendarEventLight>,
     year: Option<chrono::DateTime<Utc>>, // defaults to now
-) -> Result<Vec<CalendarEventLight>, Box<dyn std::error::Error>> {
+) -> Result<(Vec<CalendarEventLight>, Vec<CalendarEventLight>), Box<dyn std::error::Error>> {
     let mut result = Vec::new();
     let mut masters: Vec<CalendarEventLight> = Vec::new();
+    let mut hidden_masters = Vec::new();
     // Set aus Key, value pairs mit RecId und overridesDatetime, und event selbst soll performanter sein, laut LLM
     let mut exceptions: HashMap<(String, String), CalendarEventLight> = HashMap::new();
 
@@ -126,7 +127,9 @@ pub fn expand_recurring_events(
                 if !exception.skipped {
                     result.push(exception.clone());
                 }
-                first_iter = false;
+                if first_iter{
+                    hidden_masters.push(master.clone());
+                    first_iter= false;}
             } else {
                 //Keine exception => Instanz erzeugen
                 //erster Durchlauf => Master ist die Instanz
@@ -154,5 +157,5 @@ pub fn expand_recurring_events(
         }
     }
     //Ergebnisvektor aus Mastern und "Fake"-events ausgeben
-    Ok(result)
+    Ok((result, hidden_masters))
 }

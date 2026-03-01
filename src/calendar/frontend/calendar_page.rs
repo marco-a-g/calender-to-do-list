@@ -79,13 +79,13 @@ pub fn CalendarPage() -> Element {
         // All four fetches succeeded
         Some((Ok(cals), Ok(evts), Ok(grps), Ok(profs))) => {
             let expanded = expand_recurring_events(evts.clone(), Some(Utc::now()))
-                .unwrap_or_else(|_| evts.clone());
+                .unwrap_or_else(|_| (evts.clone(),evts.clone())).0;
             (cals.clone(), expanded, grps.clone(), profs.clone())
         }
         // Groups or profiles failed still usable without them
         Some((Ok(cals), Ok(evts), _, _)) => {
             let expanded = expand_recurring_events(evts.clone(), Some(Utc::now()))
-                .unwrap_or_else(|_| evts.clone());
+                .unwrap_or_else(|_| (evts.clone(),evts.clone())).0;
             (cals.clone(), expanded, vec![], vec![])
         }
         // Events failed show empty calendar

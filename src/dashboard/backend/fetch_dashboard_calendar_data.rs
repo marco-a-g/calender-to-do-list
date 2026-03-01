@@ -30,7 +30,7 @@ pub async fn fetch_calendar_dashboard_tuples()
     let all_groups = groups_res.map_err(|e| e.to_string())?;
 
     let current_time = chrono::Utc::now();
-    let expanded_pool = expand_recurring_events(pool_events, Some(current_time))?;
+    let expanded_pool = expand_recurring_events(pool_events, Some(current_time))?.0;
 
     // Datumsgrenzen für diese Woche
     let now = Local::now();
