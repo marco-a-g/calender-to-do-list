@@ -217,7 +217,7 @@ fn add_months_same_date(
 fn handle_last_day_of_month(year: i32, month: u32) -> Option<u32> {
     if !(1..=12).contains(&month) {
         //Abfangen falscher Monatsangaben
-        return None;
+        None
     } else if month == 12 {
         // im Dezember -> ersten Tag des neuen Jahres nehmen und davon dann vorgänger
         NaiveDate::from_ymd_opt(year + 1, 1, 1)?
