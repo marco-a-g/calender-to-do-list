@@ -1,3 +1,4 @@
+//! Profile creation view
 use crate::{
     auth::backend::{AuthStatus, AuthView},
     user::backend::{create_profile, is_username_available},
@@ -41,6 +42,7 @@ fn card_style(width: &str) -> String {
     )
 }
 
+/// Window for choosing username and creating profile
 #[component]
 pub fn CreateProfileView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -> Element {
     let mut username = use_signal(String::new);
