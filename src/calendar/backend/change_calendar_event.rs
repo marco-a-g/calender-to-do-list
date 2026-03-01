@@ -675,6 +675,13 @@ pub async fn edit_calendar_event_unchecked(
 ) -> core::result::Result<StatusCode, ServerFnError> {
     // get the session token
     let current_user = get_user_id_and_session_token().await?;
+    // set is_all_day to true if an event takes more than 24 hours
+    let mut all_d = changed_event.is_all_day;
+    if let Some(to_dt) = to_date_time {
+        if to_dt - from_date_time > chrono::Duration::hours(24) {
+            all_d = true;
+        }
+    }
     // fit data into a NewCalendarEvent for building the json
     let new_cal_event = CalendarEventUp {
         summary: changed_event.summary,
@@ -710,7 +717,7 @@ pub async fn edit_calendar_event_unchecked(
         },
         location: changed_event.location,
         category: changed_event.categories.map(|c| c.join(", ")),
-        is_all_day: changed_event.is_all_day.to_string(),
+        is_all_day: all_d.to_string(),
     };
 
     let url_events = format!("{}/rest/v1/calendar_events", SUPABASE_URL);
