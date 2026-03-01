@@ -166,7 +166,7 @@ pub fn CreateEditToDoModal(
         "Create To-Do"
     };
 
-    // Validierung für Eingabemaske, gültig wenn: Titel nicht leer || RRule eingaben gültig
+    // Validierung für Eingabemaske, gültig wenn: Titel nicht leer && RRule eingaben gültig
     let is_form_valid = !new_task_title().is_empty()
         && (new_task_rrule().is_empty() || {
             let due = new_task_due_date();

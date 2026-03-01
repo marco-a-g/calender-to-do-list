@@ -496,6 +496,16 @@ pub fn RecurrencePicker(
 ) -> Element {
     let is_active = use_memo(move || recurrence().is_some());
 
+    let rrule_value = use_memo(move || match recurrence().unwrap_or_default().rrule {
+        Rrule::Daily => "Daily",
+        Rrule::Weekly => "Weekly",
+        Rrule::Fortnight => "Fortnight",
+        Rrule::OnWeekDays => "weekdays",
+        Rrule::MonthlyOnDate => "monthly_on_date",
+        Rrule::MonthlyOnWeekday => "monthly_on_weekday",
+        Rrule::Annual => "Annual",
+    });
+
     rsx! {
         div {
             class: "flex flex-col gap-3",
@@ -527,16 +537,16 @@ pub fn RecurrencePicker(
                         label: "Frequency",
                         select {
                             class: field_input_class(),
-                            value: "{recurrence().unwrap_or_default().rrule}",
+                            value: "{rrule_value}",
                             onchange: move |e| {
                                 recurrence.set(Some(Recurrent { rrule: e.value().parse::<Rrule>().unwrap_or(Rrule::Daily), ..recurrence().unwrap_or_default() }));
                             },
                             option { value: "Daily", style: "background: #1A1D2B", "Daily" }
                             option { value: "Weekly", style: "background: #1A1D2B", "Weekly" }
                             option { value: "Fortnight", style: "background: #1A1D2B", "Fortnight" }
-                            option { value: "OnWeekDays", style: "background: #1A1D2B", "On Week Days" }
-                            option { value: "MonthlyOnDate", style: "background: #1A1D2B", "Monthly On Date"}
-                            option { value: "MonthlyOnWeekday", style: "background: #1A1D2B", "Monthly On Weekday"}
+                            option { value: "weekdays", style: "background: #1A1D2B", "On Week Days" }
+                            option { value: "monthly_on_date", style: "background: #1A1D2B", "Monthly On Date"}
+                            option { value: "monthly_on_weekday", style: "background: #1A1D2B", "Monthly On Weekday"}
                             option { value: "Annual", style: "background: #1A1D2B", "Annual" }
                         }
                     }
