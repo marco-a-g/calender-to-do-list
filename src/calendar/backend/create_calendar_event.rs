@@ -156,15 +156,18 @@ async fn create_calendar_event_unchecked(
         from_date_time: from_date_time.to_string(),
         to_date_time: to_date_time.map(|t| t.to_string()),
         attachment,
-        rrule: recurrence.as_ref().map(|r| match r.rrule {
-            Rrule::Daily => "daily",
-            Rrule::Weekly => "weekly",
-            Rrule::Fortnight => "fortnight",
-            Rrule::OnWeekDays => "weekdays",
-            Rrule::MonthlyOnDate => "monthly_on_date",
-            Rrule::MonthlyOnWeekday => "monthly_on_weekday",
-            Rrule::Annual => "annual",
-        }.to_string()),
+        rrule: recurrence.as_ref().map(|r| {
+            match r.rrule {
+                Rrule::Daily => "daily",
+                Rrule::Weekly => "weekly",
+                Rrule::Fortnight => "fortnight",
+                Rrule::OnWeekDays => "weekdays",
+                Rrule::MonthlyOnDate => "monthly_on_date",
+                Rrule::MonthlyOnWeekday => "monthly_on_weekday",
+                Rrule::Annual => "annual",
+            }
+            .to_string()
+        }),
         recurrence_until: recurrence.as_ref().map(|r| r.recurrence_until.to_string()),
         recurrence_id: recurrence_exception
             .as_ref()
