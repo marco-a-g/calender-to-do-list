@@ -8,11 +8,14 @@ use uuid::Uuid;
 /// Expands the recurrent events to all single instances within the year to be displayed.
 ///
 /// Creates all missing Instances for the recurrent events also handling overriding exceptions.
-/// Instances are created with new Ids for easier handling in the frontend. These must not be used for manipulating the events.
+/// Instances are created with new Ids for easier handling in the frontend. These must not be used syncing to supabase.
 ///
 /// ## Arguments
 /// - `events`- a vector of `CalendarEventLight` as taken out of the local database.
 /// - `year`- The year for which the recurrent events are expanded. If no year is provided, the current year is used.
+///
+/// ## Returns
+/// a tuple (Vec<CalendarEventIght>, Vec<CalendarEventIght>) where the first Vec contains the expanded events for displaying in the frontend and the second Vec contains recurrent events where the first instance is overriden (so should not be displayed) but are possibly needed if the recurrent event is changed.
 ///
 pub fn expand_recurring_events(
     events: Vec<CalendarEventLight>,
