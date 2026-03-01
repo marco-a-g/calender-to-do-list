@@ -13,10 +13,7 @@ use crate::{
             delete_single_calendar_event,
         },
     },
-    utils::structs::{
-            Calendar, CalendarEvent,
-            Recurrent, Rrule,
-        },
+    utils::structs::{Calendar, CalendarEvent, Recurrent, Rrule},
 };
 
 #[derive(Debug, Clone, PartialEq)]
