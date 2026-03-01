@@ -13,8 +13,8 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 - Used (Chatgpt & Claude) for research, troubleshooting, refacotring, some components and help with proper documentation, All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions) were created with LLM but also manually adjusted if needed. 
 - The biggest LLM usage was for the Pullrequest #50, for more informations look up the General paragraph regarding Rustversion compatibility
 - **Marco:**
-- Key contributions: Local DB setup, sync and fetch operations, To-Do components, frontend runtime expansion of recurring tasks regarding recurrence rules, and Dashboard.
-- Used LLMs (Gemini) for research, troubleshooting, refactoring, cumbersome Tasks like reworking SQL Querys, Documentation. All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions), created with the help of LLMs due to no experience with frontend-development.
+- Key contributions: Local DB setup, sync and fetch operations, To-Do components, frontend runtime expansion of recurring elements regarding recurrence rules and Dashboard.
+- Used LLMs (Gemini) for research, troubleshooting, refactoring, cumbersome tasks like reworking SQL Querys and Documentation. All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions), created with the help of LLMs due to no experience with frontend-development.
 - The two placeholders in the Dashboard for future expansion (Newsfeed and Chat) are explicitly created fully by a LLM.
 - **Max:**
 - Key contributions: Calendar backend, structs, parsing
@@ -25,7 +25,7 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 
 
 - **General:**
-  - server_fn, #[server], #[cfg(not(feature = "server"))]: Initially, we planned to offer two ways to access the application: as a desktop app and via a web browser using a standalone server. Hence, we began structuring our functions logic using Dioxus's server types. We later narrowed the project's scope to desktop-only and decided to keep these function signatures to facilitate an easierf transition to the web in the future.
+  - server_fn, #[server], #[cfg(not(feature = "server"))]: Initially, we planned to offer two ways to access the application: as a desktop app and via a web browser using a standalone server. Hence, we began structuring our functions logic using Dioxus's server types. We later narrowed the project's scope to desktop-only and decided to keep these function signatures to facilitate an easier transition to the web in the future.
   - Two days before the deadline, we realized the assignment strictly required Rust 1.85, whereas we had been developing on a newer version we downloaded at the start of the course. Downgrading Rust triggered severe dependency conflicts and sub-crate incompatibilities. To resolve these complex issues and refactor the affected functions within the remaining time, we heavily relied on cargo clippy and LLM assistance. In the heat of the moment, these changes were implemented directly on an active working branch used for refactoring the group module. The resulting merge combines both the dependency resolution and the group module updates, not an isolated feature and may signal wrong git blame information as Arno committed these changes (e.g. Calendar backend functions even though Max wrote them, but refactoring implied some minor changes to fit 1.85.0)
   - In some of our Pull-Requests on Github we used Github's Copilot to review our changes.
   - Specific minor usage of LLMs is documented in the code itself.
@@ -57,7 +57,7 @@ If not already installed, please ensure the **Visual Studio Build Tools** are pr
 #### 2. Install Dioxus CLI & WebAssembly Target
 The Dioxus Command Line Interface is the core tool for serving the app. It also requires the WebAssembly target for asset management. 
 
-To install the CLI, please follow the instructions provided by Dioxus. Below is an excerpt from the official Dioxus documentation:
+To install the CLI, please follow the instructions provided by Dioxus. Below is an excerpt from the official [Dioxus documentation](https://dioxuslabs.com/learn/0.7/getting_started/):
 
 > **Install the Dioxus CLI** > Dioxus ships with its own build tool that leverages `cargo` to provide integrated hot-reloading, bundling, and development servers for web and mobile. You can download the prebuilt binary with the following command:
 >
@@ -70,7 +70,7 @@ To install the CLI, please follow the instructions provided by Dioxus. Below is 
 > ```bash
 > cargo install dioxus-cli
 > ```
-> 📣 *Installing from source can take up to 10 minutes and requires several dependencies. We strongly recommend downloading the prebuilt binaries.* > *If you get an OpenSSL error on installation, ensure the dependencies listed here are installed.*
+> 📣 *Installing from source can take up to 10 minutes and requires several dependencies. We strongly recommend downloading the prebuilt binaries.* > *If you get an OpenSSL error on installation, ensure the dependencies listed [here](https://docs.rs/openssl/latest/openssl/#automatic) are installed.*
 
 Make sure to also add the WebAssembly target via your terminal:
 ```bash
@@ -102,19 +102,19 @@ Or with dioxus own integrated hot-reloading feature:
 
 ---
 
-> **Note:** The reason we recommend the Windows setup is that the auto-generation and/or import of tailwind.css by the framework sometimes malfunctions. If this happens to you, it may be fixable by following the steps in the "Important" footnote.
-
 ### Option B: macOS Setup
+
+> **Note:** The reason we recommend the Windows setup is that on macOS the auto-generation and/or import of tailwind.css by the framework sometimes malfunctions. If this happens to you, it may be fixable by following the steps in the "Important" footnote.
 
 #### 1. Install Dioxus CLI & WebAssembly Target
 The Dioxus Command Line Interface is the core tool for serving the app. It also requires the WebAssembly target for asset management.
 
-To install the CLI, please follow the instructions provided by Dioxus. Below is an excerpt from the official Dioxus documentation:
+To install the CLI, please follow the instructions provided by Dioxus. Below is an excerpt from the official [Dioxus documentation](https://dioxuslabs.com/learn/0.7/getting_started/):
 
-> **Install the Dioxus CLI** > Dioxus ships with its own build tool that leverages `cargo` to provide integrated hot-reloading, bundling, and development servers for web and mobile. You can download the prebuilt binary with the following command:
+> **Install the Dioxus CLI** > [Dioxus](https://dioxuslabs.com/learn/0.7/getting_started/) ships with its own build tool that leverages `cargo` to provide integrated hot-reloading, bundling, and development servers for web and mobile. You can download the prebuilt binary with the following command:
 >
 > ```bash
-> curl -sSL [https://dioxus.dev/install.sh](https://dioxus.dev/install.sh) | bash
+> curl -sSL https://dioxus.dev/install.sh | bash
 > ```
 >
 > You can also download the cli with `cargo-binstall` (if cargo-binstall is installed):
@@ -126,7 +126,7 @@ To install the CLI, please follow the instructions provided by Dioxus. Below is 
 > ```bash
 > cargo install dioxus-cli
 > ```
-> 📣 *Installing from source can take up to 10 minutes and requires several dependencies. We strongly recommend downloading the prebuilt binaries.* > *If you get an OpenSSL error on installation, ensure the dependencies listed here are installed.*
+> 📣 *Installing from source can take up to 10 minutes and requires several dependencies. We strongly recommend downloading the prebuilt binaries.* > *If you get an OpenSSL error on installation, ensure the dependencies listed [here](https://docs.rs/openssl/latest/openssl/#automatic) are installed.*
 
 Make sure to also add the WebAssembly target via your terminal:
 ```bash
