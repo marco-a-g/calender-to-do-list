@@ -497,13 +497,13 @@ pub fn RecurrencePicker(
     let is_active = use_memo(move || recurrence().is_some());
 
     let rrule_value = use_memo(move || match recurrence().unwrap_or_default().rrule {
-        Rrule::Daily => "daily",
-        Rrule::Weekly => "weekly",
-        Rrule::Fortnight => "fortnight",
+        Rrule::Daily => "Daily",
+        Rrule::Weekly => "Weekly",
+        Rrule::Fortnight => "Fortnight",
         Rrule::OnWeekDays => "weekdays",
         Rrule::MonthlyOnDate => "monthly_on_date",
         Rrule::MonthlyOnWeekday => "monthly_on_weekday",
-        Rrule::Annual => "annual",
+        Rrule::Annual => "Annual",
     });
 
     rsx! {
