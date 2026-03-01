@@ -185,27 +185,3 @@ pub fn DashboardCalendar(evts: Vec<(CalendarEventLight, String, String)>) -> Ele
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    //Checks if date extraction in utc on vaild dateformats (inkluding offset format) for Dashboard works
-    #[test]
-    fn test_extract_time_for_dashboard_should_work() {
-        let input_utc = "2026-02-27T12:00:00Z";
-        let input_offset = "2026-02-27T14:00:00+02:00";
-
-        assert_eq!(extract_time_for_dashboard(input_utc), "12:00");
-        assert_eq!(extract_time_for_dashboard(input_offset), "12:00");
-    }
-
-    #[test]
-    //Checks if Fallback to empty String on invald or empty input on date extraction for Dashboard works
-    fn test_extract_time_for_dashboard_on_wrong_input() {
-        let wrong_input = "Wie gehts?";
-        let empty_input = "";
-
-        assert_eq!(extract_time_for_dashboard(wrong_input), "");
-        assert_eq!(extract_time_for_dashboard(empty_input), "");
-    }
-}

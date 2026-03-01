@@ -79,9 +79,7 @@ pub fn ToDoDashboard() -> Element {
             match expand_recurring_todos(input_tasks) {
                 Ok(expanded_tasks) => {
                     // Expanding klappt -> expandete tasks in tasks_signal setzen
-                    //let test_tasks = expanded_tasks.clone();
                     tasks_signal.set(expanded_tasks);
-                    //println!("DU SOLLTEST DOCH FUNKTIONIEREN :{:?}", test_tasks);
                 }
                 Err(e) => {
                     // wenn expanden nicht klappt unexpandete ausgeben
