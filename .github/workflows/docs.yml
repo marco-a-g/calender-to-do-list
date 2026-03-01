@@ -25,7 +25,7 @@ jobs:
 
       - name: Fix permissions
         run: |
-          chmod -c -R +rT target/doc | true
+          chmod -c -R +rX target/doc
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
