@@ -1,3 +1,4 @@
+//! Event form and affiliated
 use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime, Timelike, Utc};
 use dioxus::prelude::*;
 use uuid::Uuid;
@@ -16,6 +17,7 @@ use crate::{
     utils::structs::{Calendar, CalendarEvent, Recurrent, Rrule},
 };
 
+/// Current event mode
 #[derive(Debug, Clone, PartialEq)]
 pub enum EventFormMode {
     Create,
@@ -29,6 +31,15 @@ pub enum RecurrentEditScope {
     All,
 }
 
+/// Event form for editing and creating calendar events
+///
+/// Opens with click on event or day cell
+///
+/// Contains
+/// * RecurrencePicker
+/// * DeleteButton
+/// * RecurrentScopeDialog
+/// * FormField
 #[component]
 pub fn EventForm(
     mode: EventFormMode,
@@ -466,6 +477,7 @@ pub fn EventForm(
     }
 }
 
+/// UI component with additional options for editing recurrence
 #[component]
 pub fn RecurrencePicker(
     recurrence: Signal<Option<Recurrent>>,
@@ -542,6 +554,7 @@ pub fn RecurrencePicker(
     }
 }
 
+/// Delete button for events
 #[component]
 fn DeleteButton(
     is_recurrent: bool,
@@ -609,6 +622,7 @@ fn DeleteButton(
     }
 }
 
+/// UI component for choosing if you want to adapt changes to only this event or all in the series
 #[component]
 fn RecurrentScopeDialog(
     on_only_this: EventHandler<()>,
@@ -648,6 +662,7 @@ fn RecurrentScopeDialog(
     }
 }
 
+/// Single input field
 #[component]
 fn FormField(
     label: &'static str,
