@@ -53,33 +53,71 @@ pub async fn edit_instance_of_recurrent_event(
         instance.recurrence_exception,
     )
     .await?;
-    if let Some(rec_ex) = instance.recurrence_exception {
-        if let Some(overr) = rec_ex.overrides {
-            if overr.skipped {
-                return delete_instance_of_recurrent_event(
-                    rec_ex.recurrence_id,
-                    overr.overrides_datetime,
-                    None,
-                    None,
-                )
-                .await;
+    let mut rec_ex = instance.recurrence_exception;
+
+    // check if the instance already exists
+    match get_calendar_event_from_remote(instance.id).await {
+        Ok(old_version) => {
+            // check if the existing instance is actually the parent event
+            if old_version.recurrence.is_some() {
+                rec_ex = Some(RecurrenceException {
+                    recurrence_id: old_version.id,
+                    overrides: Some(Overrides {
+                        overrides_datetime: old_version.from_date_time,
+                        skipped: true,
+                    }),
+                });
+            // change the existing instance
+            } else if let Some(rec_ex) = instance.recurrence_exception {
+                if let Some(overr) = rec_ex.overrides {
+                    if overr.skipped {
+                        return delete_instance_of_recurrent_event(
+                            rec_ex.recurrence_id,
+                            overr.overrides_datetime,
+                            None,
+                            None,
+                        )
+                        .await;
+                    }
+                }
             }
+            edit_calendar_event_unchecked(CalendarEvent {
+                id: instance.id,
+                summary: instance.summary,
+                description: instance.description,
+                calendar_id: instance.calendar_id,
+                created_at: instance.created_at,
+                created_by: instance.created_by,
+                from_date_time: instance.from_date_time,
+                to_date_time: instance.to_date_time,
+                attachment: instance.attachment,
+                recurrence: None,
+                recurrence_exception: rec_ex,
+                location: instance.location,
+                categories: instance.categories,
+                is_all_day: instance.is_all_day,
+                last_mod: Utc::now(),
+            })
+            .await?;
+            Ok(())
+        }
+        Err(_) => {
+            create_calendar_event(
+                instance.summary,
+                instance.description,
+                instance.calendar_id,
+                instance.from_date_time,
+                instance.to_date_time,
+                instance.attachment,
+                None,
+                rec_ex,
+                instance.location,
+                instance.categories,
+                instance.is_all_day,
+            )
+            .await
         }
     }
-    create_calendar_event(
-        instance.summary,
-        instance.description,
-        instance.calendar_id,
-        instance.from_date_time,
-        instance.to_date_time,
-        instance.attachment,
-        None,
-        instance.recurrence_exception,
-        instance.location,
-        instance.categories,
-        instance.is_all_day,
-    )
-    .await
 }
 
 /// For changing a calendar event.
