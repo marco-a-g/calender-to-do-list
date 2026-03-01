@@ -75,8 +75,8 @@ pub fn expand_recurring_events(
         let start_date_of_recurrance =
             DateTime::parse_from_rfc3339(&from_dt).map(|d| d.with_timezone(&Utc))?;
 
-        //Dauer des einzelevents berechnen
-        let duration = to_dt.map(|t| t - start_date_of_recurrance);
+        // Dauer des einzelevents berechnen
+        // let duration = to_dt.map(|t| t - start_date_of_recurrance); //wird momentan nciht benötigt
 
         // Until date in DateTime parsen, wenn vorhanden, sonst None setzen
         let end_date_of_recurrance = match master.recurrence_until.clone() {
