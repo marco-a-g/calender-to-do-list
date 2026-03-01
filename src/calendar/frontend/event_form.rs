@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, FixedOffset, Local, NaiveDate, NaiveDateTime, Timelike, Utc};
+use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime, Timelike, Utc};
 use dioxus::prelude::*;
 use uuid::Uuid;
 
@@ -13,13 +13,7 @@ use crate::{
             delete_single_calendar_event,
         },
     },
-    utils::{
-        functions::parse_calendar_event_light_to_calendar_event,
-        structs::{
-            Calendar, CalendarEvent, CalendarEventLight, CalendarLight, OwnedBy, OwnerType,
-            Recurrent, Rrule,
-        },
-    },
+    utils::structs::{Calendar, CalendarEvent, Recurrent, Rrule},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -75,7 +69,7 @@ pub fn EventForm(
     let mut selected_calendar_id = use_signal(|| initial_event.calendar_id);
     let mut from_date = use_signal(|| initial_event.from_date_time);
     let mut to_date = use_signal(|| initial_event.to_date_time);
-    let mut attachment = use_signal(|| initial_event.attachment);
+    let attachment = use_signal(|| initial_event.attachment);
     let mut location = use_signal(|| initial_event.location);
     let mut categories = use_signal(|| initial_event.categories);
     let mut is_all_day = use_signal(|| initial_event.is_all_day);
@@ -225,22 +219,20 @@ pub fn EventForm(
                             let value = e.value();
                             if value.is_empty() {
                                 to_date.set(None);
+                            } else if is_all_day() {
+                                to_date.set(Some(
+                                    NaiveDate::parse_from_str(&value, "%Y-%m-%d")
+                                    .unwrap_or_else(|_| from_date().date_naive())
+                                    .and_hms_opt(0, 0, 0)
+                                    .unwrap() // safe because 0,0,0 is always some
+                                    .and_utc()
+                                ));
                             } else {
-                                if is_all_day() {
-                                    to_date.set(Some(
-                                        NaiveDate::parse_from_str(&value, "%Y-%m-%d")
-                                        .unwrap_or_else(|_| from_date().date_naive())
-                                        .and_hms_opt(0, 0, 0)
-                                        .unwrap() // safe because 0,0,0 is always some
-                                        .and_utc()
-                                    ));
-                                } else {
-                                    to_date.set(Some(
-                                        NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M")
-                                        .map(|d| d.and_utc())
-                                        .unwrap_or_else(|_| from_date())
-                                    ));
-                                }
+                                to_date.set(Some(
+                                    NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M")
+                                    .map(|d| d.and_utc())
+                                    .unwrap_or_else(|_| from_date())
+                                ));
                             }
                         },
                     }
@@ -367,7 +359,7 @@ pub fn EventForm(
                         is_loading,
                         on_delete_instance: move |_| {
                             spawn(async move {
-                                match delete_instance_of_recurrent_event(recurrence_exception().map(|e| e.recurrence_id).unwrap_or_else(|| id()), from_date(), None, Some(true)).await {
+                                match delete_instance_of_recurrent_event(recurrence_exception().map(|e| e.recurrence_id).unwrap_or(id()), from_date(), None, Some(true)).await {
                                     Ok(()) => {
                                         println!("Instanz gelöscht");
                                         on_refresh.call(());
@@ -523,7 +515,7 @@ pub fn RecurrencePicker(
                             class: field_input_class(),
                             value: "{recurrence().unwrap_or_default().rrule}",
                             onchange: move |e| {
-                                recurrence.set(Some(Recurrent { rrule: e.value().parse::<Rrule>().unwrap_or_else(|_| Rrule::Daily), ..recurrence().unwrap_or_default() }));
+                                recurrence.set(Some(Recurrent { rrule: e.value().parse::<Rrule>().unwrap_or(Rrule::Daily), ..recurrence().unwrap_or_default() }));
                             },
                             option { value: "Daily", style: "background: #1A1D2B", "Daily" }
                             option { value: "Weekly", style: "background: #1A1D2B", "Weekly" }

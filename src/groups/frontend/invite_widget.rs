@@ -151,6 +151,8 @@ pub fn InvitesWidget(user_id: String, on_change: EventHandler<()>) -> Element {
 ///
 /// Fires a search request after every keystroke (minimum 2 characters).
 /// Clicking a result sends the invite and collapses the dropdown.
+// rsx! macro does not support else if chains in class attributes
+#[allow(clippy::collapsible_else_if)]
 #[component]
 pub fn UserSearchDropdown(
     group_id: String,
@@ -280,7 +282,7 @@ pub fn UserSearchDropdown(
 
             if let Some(status) = invite_status.read().as_ref() {
                 div {
-                    class:    if status.starts_with("✓") {
+                    class:        if status.starts_with("✓") {
                         "text-green-400 text-sm mt-2"
                     } else if status.starts_with("Error") {
                         "text-red-400 text-sm mt-2"
