@@ -56,13 +56,14 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
     //Wenn Master instanz -> Exception Instant erstellen
     if let Some(rrule_str) = &todo.rrule {
         if !rrule_str.is_empty() {
-            // nächstes Datum der recurrance holen
+            // Nächstes Datum der recurrance holen
+            // Due-Datum des Masters aus HTML-Input parsen
             let current_due = if let Some(s) = &todo.due_datetime {
                 html_input_to_db(s).unwrap_or(None)
             } else {
                 None
             };
-            // wenn nächstes Datum nicht berechnet werden konnte Fehler werfen
+
             let current_due =
                 current_due.ok_or(ServerFnError::new("Master has no valid due date"))?;
 
@@ -128,7 +129,7 @@ pub async fn complete_todo_event(todo: TodoEventLight) -> Result<StatusCode, Ser
                 }
             }
 
-            // Due Date für master auf späteres setzen
+            // Due Date für master auf das der nächsten Instanz setzen
             let url_update = format!("{}/rest/v1/todo_events?id=eq.{}", SUPABASE_URL, todo.id);
             let payload_update = UpdateMasterDate {
                 due_datetime: next_due,
