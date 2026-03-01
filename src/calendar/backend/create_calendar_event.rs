@@ -124,7 +124,7 @@ pub async fn create_calendar_event(
 /// - `recurrence_exception`- If this event is an exception to an recurrent event. Must not be set if recurrence is set.
 /// - `location`- Location where the event takes place.
 /// - `categories`- tags for categorising events.
-/// - `ìs_all_day`- for full-day-events - is set to true automatically for events that take more than 24 hours.
+/// - `is_all_day`- for full-day-events - is set to true automatically for events that take more than 24 hours.
 ///
 /// ## Errors
 /// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
