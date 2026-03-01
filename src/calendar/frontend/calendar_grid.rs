@@ -524,8 +524,6 @@ fn EventChip(
     // Display prefix: "10:00 – 11:00 " for timed, empty for all-day
     let prefix = if event.is_all_day {
         String::new()
-    } else if time_str.is_empty() {
-        String::new()
     } else {
         format!("{time_str}{to_str} ")
     };
