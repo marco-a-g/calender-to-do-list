@@ -123,7 +123,7 @@ pub fn expand_recurring_events(
             //Gibt es für dieses Event eine exception in K-V-Store => exception behandeln
             if let Some(exception) = exceptions.get(&lookup_key) {
                 // ist geskipped => keine Fake instzanz von dem event pushen
-                //ist es nicht geskipped => pushen in result
+                // ist es nicht geskipped => pushen in result
                 if !exception.skipped {
                     result.push(exception.clone());
                 }
