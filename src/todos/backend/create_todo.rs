@@ -416,17 +416,20 @@ mod tests {
         let list_uuid_str = Uuid::new_v4().to_string();
         let user_uuid_str = Uuid::new_v4().to_string();
 
-        // Act
-        let result = frontend_input_to_todo(
-            list_uuid_str.clone(),
-            "Wichtiges Meeting".to_string(),
-            Some("Bitte vorbereiten".to_string()),
-            Some("2026-05-20".to_string()), // Setzt voraus, dass html_input_to_db funktioniert
-            Some("High".to_string()),       // Dank strum::EnumString wird das zu Priority::High
-            None,
-            None,
-            Some(user_uuid_str.clone()),
-        );
+        // Input in das neue Struct verpacken
+        let input = TodoFrontendInput {
+            todo_list_id: list_uuid_str.clone(),
+            summary: "Wichtiges Meeting".to_string(),
+            description: Some("Bitte vorbereiten".to_string()),
+            due_datetime: Some("2026-05-20".to_string()), // Setzt voraus, dass html_input_to_db funktioniert
+            priority: Some("High".to_string()), // Dank strum::EnumString wird das zu Priority::High
+            rrule: None,
+            recurrence_until: None,
+            assigned_to_user: Some(user_uuid_str.clone()),
+        };
+
+        // Act: Nur noch das Struct übergeben
+        let result = frontend_input_to_todo(input);
 
         // Assert
         assert!(result.is_ok());
@@ -443,22 +446,24 @@ mod tests {
     }
 
     #[test]
-
     fn test_frontend_input_to_todo_fail_invalid_uuid() {
         // Arrange: Ein ungültiger String anstelle einer echten UUID
         let invalid_list_uuid = "definitiv-keine-uuid".to_string();
 
+        // Input Struct aufbauen
+        let input = TodoFrontendInput {
+            todo_list_id: invalid_list_uuid,
+            summary: "Titel".to_string(),
+            description: None,
+            due_datetime: None,
+            priority: None,
+            rrule: None,
+            recurrence_until: None,
+            assigned_to_user: None,
+        };
+
         // Act
-        let result = frontend_input_to_todo(
-            invalid_list_uuid,
-            "Titel".to_string(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let result = frontend_input_to_todo(input);
 
         // Assert: Die Funktion muss per `?` Operator fehlschlagen
         assert!(result.is_err());

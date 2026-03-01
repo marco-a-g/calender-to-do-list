@@ -189,33 +189,23 @@ pub fn DashboardCalendar(evts: Vec<(CalendarEventLight, String, String)>) -> Ele
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{DateTime, Local};
-
+    //Checks if date extraction in utc on vaild dateformats (inkluding offset format) for Dashboard works
     #[test]
-    fn test_extract_time_for_dashboard_success() {
-        // Arrange: Ein valider RFC 3339 String
-        let input = "2026-02-27T12:00:00Z";
+    fn test_extract_time_for_dashboard_should_work() {
+        let input_utc = "2026-02-27T12:00:00Z";
+        let input_offset = "2026-02-27T14:00:00+02:00";
 
-        // Act
-        let result = extract_time_for_dashboard(input);
-
-        // Assert: Wir berechnen die erwartete lokale Zeit dynamisch auf dem Test-System
-        let expected_dt = DateTime::parse_from_rfc3339(input)
-            .unwrap()
-            .with_timezone(&Local);
-        let expected_str = expected_dt.format("%H:%M").to_string();
-
-        assert_eq!(result, expected_str);
+        assert_eq!(extract_time_for_dashboard(input_utc), "12:00");
+        assert_eq!(extract_time_for_dashboard(input_offset), "12:00");
     }
 
     #[test]
-    fn test_extract_time_for_dashboard_fail() {
-        // Arrange: Ungültige Eingaben
-        let input_garbage = "abcdef";
-        let input_empty = "";
+    //Checks if Fallback to empty String on invald or empty input on date extraction for Dashboard works
+    fn test_extract_time_for_dashboard_on_wrong_input() {
+        let wrong_input = "Wie gehts?";
+        let empty_input = "";
 
-        // Assert: Bei Fehlern erwarten wir einen leeren String
-        assert_eq!(extract_time_for_dashboard(input_garbage), "");
-        assert_eq!(extract_time_for_dashboard(input_empty), "");
+        assert_eq!(extract_time_for_dashboard(wrong_input), "");
+        assert_eq!(extract_time_for_dashboard(empty_input), "");
     }
 }
