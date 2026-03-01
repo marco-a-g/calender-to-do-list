@@ -68,8 +68,8 @@ pub fn CalendarGrid(
                         events: events.clone(),
                         calendars: calendars.clone(),
                         displayed_date: displayed_date(),
-                        on_day_click: on_day_click.clone(),
-                        on_event_click: on_event_click.clone(),
+                        on_day_click: on_day_click,
+                        on_event_click: on_event_click,
                         calendar_color_by_id: calendar_color_by_id.clone(),
                     }
                 } else if view_mode() == ViewMode::Week {
@@ -77,8 +77,8 @@ pub fn CalendarGrid(
                         events: events.clone(),
                         calendars: calendars.clone(),
                         displayed_date: displayed_date(),
-                        on_day_click: on_day_click.clone(),
-                        on_event_click: on_event_click.clone(),
+                        on_day_click: on_day_click,
+                        on_event_click: on_event_click,
                         calendar_color_by_id: calendar_color_by_id.clone(),
                     }
                 } else {
@@ -405,8 +405,8 @@ fn MonthGrid(
                             calendars: calendars.clone(),
                             is_today,
                             is_current_month: true,
-                            on_day_click: on_day_click.clone(),
-                            on_event_click: on_event_click.clone(),
+                            on_day_click: on_day_click,
+                            on_event_click: on_event_click,
                             calendar_color_by_id: calendar_color_by_id.clone(),
                         }
                     }
@@ -472,7 +472,7 @@ fn DayCell(
                 for event in events {
                     EventChip {
                         event: event.clone(),
-                        on_click: on_event_click.clone(),
+                        on_click: on_event_click,
                         calendar_color_by_id: calendar_color_by_id.clone(),
                     }
                 }

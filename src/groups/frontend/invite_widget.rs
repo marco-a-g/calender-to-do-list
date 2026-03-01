@@ -280,7 +280,7 @@ pub fn UserSearchDropdown(
 
             if let Some(status) = invite_status.read().as_ref() {
                 div {
-                    class:    if status.starts_with("✓") {
+                    class:      if status.starts_with("✓") {
                         "text-green-400 text-sm mt-2"
                     } else if status.starts_with("Error") {
                         "text-red-400 text-sm mt-2"
