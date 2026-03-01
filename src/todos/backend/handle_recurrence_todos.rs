@@ -2,7 +2,6 @@ use crate::utils::date_handling::calculate_next_date;
 use crate::utils::structs::TodoEventLight;
 use chrono::{DateTime, Timelike, Utc};
 use std::collections::HashMap;
-use uuid::Uuid;
 
 //nimmt eingabe vector von todos und erstellt anhand der Rrules einen Vector mit den Wiederholenden Todos, beachtet auch übersprungene und verschobene Todo wiederholungen
 /// Expands a list of to-dos by generating individual instances for recurring tasks.
