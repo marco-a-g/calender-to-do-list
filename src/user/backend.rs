@@ -1,3 +1,4 @@
+//! User profile functionality
 use dioxus::prelude::*;
 use serde_json::json;
 use server_fn::error::ServerFnError;
@@ -8,6 +9,17 @@ use crate::{
     utils::{functions::get_user_id_and_session_token, structs::Profile},
 };
 
+/// Get Profile object by ``username``
+///
+/// ### Returns
+///
+/// Result: `Some(Profile)` if user exists
+///
+/// Result: `None` if user does not exist
+///
+/// ### Errors
+///
+/// Throws ``ServerFnError``
 // #[server]
 pub async fn get_user_by_username(username: &str) -> Result<Option<Profile>, ServerFnError> {
     let username = username.trim();
@@ -45,6 +57,17 @@ pub async fn get_user_by_username(username: &str) -> Result<Option<Profile>, Ser
     Ok(Some(user))
 }
 
+/// Get Profile object by ``id``
+///
+/// ### Returns
+///
+/// Result: `Some(Profile)` if user exists
+///
+/// Result: `None` if user does not exist
+///
+/// ### Errors
+///
+/// Throws ``ServerFnError``
 // #[server]
 pub async fn get_user_by_id(id: Uuid) -> Result<Option<Profile>, ServerFnError> {
     let url = format!("{}/rest/v1/profiles?id=eq.{}", SUPABASE_URL, id); // theoretically possible url manipulation, but rls handles it anyway
@@ -81,6 +104,13 @@ pub async fn get_user_by_id(id: Uuid) -> Result<Option<Profile>, ServerFnError> 
     Ok(Some(user))
 }
 
+/// Checks if username ist available
+///
+/// This function treats errors as false
+///
+/// ### Returns
+///
+/// `true` if username is available else `false`
 // #[server]
 pub async fn is_username_available(username: &str) -> bool {
     match get_user_by_username(username).await {
@@ -90,6 +120,15 @@ pub async fn is_username_available(username: &str) -> bool {
     }
 }
 
+/// Get own username
+///
+/// ### Returns
+///
+/// Result: `String` if user exists
+///
+/// ### Errors
+///
+/// Throws ``ServerFnError``
 // #[server]
 pub async fn get_own_username() -> Result<String, ServerFnError> {
     let id = get_user_id_and_session_token().await?.0;
@@ -99,6 +138,17 @@ pub async fn get_own_username() -> Result<String, ServerFnError> {
     }
 }
 
+/// Create profile from `username`
+///
+/// Trims input
+///
+/// ### Returns
+///
+/// Result: `AuthStatus { user id }`
+///
+/// ### Errors
+///
+/// Throws `ServerFnError`
 // #[server]
 pub async fn create_profile(username: &str) -> Result<AuthStatus, ServerFnError> {
     let username = username.trim();
@@ -130,6 +180,13 @@ pub async fn create_profile(username: &str) -> Result<AuthStatus, ServerFnError>
     Ok(AuthStatus::Authenticated { user_id: id })
 }
 
+/// Update username
+///
+/// Trims input
+///
+/// ### Errors
+///
+/// Throws `ServerFnError`
 // #[server]
 pub async fn update_username(username: &str) -> Result<(), ServerFnError> {
     let username = username.trim();
