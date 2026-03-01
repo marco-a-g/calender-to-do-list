@@ -1,3 +1,4 @@
+//! User profile functionality
 use dioxus::prelude::*;
 use serde_json::json;
 use server_fn::error::ServerFnError;
@@ -8,12 +9,21 @@ use crate::{
     utils::{functions::get_user_id_and_session_token, structs::Profile},
 };
 
-// todo: username validation
-
+/// Get Profile object by ``username``
+///
+/// ### Returns
+///
+/// Result: `Some(Profile)` if user exists
+///
+/// Result: `None` if user does not exist
+///
+/// ### Errors
+///
+/// Throws ``ServerFnError``
 // #[server]
 pub async fn get_user_by_username(username: &str) -> Result<Option<Profile>, ServerFnError> {
     let username = username.trim();
-    let url = format!("{}/rest/v1/profiles?username=eq.{}", SUPABASE_URL, username); // theoretisch url manipulation, aber wegen rls egal
+    let url = format!("{}/rest/v1/profiles?username=eq.{}", SUPABASE_URL, username); // theoretically possible url manipulation, but rls handles it anyway
     let token = get_user_id_and_session_token().await?.1;
 
     let reqwest_client = reqwest::Client::new();
@@ -23,16 +33,18 @@ pub async fn get_user_by_username(username: &str) -> Result<Option<Profile>, Ser
         .bearer_auth(token)
         .send()
         .await
-        .map_err(|e| ServerFnError::new(format!("get_user_by_username: Reqwest error: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("get_user_by_username(): Reqwest error: {}", e)))?;
 
     if !res.status().is_success() {
-        println!("Statuscode: {}\nText: {:?}", res.status(), res.text().await);
-        return Err(ServerFnError::new("Request not successful"));
+        return Err(ServerFnError::new(format!(
+            "get_user_by_username(): Request not successful: {}",
+            res.status()
+        )));
     }
 
     let mut user: Vec<Profile> = res.json().await.map_err(|e| {
         ServerFnError::new(format!(
-            "get_user_by_username: error parsing result into json {}",
+            "get_user_by_username(): Error parsing result into json: {}",
             e
         ))
     })?;
@@ -45,9 +57,20 @@ pub async fn get_user_by_username(username: &str) -> Result<Option<Profile>, Ser
     Ok(Some(user))
 }
 
+/// Get Profile object by ``id``
+///
+/// ### Returns
+///
+/// Result: `Some(Profile)` if user exists
+///
+/// Result: `None` if user does not exist
+///
+/// ### Errors
+///
+/// Throws ``ServerFnError``
 // #[server]
 pub async fn get_user_by_id(id: Uuid) -> Result<Option<Profile>, ServerFnError> {
-    let url = format!("{}/rest/v1/profiles?id=eq.{}", SUPABASE_URL, id); // theoretisch url manipulation, aber wegen rls egal
+    let url = format!("{}/rest/v1/profiles?id=eq.{}", SUPABASE_URL, id); // theoretically possible url manipulation, but rls handles it anyway
     let token = get_user_id_and_session_token().await?.1;
 
     let reqwest_client = reqwest::Client::new();
@@ -57,16 +80,18 @@ pub async fn get_user_by_id(id: Uuid) -> Result<Option<Profile>, ServerFnError> 
         .bearer_auth(token)
         .send()
         .await
-        .map_err(|e| ServerFnError::new(format!("get_user_by_id: Reqwest error: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("get_user_by_id(): Reqwest error: {}", e)))?;
 
     if !res.status().is_success() {
-        println!("Statuscode: {}\nText: {:?}", res.status(), res.text().await);
-        return Err(ServerFnError::new("Request not successful"));
+        return Err(ServerFnError::new(format!(
+            "get_user_by_id(): Request not successful: {}",
+            res.status()
+        )));
     }
 
     let mut user: Vec<Profile> = res.json().await.map_err(|e| {
         ServerFnError::new(format!(
-            "get_user_by_id: error parsing result into json {}",
+            "get_user_by_id(): Error parsing result into json {}",
             e
         ))
     })?;
@@ -79,6 +104,13 @@ pub async fn get_user_by_id(id: Uuid) -> Result<Option<Profile>, ServerFnError> 
     Ok(Some(user))
 }
 
+/// Checks if username ist available
+///
+/// This function treats errors as false
+///
+/// ### Returns
+///
+/// `true` if username is available else `false`
 // #[server]
 pub async fn is_username_available(username: &str) -> bool {
     match get_user_by_username(username).await {
@@ -88,6 +120,15 @@ pub async fn is_username_available(username: &str) -> bool {
     }
 }
 
+/// Get own username
+///
+/// ### Returns
+///
+/// Result: `String` if user exists
+///
+/// ### Errors
+///
+/// Throws ``ServerFnError``
 // #[server]
 pub async fn get_own_username() -> Result<String, ServerFnError> {
     let id = get_user_id_and_session_token().await?.0;
@@ -97,6 +138,17 @@ pub async fn get_own_username() -> Result<String, ServerFnError> {
     }
 }
 
+/// Create profile from `username`
+///
+/// Trims input
+///
+/// ### Returns
+///
+/// Result: `AuthStatus { user id }`
+///
+/// ### Errors
+///
+/// Throws `ServerFnError`
 // #[server]
 pub async fn create_profile(username: &str) -> Result<AuthStatus, ServerFnError> {
     let username = username.trim();
@@ -116,16 +168,25 @@ pub async fn create_profile(username: &str) -> Result<AuthStatus, ServerFnError>
         .json(&json!({"username": username}))
         .send()
         .await
-        .map_err(|e| ServerFnError::new(format!("create_profile: Reqwest error: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("create_profile(): Reqwest error: {}", e)))?;
 
     if !res.status().is_success() {
-        println!("Statuscode: {}\nText: {:?}", res.status(), res.text().await);
-        return Err(ServerFnError::new("Request not successful"));
+        return Err(ServerFnError::new(format!(
+            "create_profile(): Request not successful: {}",
+            res.status()
+        )));
     }
 
     Ok(AuthStatus::Authenticated { user_id: id })
 }
 
+/// Update username
+///
+/// Trims input
+///
+/// ### Errors
+///
+/// Throws `ServerFnError`
 // #[server]
 pub async fn update_username(username: &str) -> Result<(), ServerFnError> {
     let username = username.trim();
@@ -134,7 +195,7 @@ pub async fn update_username(username: &str) -> Result<(), ServerFnError> {
     }
 
     let (id, token) = get_user_id_and_session_token().await?;
-    let url = format!("{}/rest/v1/profiles?id=eq.{}", SUPABASE_URL, id); // theoretisch url manipulation, aber wegen rls egal
+    let url = format!("{}/rest/v1/profiles?id=eq.{}", SUPABASE_URL, id); // theoretically possible url manipulation, but rls handles it anyway
 
     let reqwest_client = reqwest::Client::new();
     let res = reqwest_client
@@ -145,11 +206,13 @@ pub async fn update_username(username: &str) -> Result<(), ServerFnError> {
         .json(&json!({"username": username}))
         .send()
         .await
-        .map_err(|e| ServerFnError::new(format!("update_username: Reqwest error: {}", e)))?;
+        .map_err(|e| ServerFnError::new(format!("update_username(): Reqwest error: {}", e)))?;
 
     if !res.status().is_success() {
-        println!("Statuscode: {}\nText: {:?}", res.status(), res.text().await);
-        return Err(ServerFnError::new("Request not successful"));
+        return Err(ServerFnError::new(format!(
+            "update_username(): Request not successful: {}",
+            res.status()
+        )));
     }
 
     Ok(())

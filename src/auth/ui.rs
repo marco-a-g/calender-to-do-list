@@ -1,3 +1,4 @@
+//! Auth related UI elements
 use crate::auth::backend::*;
 use dioxus::prelude::*;
 
@@ -36,6 +37,7 @@ fn card_style(width: &str) -> String {
     )
 }
 
+/// UI Login Window
 #[component]
 pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -> Element {
     let mut email = use_signal(String::new);
@@ -148,6 +150,7 @@ pub fn LoginView(auth_status: Signal<AuthStatus>, auth_view: Signal<AuthView>) -
     }
 }
 
+/// UI Register Window
 #[component]
 pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
     let mut firstname = use_signal(String::new);
@@ -219,7 +222,6 @@ pub fn RegisterView(auth_view: Signal<AuthView>) -> Element {
                         spawn(async move {
                             match signup(&email(), &password()).await {
                                     Ok(_) => {
-                                        // später wird ja Email Verification eingeführt, dafür noch nen Screen
                                         info.set(Some("Signup successful".to_string()));
                                         error.set(None);
                                         auth_view.set(AuthView::CreateProfile);

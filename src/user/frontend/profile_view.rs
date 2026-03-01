@@ -1,3 +1,4 @@
+//! Profile overview
 use crate::user::backend::{get_own_username, is_username_available, update_username};
 use dioxus::{core::Element, prelude::*};
 use std::time::Duration;
@@ -39,6 +40,7 @@ fn input_style_disabled() -> &'static str {
     "
 }
 
+/// Profile overview with option to view and change profile settings
 #[component]
 pub fn ProfileView() -> Element {
     let mut username = use_signal(String::new); // dynamic signal for input field
@@ -59,7 +61,7 @@ pub fn ProfileView() -> Element {
         }
     });
 
-    // konzeptionelle Hilfe von KI
+    // conceptual assistance by AI
     use_effect(move || {
         let name = username();
 
@@ -83,7 +85,7 @@ pub fn ProfileView() -> Element {
         status.set(None); // makes loading icon appear when typing
 
         spawn(async move {
-            sleep(Duration::from_millis(500)).await; // check only after typing pause
+            sleep(Duration::from_millis(500)).await;
 
             // prevents race condition with checking only most recent input
             if username() != name {
@@ -98,7 +100,7 @@ pub fn ProfileView() -> Element {
         });
     });
 
-    // konzeptionelle Hilfe von KI
+    // conceptual assistance by AI
     let username_check = match status() {
         None if checking() => rsx!(div {
             class: "animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500",
@@ -162,7 +164,7 @@ pub fn ProfileView() -> Element {
                 }
 
                 div { // div for all rows
-                    div { class: "", // flex-1 overflow-y-auto pr-2 flex flex-col gap-3 // username
+                    div { class: "flex-1 overflow-y-auto pr-2 flex flex-col gap-3", // username div
                         style: "
                             position: relative;
                             display: flex;

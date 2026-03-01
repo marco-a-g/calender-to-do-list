@@ -125,7 +125,7 @@ pub fn CalendarPage() -> Element {
 
     // Derive form mode from state: Edit if event selected, Create if form open without event
     let form_mode = use_memo(move || match selected_event() {
-        Some(event) => Some(EventFormMode::Edit(event)),
+        Some(event) => Some(EventFormMode::Edit(Box::new(event))),
         None if show_form() => Some(EventFormMode::Create),
         _ => None,
     });
