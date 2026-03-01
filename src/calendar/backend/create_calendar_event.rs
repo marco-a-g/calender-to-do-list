@@ -124,7 +124,7 @@ pub async fn create_calendar_event(
 /// - `recurrence_exception`- If this event is an exception to an recurrent event. Must not be set if recurrence is set.
 /// - `location`- Location where the event takes place.
 /// - `categories`- tags for categorising events.
-/// - `ìs_all_day`- for full-day-events
+/// - `ìs_all_day`- for full-day-events - is set to true automatically for events that take more than 24 hours.
 ///
 /// ## Errors
 /// Any error occuring will be handed on as a ServerFnError to fit the dioxus server function structure.
@@ -148,6 +148,13 @@ async fn create_calendar_event_unchecked(
     // println!("create_cal gestartet");
     let current_user = get_user_id_and_session_token().await?;
     // println!("user_id und token erstellt");
+    // set is_all_day to true if an event takes more than 24 hours
+    let mut all_d = is_all_day;
+    if let Some(to_dt) = to_date_time {
+        if to_dt - from_date_time > chrono::Duration::hours(24) {
+            all_d = true;
+        }
+    }
     // fit data into a NewCalendarEvent for building the json
     let new_cal_event = NewCalendarEvent {
         summary,
@@ -188,7 +195,7 @@ async fn create_calendar_event_unchecked(
         },
         location,
         category: categories.map(|c| c.join(", ")),
-        is_all_day: is_all_day.to_string(),
+        is_all_day: all_d.to_string(),
     };
     // println!("new_cal_event erstellt");
     // Insert into database
