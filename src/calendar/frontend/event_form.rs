@@ -1,3 +1,8 @@
+/*
+Side note:  be aware that major parts of the css styling were made with LLMs
+            anything else is highlighted in the spot where it was used
+*/
+
 //! Event form and affiliated
 use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime, Timelike, Utc};
 use dioxus::prelude::*;

@@ -1,3 +1,8 @@
+/*
+Side note:  be aware that major parts of the css styling were made with LLMs
+            anything else is highlighted in the spot where it was used
+*/
+
 //! Profile creation view
 use crate::{
     auth::backend::{AuthStatus, AuthView},
