@@ -20,14 +20,14 @@ use crate::utils::structs::{
 
 #[component]
 pub fn CalendarPage() -> Element {
-    let displayed_date = use_signal(|| Utc::now());
+    let displayed_date = use_signal(Utc::now);
     let view_mode = use_signal(|| ViewMode::Month);
 
     let mut selected_event: Signal<Option<CalendarEvent>> = use_signal(|| None);
     let mut show_form = use_signal(|| false);
     let mut prefilled_date = use_signal(|| None);
 
-    let active_calendar_ids: Signal<Vec<String>> = use_signal(|| Vec::new());
+    let active_calendar_ids: Signal<Vec<String>> = use_signal(Vec::new);
 
     let mut db_resource = use_resource(move || async move {
         join!(
@@ -160,11 +160,9 @@ fn resolve_calendar_name(
                 return g.name.clone();
             }
         }
-    } else {
-        if let Some(oid) = &c.owner_id {
-            if let Some(p) = profiles.iter().find(|p| &p.id == oid) {
-                return p.username.clone();
-            }
+    } else if let Some(oid) = &c.owner_id {
+        if let Some(p) = profiles.iter().find(|p| &p.id == oid) {
+            return p.username.clone();
         }
     }
     format!("Calendar ({})", &c.id[..8])
