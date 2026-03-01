@@ -275,7 +275,7 @@ fn build_calendar_color_map(
     calendars
         .iter()
         .map(|cal| {
-            let fallback = "#9ca3af".to_string();
+            let fallback = "#7a808a".to_string();
 
             // Look up the owning group's color; fallback if no group or no match
             let color = cal
