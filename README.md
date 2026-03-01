@@ -17,9 +17,8 @@ It combines a **calendar**, **to-do management**, **group collaboration** and a 
 - Used LLMs (Gemini) for research, troubleshooting, refactoring, cumbersome Tasks like reworking SQL Querys, Documentation. All html/CSS Styling elements (typically found in the rsx! Blocks within the #[component] functions), created with the help of LLMs due to no experience with frontend-development.
 - The two placeholders in the Dashboard for future expansion (Newsfeed and Chat) are explicitly created fully by a LLM.
 - **Max:**
-- Key contributions:
-- 
-- 
+- Key contributions: Calendar backend, structs, parsing
+- Used LLMs (Gemini) for research, quick understanding of error messages
 - **Paul:**
 - Key contributions: Supabase Setup, Authentication Backend & connection to Frontend, Profiles Backend & Frontend, Calendars connection between Backend and Frontend
 - Used LLMs (GPT, Claude) for research, troubleshooting, Supabase setup, help with css
