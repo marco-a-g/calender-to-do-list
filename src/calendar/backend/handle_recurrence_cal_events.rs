@@ -127,9 +127,10 @@ pub fn expand_recurring_events(
                 if !exception.skipped {
                     result.push(exception.clone());
                 }
-                if first_iter{
+                if first_iter {
                     hidden_masters.push(master.clone());
-                    first_iter= false;}
+                    first_iter = false;
+                }
             } else {
                 //Keine exception => Instanz erzeugen
                 //erster Durchlauf => Master ist die Instanz
