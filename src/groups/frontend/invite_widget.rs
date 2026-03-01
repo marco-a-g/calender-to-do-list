@@ -160,6 +160,7 @@ pub fn UserSearchDropdown(
     let mut search_query = use_signal(String::new);
     let mut search_results = use_signal(Vec::<(String, String)>::new);
     let mut is_searching = use_signal(|| false);
+    let mut is_inviting = use_signal(|| false);
     let mut invite_status = use_signal(|| Option::<String>::None);
 
     // Re-run search whenever the query text changes
@@ -231,10 +232,15 @@ pub fn UserSearchDropdown(
                                 let inviter_id = current_user_id.clone();
 
                                 move |_| {
+                                    if is_inviting() { return; }
                                     let uid = uid.clone();
                                     let uname = uname.clone();
                                     let gid = gid.clone();
                                     let inviter_id = inviter_id.clone();
+
+                                    is_inviting.set(true);
+                                    search_query.set(String::new());
+                                    search_results.set(vec![]);
 
                                     spawn(async move {
                                         invite_status.set(Some(format!("Inviting {}...", uname)));
@@ -244,15 +250,19 @@ pub fn UserSearchDropdown(
                                                 Ok(_) => {
                                                     let _ = sync_local_to_remote_db().await;
                                                     invite_status.set(Some(format!("✓ Invited {}", uname)));
-                                                    search_query.set(String::new());
-                                                    search_results.set(vec![]);
                                                     on_invite_sent.call(());
                                                 }
                                                 Err(e) => {
-                                                    invite_status.set(Some(format!("Error: {}", e)));
+                                                    let msg = if e.to_string().contains("unique_user_per_group") {
+                                                        "Error: User is already in this group".to_string()
+                                                    } else {
+                                                        format!("Error: {}", e)
+                                                    };
+                                                    invite_status.set(Some(msg));
                                                 }
                                             }
                                         }
+                                        is_inviting.set(false);
                                     });
                                 }
                             },
