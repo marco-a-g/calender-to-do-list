@@ -223,15 +223,29 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
             }
         } else {
             //Keine bestehende Exception -> neue Exception erstellen bei edit
-            // Overrides_date holen
-            let overrides_date = if let Some(s) = &todo.due_datetime {
+
+            let new_due_date = if let Some(s) = &todo.due_datetime {
                 html_input_to_db(s).unwrap_or(None)
             } else {
                 None
             };
+            let new_due_date =
+                new_due_date.ok_or(ServerFnError::new("Instance has no valid due date"))?;
 
             let overrides_date =
-                overrides_date.ok_or(ServerFnError::new("Instance has no valid due date"))?;
+                todo.overrides_datetime
+                    .as_deref()
+                    .and_then(|overrides_datetime| {
+                        // Falls bereits UTC format, direkt parsen
+                        DateTime::parse_from_rfc3339(overrides_datetime)
+                            .map(|time| time.with_timezone(&Utc))
+                            .ok()
+                            // Sonst von html input in DateTime parsen
+                            .or_else(|| html_input_to_db(overrides_datetime).unwrap_or(None))
+                    });
+
+            let overrides_date =
+                overrides_date.ok_or(ServerFnError::new("Instance has no valid overrides date"))?;
 
             // Exceptioneintrag erstellen
             let exception = ToDoTransfer {
@@ -239,7 +253,7 @@ pub async fn edit_todo_event(todo: TodoEventLight) -> Result<StatusCode, ServerF
                 description: todo.description.clone(),
                 todo_list_id: Uuid::parse_str(&todo.todo_list_id).ok(),
                 completed: todo.completed,
-                due_datetime: Some(overrides_date),
+                due_datetime: Some(new_due_date), // due date nehmen nicht overrides sonst bug
                 priority: todo
                     .priority
                     .clone()

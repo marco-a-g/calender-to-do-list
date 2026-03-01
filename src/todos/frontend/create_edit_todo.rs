@@ -167,14 +167,13 @@ pub fn CreateEditToDoModal(
     };
 
     // Validierung für Eingabemaske, gültig wenn: Titel nicht leer || RRule eingaben gültig
-    let is_form_valid = if new_task_title().is_empty() {
-        false
-    } else if !new_task_rrule().is_empty() {
-        // wenn rrule eingegeben wird muss ein erstes due date angegeben werden
-        !new_task_due_date().is_empty() && !new_task_recurrence_until().is_empty()
-    } else {
-        true
-    };
+    let is_form_valid = !new_task_title().is_empty()
+        && (new_task_rrule().is_empty() || {
+            let due = new_task_due_date();
+            let until = new_task_recurrence_until();
+            //checkt nun auch ob enddatum vor startdatum, erster vergleich mit länge muss sein sonst failed rendering des modals
+            due.len() >= 10 && until.len() >= 10 && until[..10] > due[..10]
+        });
 
     let all_lists_for_handler = all_lists.clone();
 
@@ -238,21 +237,20 @@ pub fn CreateEditToDoModal(
                     Some(new_task_assignee())
                 };
 
-                // Unterscheidung für Edit und Create hier
+                // Unterscheidung für Edit und Create ab hier
                 if let Some(existing_todo) = todo_to_edit() {
                     //Hier Edit
-                    //Unterscheidung für Ganze reihe oder nur diese Instanz
-                    // Prüfen: Ist es ein Master, der sich wiederholt?
+                    //Unterscheidung für Ganze reihe oder nur diese Instanz, dafür prüfen: Ist es ein Master, der sich wiederholt?
                     let is_master_recurring =
                         existing_todo.recurrence_id.is_none() && existing_todo.rrule.is_some();
 
-                    //uuid, rrule, und overides datetime extrahieren, anhand von Fallunterscheidung in: ist recurring todo und soll ganze serie bearbeiten
+                    //Recid, rrule, und overides datetime extrahieren, anhand von Fallunterscheidung in: ist recurring todo und soll ganze serie bearbeiten
                     let (target_rec_id, target_rrule, target_overrides) = if is_master_recurring {
                         // Ganze Reihe editieren -> Auf Mastereintrag arbeiten
                         if edit_series_mode() {
                             (None, rrule, None)
                         } else {
-                            // Nur einzelne Instanz eines recurring todos ändern
+                            // Nur einzelne Master Instanz eines recurring todos ändern
                             (
                                 Some(existing_todo.id.clone()),
                                 None,
@@ -260,12 +258,19 @@ pub fn CreateEditToDoModal(
                             )
                         }
                     } else {
-                        // Nicht Recurring todo ändern oder existierende Exception eines Masters
-                        (
-                            existing_todo.recurrence_id.clone(),
-                            rrule,
-                            existing_todo.overrides_datetime.clone(),
-                        )
+                        //Nicht Master sondern bestehende Exception, Fake instanz oder standalone
+                        // Overrides je nach Fall extrahieren
+                        let overrides = if existing_todo.overrides_datetime.is_some() {
+                            //Ist bereits exception, overrides datetime nehmen nicht mehr due sonst bug
+                            existing_todo.overrides_datetime.clone()
+                        } else if existing_todo.recurrence_id.is_some() {
+                            // Virtuelle Fake instanz original due date als overrides nutzen
+                            existing_todo.due_datetime.clone()
+                        } else {
+                            // normales standalone nicht-recurring Todo, kriegt kein overrides
+                            None
+                        };
+                        (existing_todo.recurrence_id.clone(), rrule, overrides)
                     };
 
                     // Edit-Modus
@@ -559,6 +564,12 @@ pub fn CreateEditToDoModal(
                         disabled: !is_form_valid,
                         onclick: handle_create,
                         "{button_text}"
+                    }
+                }
+                if !is_form_valid {
+                    div {
+                        style: "color: #ef4444; font-size: 11px; margin-top: 6px; text-align: center; width: 100%;",
+                        "Please set a name and if needed valid recurrence rules (start date < end date)."
                     }
                 }
             }

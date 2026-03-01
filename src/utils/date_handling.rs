@@ -191,7 +191,7 @@ fn add_months_same_date(
     let day = std::cmp::min(preferered_day_on_exception, day_raw);
     //println!("Fehler bei {} {} {}", year, month, day);
     date.with_day(1) //erst Tag auf eins setzen sonst wirft es manchmal fehler
-        .ok_or("Error resetting day to 1")?
+        .ok_or("Error resetting day to 1 in fn add_months_same_date")?
         .with_year(year)
         .ok_or("Invalid year in fn add_months_same_date")?
         .with_month(month as u32)
@@ -215,7 +215,10 @@ fn add_months_same_date(
 ///
 /// Returns an `Option<u32>` representing the last day of the requested month or `None` if input month is out of bounds.
 fn handle_last_day_of_month(year: i32, month: u32) -> Option<u32> {
-    if month == 12 {
+    if !(1..=12).contains(&month) {
+        //Abfangen falscher Monatsangaben
+        None
+    } else if month == 12 {
         // im Dezember -> ersten Tag des neuen Jahres nehmen und davon dann vorgänger
         NaiveDate::from_ymd_opt(year + 1, 1, 1)?
             .pred_opt() // Gibt Vorgängerdatum
@@ -259,6 +262,8 @@ fn add_month_on_same_weekday(
     };
 
     let mut date_result = date
+        .with_day(1) //erst Tag auf eins setzen sonst wirft es manchmal fehler
+        .ok_or("Error resetting day to 1 in add_month_on_same_weekday")?
         .with_year(next_year)
         .ok_or("Invalid year in fn add_month_on_same_weekday")?
         .with_month(next_month)

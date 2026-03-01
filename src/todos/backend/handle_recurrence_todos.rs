@@ -2,7 +2,6 @@ use crate::utils::date_handling::calculate_next_date;
 use crate::utils::structs::TodoEventLight;
 use chrono::{DateTime, Timelike, Utc};
 use std::collections::HashMap;
-use uuid::Uuid;
 
 //nimmt eingabe vector von todos und erstellt anhand der Rrules einen Vector mit den Wiederholenden Todos, beachtet auch übersprungene und verschobene Todo wiederholungen
 /// Expands a list of to-dos by generating individual instances for recurring tasks.
@@ -136,7 +135,7 @@ pub fn expand_recurring_todos(
                 } else {
                     // hier sind Wiederholungen
                     let mut rec_instance = master.clone();
-                    rec_instance.id = Uuid::new_v4().to_string(); //Richtige neue id setzt Supabase dann wenn man etwas ändert, hierfür erstmal eine temp generieren lassen für Typesafety oder nochmal referenzierbar sein soll
+                    rec_instance.id = master.id.clone(); //Richtige neue id setzt Supabase dann wenn man etwas ändert
                     rec_instance.due_datetime = Some(current_date_in_loop_as_str); //wiederholung kriegt aktuelles datum der itteration
                     rec_instance.recurrence_id = Some(master.id.clone());
                     rec_instance.rrule = None; //Recurrance instanzen haben selber keine rrule
