@@ -1,0 +1,45 @@
+name: Build and Deploy Docs
+
+on:
+  push:
+    branches:
+      - main # Or your default branch name
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate Documentation
+        run: cargo doc --no-deps
+
+      - name: Fix permissions
+        run: |
+          chmod -c -R +rX target/doc
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Points to the directory containing the documentation
+          path: target/doc
+
+  deploy_docs:
+    needs: build_docs
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
