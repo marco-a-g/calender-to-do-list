@@ -1,14 +1,12 @@
 //! Helper functions used all over planify.
 
-use chrono::{DateTime, Datelike, Utc, Weekday};
-use dioxus::prelude::*;
-use reqwest::*;
+use chrono::{DateTime, Datelike, Utc};
 use server_fn::error::ServerFnError;
 use std::*;
 use uuid::Uuid;
 
 use crate::auth::backend::*;
-use crate::{auth::backend::*, utils::structs::*};
+use crate::utils::structs::*;
 
 /// For any request to supabase
 // #[server]

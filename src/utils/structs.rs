@@ -376,7 +376,7 @@ pub struct CalendarEventLight {
 }
 
 /// Database and display version of `TodoList`
-
+///
 /// a TodoList is either belonging to a user, then list_type must be set to "private" and a
 /// owner_id must be provided or to a group, then list_type must be set to "group" and a group_id
 /// must be provided. There must only be one, either owner_id or group_id.
