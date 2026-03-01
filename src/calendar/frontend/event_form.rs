@@ -27,6 +27,7 @@ use crate::{
 pub enum EventFormMode {
     Create,
     Edit(Box<CalendarEvent>),
+    View(Box<CalendarEvent>),
 }
 
 /// Whether a recurring event edit applies to one instance or the entire series
@@ -56,7 +57,7 @@ pub fn EventForm(
     on_refresh: EventHandler<()>,
 ) -> Element {
     let initial_event = match &mode {
-        EventFormMode::Edit(e) => *e.clone(),
+        EventFormMode::Edit(e) | EventFormMode::View(e) => *e.clone(),
         EventFormMode::Create => CalendarEvent {
             calendar_id: calendars.first().map(|c| c.id).unwrap_or(Uuid::nil()),
             summary: String::new(),
@@ -102,7 +103,9 @@ pub fn EventForm(
     // other signals
     let mut show_recurrent_scope_dialog = use_signal(|| false);
     let mut recurrent_scope: Signal<Option<RecurrentEditScope>> = use_signal(|| None);
-    let is_edit = matches!(mode, EventFormMode::Edit(_));
+    let mut mode = use_signal(|| mode);
+    let is_edit = use_memo(move || matches!(mode(), EventFormMode::Edit(_)));
+    let is_view = use_memo(move || matches!(mode(), EventFormMode::View(_)));
     let is_loading = use_signal(|| false);
     let mut error_msg: Signal<Option<String>> = use_signal(|| None);
 
@@ -146,7 +149,7 @@ pub fn EventForm(
                 class: "flex items-center justify-between px-6 py-5 border-b border-white/10",
                 h2 {
                     class: "text-white font-semibold text-base",
-                    if is_edit { "Edit Event" } else { "New Event" }
+                    if is_edit() { "Edit Event" } else { "New Event" }
                 }
                 button {
                     class: "text-white/40 hover:text-white transition text-xl",
@@ -162,11 +165,12 @@ pub fn EventForm(
                     label: "Title",
                     required: true,
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         placeholder: "Event-Title (max. 25 characters)",
                         maxlength: 25,
                         value: "{summary}",
                         onchange: move |e| summary.set(e.value()),
+                        disabled: is_view,
                     }
                 }
 
@@ -174,10 +178,11 @@ pub fn EventForm(
                     label: "Calender",
                     required: true,
                     select {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         onchange: move |e| {
                             selected_calendar_id.set(Uuid::try_parse(&e.value()).unwrap_or_else(|_| selected_calendar_id()));
                         },
+                        disabled: is_view,
                         for cal in &calendars {
                             option {
                                 value: "{cal.id}",
@@ -196,6 +201,7 @@ pub fn EventForm(
                         class: "w-4 h-4 accent-blue-500",
                         checked: is_all_day(),
                         onchange: move |_| is_all_day.set(!is_all_day()),
+                        disabled: is_view,
                     }
                     label { class: "text-sm text-white/70", "All Day" }
                 }
@@ -204,7 +210,7 @@ pub fn EventForm(
                     label: "from",
                     required: true,
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         r#type: if is_all_day() { "date" } else { "datetime-local" },
                         value: "{from_date_formatted}",
                         onchange: move |e| {
@@ -225,14 +231,15 @@ pub fn EventForm(
                                     .unwrap_or_else(|_| from_date())
                                 );
                             }
-                        }
+                        },
+                        disabled: is_view,
                     }
                 }
 
                 FormField {
                     label: "to (optional)",
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         r#type: if is_all_day() { "date" } else { "datetime-local" },
                         value: "{to_date_formatted}",
                         onchange: move |e| {
@@ -257,26 +264,29 @@ pub fn EventForm(
                                 ));
                             }
                         },
+                        disabled: is_view,
                     }
                 }
 
                 FormField {
                     label: "Categories (optional)",
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         placeholder: "Categories (separated by comma)",
                         value: "{categories().unwrap_or_default().join(\", \")}",
                         onchange: move |e| categories.set(Some(e.value().split(",").map(|s| s.trim().to_string()).collect())),
+                        disabled: is_view,
                     }
                 }
 
                 FormField {
                     label: "Location (optional)",
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         placeholder: "Location or Link",
                         value: "{location().unwrap_or_default()}",
                         onchange: move |e| location.set(Some(e.value())),
+                        disabled: is_view,
                     }
                 }
 
@@ -292,10 +302,11 @@ pub fn EventForm(
                         placeholder: "Description…",
                         value: "{description().unwrap_or_default()}",
                         onchange: move |e| description.set(Some(e.value())),
+                        disabled: is_view,
                     }
                 }
 
-                RecurrencePicker { recurrence,  from_date }
+                RecurrencePicker { recurrence,  from_date, is_view: is_view() }
 
                 if let Some(msg) = error_msg() {
                     div {
@@ -319,11 +330,11 @@ pub fn EventForm(
                     disabled: is_loading(),
                     onclick: move |_| {
                         // Editing a recurring parent requires choosing the scope first
-                        if is_edit && is_recurrent && !is_recurrence_exception {
+                        if is_edit() && is_recurrent && !is_recurrence_exception {
                             show_recurrent_scope_dialog.set(true);
                         } else {
                             // distinguish between creating and editing event
-                            match &mode {
+                            match mode() {
                                 EventFormMode::Create => {
                                     spawn(async move {
                                         match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
@@ -364,14 +375,23 @@ pub fn EventForm(
                                     }
                                     });
                                 },
+                                EventFormMode::View(e) => {
+                                    mode.set(EventFormMode::Edit(e));
+                                },
                             }
 
                         }
                     },
-                    if is_loading() { "Saving…" } else { "Save" }
+                    if is_view() {
+                        "Edit"
+                    } else if is_loading() {
+                        "Saving…"
+                    } else {
+                        "Save"
+                    }
                 }
 
-                if is_edit {
+                if is_view() {
                     DeleteButton {
                         is_recurrent,
                         is_recurrence_exception,
@@ -493,6 +513,7 @@ pub fn EventForm(
 pub fn RecurrencePicker(
     recurrence: Signal<Option<Recurrent>>,
     from_date: Signal<DateTime<Utc>>,
+    is_view: bool,
 ) -> Element {
     let is_active = use_memo(move || recurrence().is_some());
 
@@ -525,6 +546,7 @@ pub fn RecurrencePicker(
                             ));
                         }
                     },
+                        disabled: is_view,
                 }
                 label { class: "text-sm text-white/70", "Recurrence" }
             }
@@ -536,11 +558,12 @@ pub fn RecurrencePicker(
                     FormField {
                         label: "Frequency",
                         select {
-                            class: field_input_class(),
-                            value: "{rrule_value}",
+                        class: if !is_view {field_input_class()} else {field_input_class_disabled()},
+                            value: "{recurrence().unwrap_or_default().rrule}",
                             onchange: move |e| {
                                 recurrence.set(Some(Recurrent { rrule: e.value().parse::<Rrule>().unwrap_or(Rrule::Daily), ..recurrence().unwrap_or_default() }));
                             },
+                            disabled: is_view,
                             option { value: "Daily", style: "background: #1A1D2B", "Daily" }
                             option { value: "Weekly", style: "background: #1A1D2B", "Weekly" }
                             option { value: "Fortnight", style: "background: #1A1D2B", "Fortnight" }
@@ -554,7 +577,7 @@ pub fn RecurrencePicker(
                     FormField {
                         label: "Repeat until",
                         input {
-                            class: field_input_class(),
+                        class: if !is_view {field_input_class()} else {field_input_class_disabled()},
                             r#type: "date",
                             value: "{recurrence().unwrap_or_default().recurrence_until.date_naive()}",
                             onchange: move |e| {
@@ -568,6 +591,7 @@ pub fn RecurrencePicker(
                                     .and_utc(),
                                 ..current }));
                             },
+                            disabled: is_view,
                         }
                     }
                 }
@@ -710,6 +734,16 @@ fn field_input_class() -> &'static str {
     w-full px-3 py-2.5 rounded-xl
     bg-white/5 border border-white/10
     text-white text-sm placeholder:text-white/30
+    outline-none focus:border-blue-500/50
+    transition
+    "
+}
+
+fn field_input_class_disabled() -> &'static str {
+    "
+    w-full px-3 py-2.5 rounded-xl
+    bg-white/5 border border-white/10
+    text-gray-400 text-sm placeholder:text-white/30
     outline-none focus:border-blue-500/50
     transition
     "
