@@ -101,6 +101,7 @@ pub fn EventForm(
     let is_loading = use_signal(|| false);
     let mut error_msg: Signal<Option<String>> = use_signal(|| None);
 
+    // memo created by Github Copilot (GPT)
     let from_date_formatted = use_memo(move || {
         if is_all_day() {
             from_date().date_naive().to_string()
@@ -109,6 +110,7 @@ pub fn EventForm(
         }
     });
 
+    // memo created by Github Copilot (GPT)
     let to_date_formatted = use_memo(move || {
         if is_all_day() {
             to_date()
@@ -203,6 +205,7 @@ pub fn EventForm(
                         onchange: move |e| {
                             if is_all_day() {
                                 from_date.set(
+                                    // help with parsing by Github Copilot (GPT)
                                     NaiveDate::parse_from_str(&e.value(), "%Y-%m-%d")
                                     .unwrap_or_else(|_| from_date().date_naive())
                                     .and_hms_opt(0, 0, 0)
@@ -211,6 +214,7 @@ pub fn EventForm(
                                 );
                             } else {
                                 from_date.set(
+                                    // help with parsing by Github Copilot (GPT)
                                     NaiveDateTime::parse_from_str(&e.value(), "%Y-%m-%dT%H:%M")
                                     .map(|d| d.and_utc())
                                     .unwrap_or_else(|_| from_date())
@@ -232,6 +236,7 @@ pub fn EventForm(
                                 to_date.set(None);
                             } else if is_all_day() {
                                 to_date.set(Some(
+                                    // help with parsing by Github Copilot (GPT)
                                     NaiveDate::parse_from_str(&value, "%Y-%m-%d")
                                     .unwrap_or_else(|_| from_date().date_naive())
                                     .and_hms_opt(0, 0, 0)
@@ -240,6 +245,7 @@ pub fn EventForm(
                                 ));
                             } else {
                                 to_date.set(Some(
+                                    // help with parsing by Github Copilot (GPT)
                                     NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M")
                                     .map(|d| d.and_utc())
                                     .unwrap_or_else(|_| from_date())
@@ -539,6 +545,7 @@ pub fn RecurrencePicker(
                             onchange: move |e| {
                                 let current = recurrence().unwrap_or_default();
                                 recurrence.set(Some(Recurrent {
+                                // help with parsing by Github Copilot (GPT)
                                 recurrence_until: NaiveDate::parse_from_str(&e.value(), "%Y-%m-%d")
                                     .unwrap_or_else(|_| current.recurrence_until.date_naive())
                                     .and_hms_opt(0, 0, 0)

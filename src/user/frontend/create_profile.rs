@@ -51,7 +51,7 @@ pub fn CreateProfileView(auth_status: Signal<AuthStatus>, auth_view: Signal<Auth
     let mut status = use_signal(|| None::<bool>);
     let mut checking = use_signal(|| false);
 
-    // konzeptionelle Hilfe von KI
+    // conceptual assistance by AI
     use_effect(move || {
         let name = username();
 
@@ -79,7 +79,7 @@ pub fn CreateProfileView(auth_status: Signal<AuthStatus>, auth_view: Signal<Auth
         });
     });
 
-    // konzeptionelle Hilfe von KI
+    // conceptual assistance by AI
     let username_check = match status() {
         None if checking() => rsx!(div {
             class: "animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500",
