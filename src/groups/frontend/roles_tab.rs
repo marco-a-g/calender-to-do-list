@@ -4,14 +4,12 @@ Side Note Important! :  be aware that major parts of the css styling was made wi
                         anything else is highlighted in the spot where it was used
 */
 
-/*
-Roles management tab for the group detail page.
-
-Owners can promote/demote members, transfer ownership, and kick members.
-Admins can kick regular members. Actions are dispatched through a
-`pending_action` signal so that all `spawn` calls live in the parent scope
-(required by Dioxus for signal access).
-*/
+//! Roles management tab for the group detail page.
+//!
+//! Owners can promote/demote members, transfer ownership, and kick members.
+//! Admins can kick regular members. Actions are dispatched through a
+//! `pending_action` signal so that all `spawn` calls live in the parent scope
+//! (required by Dioxus for signal access).
 
 use crate::database::local::init_fetch::init_fetch_local_db::{
     fetch_group_members_lokal_db, fetch_profiles_lokal_db,

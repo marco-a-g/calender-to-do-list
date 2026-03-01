@@ -1,15 +1,13 @@
-/*
-Supabase Storage backend for group files.
-
-Bucket: `group-files`
-Layout (matches storage policy): `private/{group_id}/{filename}`
-
-This module provides server functions to:
- - List files in the bucket under `private/{group_id}/`
- - Upload a file to `group-files/private/{group_id}/{filename}`
- - Delete a file from the same path
- - Create a signed, time-limited download URL
- */
+//! Supabase Storage backend for group files.
+//!
+//! Bucket: `group-files`
+//! Layout (matches storage policy): `private/{group_id}/{filename}`
+//!
+//! This module provides server functions to:
+//!  - List files in the bucket under `private/{group_id}/`
+//!  - Upload a file to `group-files/private/{group_id}/{filename}`
+//!  - Delete a file from the same path
+//!  - Create a signed, time-limited download URL
 
 use crate::auth::backend::{ANON_KEY, SUPABASE_URL};
 use serde::Deserialize;
@@ -17,7 +15,7 @@ use serde::Deserialize;
 const BUCKET: &str = "group-files";
 const ROOT_PREFIX: &str = "private";
 
-// (group_id, object_id, filename, uploaded_at_date)
+/// (group_id, object_id, filename, uploaded_at_date)
 pub type FileTransfer = (String, String, String, String);
 
 // Partial representation of a Storage object as returned by the list endpoint
@@ -28,6 +26,7 @@ struct StorageObject {
     created_at: String,
 }
 
+/// Lists all files for a group from the Supabase Storage bucket.
 pub async fn fetch_files(
     group_id: String,
     access_token: String,
@@ -77,6 +76,7 @@ pub async fn fetch_files(
     Ok(files)
 }
 
+/// Uploads a file to the group's storage folder (upserts on conflict).
 pub async fn upload_file(
     group_id: String,
     filename: String,
@@ -110,6 +110,7 @@ pub async fn upload_file(
     Ok(())
 }
 
+/// Deletes a file from the group's storage folder.
 pub async fn delete_file(
     group_id: String,
     filename: String,
@@ -138,6 +139,7 @@ pub async fn delete_file(
     Ok(())
 }
 
+/// Creates a signed download URL valid for one hour.
 pub async fn get_file_url(
     group_id: String,
     filename: String,

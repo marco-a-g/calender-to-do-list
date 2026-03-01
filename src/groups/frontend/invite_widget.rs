@@ -4,15 +4,13 @@ Side Note Important! :  be aware that major parts of the css styling was made wi
                         anything else is highlighted in the spot where it was used
 */
 
-/*
-Group invitation UI widgets.
-
-Two components:
-- InvitesWidget:        Shows pending invitations on the groups overview page.
-                        Accept/decline buttons trigger backend calls and refresh the list.
-- UserSearchDropdown:   Live-search dropdown on the group detail page.
-                        Searches users by username and sends invites on click.
-*/
+//! Group invitation UI widgets.
+//!
+//! Two components:
+//! - InvitesWidget:        Shows pending invitations on the groups overview page.
+//!                         Accept/decline buttons trigger backend calls and refresh the list.
+//! - UserSearchDropdown:   Live-search dropdown on the group detail page.
+//!                         Searches users by username and sends invites on click.
 
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use dioxus::prelude::*;

@@ -4,13 +4,11 @@ Side Note Important! :  be aware that major parts of the css styling was made wi
                         anything else is highlighted in the spot where it was used
 */
 
-/*
-Groups overview UI component.
-
-Displays a list of groups as clickable rows. Clicking a group navigates
-to its detail page. This component is purely presentational — all data
-fetching is handled by the parent component.
-*/
+//! Groups overview UI component.
+//!
+//! Displays a list of groups as clickable rows. Clicking a group navigates
+//! to its detail page. This component is purely presentational — all data
+//! fetching is handled by the parent component.
 
 use dioxus::prelude::*;
 use dioxus_router::use_navigator;
@@ -18,8 +16,8 @@ use server_fn::error::ServerFnError;
 
 use crate::Route;
 
-// Resource type for group list data.
-// Tuple: (group_id, name, color_hex, member_count)
+/// Resource type for group list data.
+/// Tuple: (group_id, name, color_hex, member_count)
 pub type GroupsRes = Resource<Result<Vec<(String, String, String, i32)>, ServerFnError>>;
 
 /// Renders the groups list or a loading/error state based on resource status.
@@ -41,7 +39,7 @@ pub fn GroupsOverview(groups_res: GroupsRes) -> Element {
                     }
                 ),
                 Some(Err(e)) => rsx!(div { class: "text-red-400", "{e}" }),
-                None => rsx!(div { class: "text-white/50", "Loading…" }),
+                None => rsx!(div { class: "text-white/50", "Loading..." }),
             }
         }
     }
