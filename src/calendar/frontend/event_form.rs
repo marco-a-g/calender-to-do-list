@@ -21,7 +21,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum EventFormMode {
     Create,
-    Edit(CalendarEvent),
+    Edit(Box<CalendarEvent>),
 }
 
 /// Whether a recurring event edit applies to one instance or the entire series
@@ -51,7 +51,7 @@ pub fn EventForm(
     on_refresh: EventHandler<()>,
 ) -> Element {
     let initial_event = match &mode {
-        EventFormMode::Edit(e) => e.clone(),
+        EventFormMode::Edit(e) => *e.clone(),
         EventFormMode::Create => CalendarEvent {
             calendar_id: calendars.first().map(|c| c.id).unwrap_or(Uuid::nil()),
             summary: String::new(),
