@@ -164,8 +164,9 @@ pub fn EventForm(
     });
 
     // for checking if this is a parent
-    let initial_is_recurrent = is_recurrent;
-    let initial_is_recurrence_exception = is_recurrence_exception;
+    let initial_is_recurrent = use_signal(|| initial_event.recurrence.is_some());
+    let initial_is_recurrence_exception =
+        use_signal(|| initial_event.recurrence_exception.is_some());
 
     // memo created by Github Copilot (GPT)
     let from_date_formatted = use_memo(move || {
@@ -402,7 +403,7 @@ pub fn EventForm(
                             },
                             EventFormMode::Edit(_) => {
                                 // if recurrence or recurrence exception:
-                                if initial_is_recurrent || initial_is_recurrence_exception {
+                                if initial_is_recurrent() || initial_is_recurrence_exception() {
                                     match recurrent_scope() {
                                         // if recurrent_scope() == RecurrentEditScope::All
                                         Some(RecurrentEditScope::All) => {
