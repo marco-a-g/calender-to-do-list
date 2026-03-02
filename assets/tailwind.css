@@ -942,6 +942,9 @@
   .text-gray-300 {
     color: var(--color-gray-300);
   }
+  .text-gray-400 {
+    color: var(--color-gray-400);
+  }
   .text-green-200 {
     color: var(--color-green-200);
   }

@@ -19,7 +19,10 @@ use crate::{
             delete_single_calendar_event,
         },
     },
-    utils::structs::{Calendar, CalendarEvent, Recurrent, Rrule},
+    utils::{
+        functions::parse_calendar_event_light_to_calendar_event,
+        structs::{Calendar, CalendarEvent, CalendarEventLight, Recurrent, Rrule},
+    },
 };
 
 /// Current event mode
@@ -27,6 +30,7 @@ use crate::{
 pub enum EventFormMode {
     Create,
     Edit(Box<CalendarEvent>),
+    View(Box<CalendarEvent>),
 }
 
 /// Whether a recurring event edit applies to one instance or the entire series
@@ -50,13 +54,17 @@ pub fn EventForm(
     mode: EventFormMode,
     /// All user calendars — used to populate the calendar selector dropdown
     calendars: Vec<Calendar>,
+    /// All visible events
+    events: Vec<CalendarEventLight>,
     /// Pre-filled start date when form is opened via a day click
     prefilled_date: Option<DateTime<Utc>>,
     on_close: EventHandler<()>,
     on_refresh: EventHandler<()>,
 ) -> Element {
-    let initial_event = match &mode {
-        EventFormMode::Edit(e) => *e.clone(),
+    let mut action_mode = use_signal(|| mode);
+
+    let initial_event = match action_mode() {
+        EventFormMode::Edit(e) | EventFormMode::View(e) => *e.clone(),
         EventFormMode::Create => CalendarEvent {
             calendar_id: calendars.first().map(|c| c.id).unwrap_or(Uuid::nil()),
             summary: String::new(),
@@ -79,32 +87,86 @@ pub fn EventForm(
             last_mod: Utc::now(),
         },
     };
+
     // needed event signals
     let mut summary = use_signal(|| initial_event.summary);
     let mut description = use_signal(|| initial_event.description);
     let mut selected_calendar_id = use_signal(|| initial_event.calendar_id);
     let mut from_date = use_signal(|| initial_event.from_date_time);
     let mut to_date = use_signal(|| initial_event.to_date_time);
-    let attachment = use_signal(|| initial_event.attachment);
+    let mut attachment = use_signal(|| initial_event.attachment);
     let mut location = use_signal(|| initial_event.location);
     let mut categories = use_signal(|| initial_event.categories);
     let mut is_all_day = use_signal(|| initial_event.is_all_day);
     // only needed for information display later
-    let id = use_signal(|| initial_event.id);
-    let created_at = use_signal(|| initial_event.created_at);
-    let created_by = use_signal(|| initial_event.created_by);
-    let last_mod = use_signal(|| initial_event.last_mod);
+    let mut id = use_signal(|| initial_event.id);
+    let mut created_at = use_signal(|| initial_event.created_at);
+    let mut created_by = use_signal(|| initial_event.created_by);
+    let mut last_mod = use_signal(|| initial_event.last_mod);
     // Recurrence signals
-    let recurrence = use_signal(|| initial_event.recurrence);
-    let recurrence_exception = use_signal(|| initial_event.recurrence_exception);
+    let mut recurrence = use_signal(|| initial_event.recurrence);
+    let mut recurrence_exception = use_signal(|| initial_event.recurrence_exception);
     let is_recurrent = recurrence().is_some();
     let is_recurrence_exception = recurrence_exception().is_some();
     // other signals
     let mut show_recurrent_scope_dialog = use_signal(|| false);
     let mut recurrent_scope: Signal<Option<RecurrentEditScope>> = use_signal(|| None);
-    let is_edit = matches!(mode, EventFormMode::Edit(_));
+
+    let is_edit = use_memo(move || matches!(action_mode(), EventFormMode::Edit(_)));
+    let is_view = use_memo(move || matches!(action_mode(), EventFormMode::View(_)));
     let is_loading = use_signal(|| false);
     let mut error_msg: Signal<Option<String>> = use_signal(|| None);
+
+    // effect created by AI due to time problems
+    // for automatic switching values
+    let default_calendar_id = calendars.first().map(|c| c.id).unwrap_or(Uuid::nil());
+    use_effect(move || {
+        let next = match action_mode() {
+            EventFormMode::Edit(e) | EventFormMode::View(e) => *e.clone(),
+            EventFormMode::Create => CalendarEvent {
+                calendar_id: default_calendar_id,
+                summary: String::new(),
+                description: None,
+                from_date_time: prefilled_date
+                    .unwrap_or_else(Utc::now)
+                    .with_nanosecond(0) // cut nanoseconds off, else input field can't display it
+                    .unwrap(), // with_nanosecond(0) is unfailable
+                to_date_time: Some(prefilled_date.unwrap_or_else(Utc::now) + Duration::hours(1)),
+                attachment: None,
+                location: None,
+                categories: None,
+                is_all_day: false,
+                recurrence: None,
+                recurrence_exception: None,
+                // Ignore: following fields are not needed for this function and/or should only be handled by supabase, but are there to complete this struct
+                id: Uuid::nil(),
+                created_by: Uuid::nil(),
+                created_at: Utc::now(),
+                last_mod: Utc::now(),
+            },
+        };
+
+        summary.set(next.summary);
+        description.set(next.description);
+        selected_calendar_id.set(next.calendar_id);
+        from_date.set(next.from_date_time);
+        to_date.set(next.to_date_time);
+        attachment.set(next.attachment);
+        location.set(next.location);
+        categories.set(next.categories);
+        is_all_day.set(next.is_all_day);
+        id.set(next.id);
+        created_at.set(next.created_at);
+        created_by.set(next.created_by);
+        last_mod.set(next.last_mod);
+        recurrence.set(next.recurrence);
+        recurrence_exception.set(next.recurrence_exception);
+    });
+
+    // for checking if this is a parent
+    let initial_is_recurrent = use_signal(|| initial_event.recurrence.is_some());
+    let initial_is_recurrence_exception =
+        use_signal(|| initial_event.recurrence_exception.is_some());
 
     // memo created by Github Copilot (GPT)
     let from_date_formatted = use_memo(move || {
@@ -146,7 +208,7 @@ pub fn EventForm(
                 class: "flex items-center justify-between px-6 py-5 border-b border-white/10",
                 h2 {
                     class: "text-white font-semibold text-base",
-                    if is_edit { "Edit Event" } else { "New Event" }
+                    if is_edit() { "Edit Event" } else { "New Event" }
                 }
                 button {
                     class: "text-white/40 hover:text-white transition text-xl",
@@ -162,11 +224,12 @@ pub fn EventForm(
                     label: "Title",
                     required: true,
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         placeholder: "Event-Title (max. 25 characters)",
                         maxlength: 25,
                         value: "{summary}",
                         onchange: move |e| summary.set(e.value()),
+                        disabled: is_view,
                     }
                 }
 
@@ -174,10 +237,11 @@ pub fn EventForm(
                     label: "Calender",
                     required: true,
                     select {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         onchange: move |e| {
                             selected_calendar_id.set(Uuid::try_parse(&e.value()).unwrap_or_else(|_| selected_calendar_id()));
                         },
+                        disabled: is_view,
                         for cal in &calendars {
                             option {
                                 value: "{cal.id}",
@@ -196,6 +260,7 @@ pub fn EventForm(
                         class: "w-4 h-4 accent-blue-500",
                         checked: is_all_day(),
                         onchange: move |_| is_all_day.set(!is_all_day()),
+                        disabled: is_view,
                     }
                     label { class: "text-sm text-white/70", "All Day" }
                 }
@@ -204,7 +269,7 @@ pub fn EventForm(
                     label: "from",
                     required: true,
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         r#type: if is_all_day() { "date" } else { "datetime-local" },
                         value: "{from_date_formatted}",
                         onchange: move |e| {
@@ -225,14 +290,15 @@ pub fn EventForm(
                                     .unwrap_or_else(|_| from_date())
                                 );
                             }
-                        }
+                        },
+                        disabled: is_view,
                     }
                 }
 
                 FormField {
                     label: "to (optional)",
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         r#type: if is_all_day() { "date" } else { "datetime-local" },
                         value: "{to_date_formatted}",
                         onchange: move |e| {
@@ -257,26 +323,29 @@ pub fn EventForm(
                                 ));
                             }
                         },
+                        disabled: is_view,
                     }
                 }
 
                 FormField {
                     label: "Categories (optional)",
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         placeholder: "Categories (separated by comma)",
                         value: "{categories().unwrap_or_default().join(\", \")}",
                         onchange: move |e| categories.set(Some(e.value().split(",").map(|s| s.trim().to_string()).collect())),
+                        disabled: is_view,
                     }
                 }
 
                 FormField {
                     label: "Location (optional)",
                     input {
-                        class: field_input_class(),
+                        class: if !is_view() {field_input_class()} else {field_input_class_disabled()},
                         placeholder: "Location or Link",
                         value: "{location().unwrap_or_default()}",
                         onchange: move |e| location.set(Some(e.value())),
+                        disabled: is_view,
                     }
                 }
 
@@ -292,10 +361,11 @@ pub fn EventForm(
                         placeholder: "Description…",
                         value: "{description().unwrap_or_default()}",
                         onchange: move |e| description.set(Some(e.value())),
+                        disabled: is_view,
                     }
                 }
 
-                RecurrencePicker { recurrence,  from_date }
+                RecurrencePicker { recurrence,  from_date, is_view: is_view() }
 
                 if let Some(msg) = error_msg() {
                     div {
@@ -318,25 +388,87 @@ pub fn EventForm(
                     ",
                     disabled: is_loading(),
                     onclick: move |_| {
-                        // Editing a recurring parent requires choosing the scope first
-                        if is_edit && is_recurrent && !is_recurrence_exception {
-                            show_recurrent_scope_dialog.set(true);
-                        } else {
-                            // distinguish between creating and editing event
-                            match &mode {
-                                EventFormMode::Create => {
-                                    spawn(async move {
-                                        match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
-                                        Ok(()) => {
-                                            on_refresh.call(());
+                        match action_mode() {
+                            EventFormMode::Create => {
+                                spawn(async move {
+                                    match create_calendar_event(summary(), description(), selected_calendar_id(), from_date(), to_date(), attachment(), recurrence(), recurrence_exception(), location(), categories(), is_all_day()).await {
+                                    Ok(()) => {
+                                        on_refresh.call(());
+                                    },
+                                    Err(err) => {
+                                        error_msg.set(Some(err.to_string()));
+                                    },
+                                }
+                                });
+                            },
+                            EventFormMode::Edit(_) => {
+                                // if recurrence or recurrence exception:
+                                if initial_is_recurrent() || initial_is_recurrence_exception() {
+                                    match recurrent_scope() {
+                                        // if recurrent_scope() == RecurrentEditScope::All
+                                        Some(RecurrentEditScope::All) => {
+                                            spawn(async move {
+                                                match edit_calendar_event(CalendarEvent{
+                                                    id: id(),
+                                                    summary: summary(),
+                                                    description: description(),
+                                                    calendar_id: selected_calendar_id(),
+                                                    created_at: created_at(),
+                                                    created_by: created_by(),
+                                                    from_date_time: from_date(),
+                                                    to_date_time: to_date(),
+                                                    attachment: attachment(),
+                                                    recurrence: recurrence(),
+                                                    recurrence_exception: recurrence_exception(),
+                                                    location: location(),
+                                                    categories: categories(),
+                                                    is_all_day: is_all_day(),
+                                                    last_mod: last_mod(),
+                                                },
+                                                None,
+                                                None).await {
+                                                Ok(()) => {
+                                                    on_refresh.call(());
+                                                },
+                                                Err(err) => {
+                                                    error_msg.set(Some(err.to_string()));
+                                                },
+                                                }
+                                            });
                                         },
-                                        Err(err) => {
-                                            error_msg.set(Some(err.to_string()));
+                                        // if recurrent_scope() == RecurrentEditScope::OnlyThis
+                                        Some(RecurrentEditScope::OnlyThis) => {
+                                            spawn(async move {
+                                                match edit_instance_of_recurrent_event(CalendarEvent{
+                                                    id: id(),
+                                                    summary: summary(),
+                                                    description: description(),
+                                                    calendar_id: selected_calendar_id(),
+                                                    created_at: created_at(),
+                                                    created_by: created_by(),
+                                                    from_date_time: from_date(),
+                                                    to_date_time: to_date(),
+                                                    attachment: attachment(),
+                                                    recurrence: recurrence(),
+                                                    recurrence_exception: recurrence_exception(),
+                                                    location: location(),
+                                                    categories: categories(),
+                                                    is_all_day: is_all_day(),
+                                                    last_mod: last_mod(),
+                                                }).await {
+                                                Ok(()) => {
+                                                    on_refresh.call(());
+                                                },
+                                                Err(err) => {
+                                                    error_msg.set(Some(err.to_string()));
+                                                },
+                                                }
+                                            });
                                         },
+                                        None => {},
                                     }
-                                    });
-                                },
-                                EventFormMode::Edit(_) => {
+                                // if normal event:
+                                } else {
                                     spawn(async move {
                                         match edit_single_calendar_event(CalendarEvent{
                                             id: id(),
@@ -363,15 +495,33 @@ pub fn EventForm(
                                         },
                                     }
                                     });
-                                },
-                            }
-
+                                }
+                            },
+                            EventFormMode::View(e) => {
+                                // if recurrence or exception:
+                                if is_recurrent || is_recurrence_exception {
+                                    //  first show_recurrent_scope_dialog()
+                                    println!("Ist recurrent oder exception");
+                                    show_recurrent_scope_dialog.set(true);
+                                } else { // if not recurrent:
+                                    //  simply edit mode
+                                    action_mode.set(EventFormMode::Edit(e));
+                                }
+                            },
                         }
+
+
                     },
-                    if is_loading() { "Saving…" } else { "Save" }
+                    if is_view() {
+                        "Edit"
+                    } else if is_loading() {
+                        "Saving…"
+                    } else {
+                        "Save"
+                    }
                 }
 
-                if is_edit {
+                if is_view() {
                     DeleteButton {
                         is_recurrent,
                         is_recurrence_exception,
@@ -423,64 +573,27 @@ pub fn EventForm(
                 on_only_this: move |_| {
                     show_recurrent_scope_dialog.set(false);
                     recurrent_scope.set(Some(RecurrentEditScope::OnlyThis));
-                    spawn(async move {
-                        match edit_instance_of_recurrent_event(CalendarEvent{
-                            id: id(),
-                            summary: summary(),
-                            description: description(),
-                            calendar_id: selected_calendar_id(),
-                            created_at: created_at(),
-                            created_by: created_by(),
-                            from_date_time: from_date(),
-                            to_date_time: to_date(),
-                            attachment: attachment(),
-                            recurrence: recurrence(),
-                            recurrence_exception: recurrence_exception(),
-                            location: location(),
-                            categories: categories(),
-                            is_all_day: is_all_day(),
-                            last_mod: last_mod(),
-                        }).await {
-                        Ok(()) => {
-                            on_refresh.call(());
-                        },
-                        Err(err) => {
-                            error_msg.set(Some(err.to_string()));
-                        },
-                        }
-                    });
+                    if let EventFormMode::View(e) = action_mode() {
+                        action_mode.set(EventFormMode::Edit(e));
+                    }
                 },
                 on_all: move |_| {
                     show_recurrent_scope_dialog.set(false);
                     recurrent_scope.set(Some(RecurrentEditScope::All));
-                    spawn(async move {
-                        match edit_calendar_event(CalendarEvent{
-                            id: id(),
-                            summary: summary(),
-                            description: description(),
-                            calendar_id: selected_calendar_id(),
-                            created_at: created_at(),
-                            created_by: created_by(),
-                            from_date_time: from_date(),
-                            to_date_time: to_date(),
-                            attachment: attachment(),
-                            recurrence: recurrence(),
-                            recurrence_exception: recurrence_exception(),
-                            location: location(),
-                            categories: categories(),
-                            is_all_day: is_all_day(),
-                            last_mod: last_mod(),
-                        },
-                        None,
-                        None).await {
-                        Ok(()) => {
-                            on_refresh.call(());
-                        },
-                        Err(err) => {
-                            error_msg.set(Some(err.to_string()));
-                        },
+                    if is_recurrent {
+                        if let EventFormMode::View(e) = action_mode() {
+                            action_mode.set(EventFormMode::Edit(e));
                         }
-                    });
+                    } else {
+                        // search parent and give to edit mode
+                        let parent_event = events
+                            .iter()
+                            .find(|e| recurrence_exception().unwrap().recurrence_id.to_string() == e.id)
+                            .and_then(|e| parse_calendar_event_light_to_calendar_event(e.clone()).ok());
+                        if let Some(event) = parent_event {
+                            action_mode.set(EventFormMode::Edit(Box::new(event)));
+                        }
+                    }
                 },
                 on_cancel: move |_| show_recurrent_scope_dialog.set(false),
             }
@@ -493,6 +606,7 @@ pub fn EventForm(
 pub fn RecurrencePicker(
     recurrence: Signal<Option<Recurrent>>,
     from_date: Signal<DateTime<Utc>>,
+    is_view: bool,
 ) -> Element {
     let is_active = use_memo(move || recurrence().is_some());
 
@@ -525,6 +639,7 @@ pub fn RecurrencePicker(
                             ));
                         }
                     },
+                        disabled: is_view,
                 }
                 label { class: "text-sm text-white/70", "Recurrence" }
             }
@@ -536,11 +651,12 @@ pub fn RecurrencePicker(
                     FormField {
                         label: "Frequency",
                         select {
-                            class: field_input_class(),
+                        class: if !is_view {field_input_class()} else {field_input_class_disabled()},
                             value: "{rrule_value}",
                             onchange: move |e| {
                                 recurrence.set(Some(Recurrent { rrule: e.value().parse::<Rrule>().unwrap_or(Rrule::Daily), ..recurrence().unwrap_or_default() }));
                             },
+                            disabled: is_view,
                             option { value: "Daily", style: "background: #1A1D2B", "Daily" }
                             option { value: "Weekly", style: "background: #1A1D2B", "Weekly" }
                             option { value: "Fortnight", style: "background: #1A1D2B", "Fortnight" }
@@ -554,7 +670,7 @@ pub fn RecurrencePicker(
                     FormField {
                         label: "Repeat until",
                         input {
-                            class: field_input_class(),
+                        class: if !is_view {field_input_class()} else {field_input_class_disabled()},
                             r#type: "date",
                             value: "{recurrence().unwrap_or_default().recurrence_until.date_naive()}",
                             onchange: move |e| {
@@ -568,6 +684,7 @@ pub fn RecurrencePicker(
                                     .and_utc(),
                                 ..current }));
                             },
+                            disabled: is_view,
                         }
                     }
                 }
@@ -710,6 +827,16 @@ fn field_input_class() -> &'static str {
     w-full px-3 py-2.5 rounded-xl
     bg-white/5 border border-white/10
     text-white text-sm placeholder:text-white/30
+    outline-none focus:border-blue-500/50
+    transition
+    "
+}
+
+fn field_input_class_disabled() -> &'static str {
+    "
+    w-full px-3 py-2.5 rounded-xl
+    bg-white/5 border border-white/10
+    text-gray-400 text-sm placeholder:text-white/30
     outline-none focus:border-blue-500/50
     transition
     "

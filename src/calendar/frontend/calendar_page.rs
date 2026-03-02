@@ -127,7 +127,7 @@ pub fn CalendarPage() -> Element {
 
     // Derive form mode from state: Edit if event selected, Create if form open without event
     let form_mode = use_memo(move || match selected_event() {
-        Some(event) => Some(EventFormMode::Edit(Box::new(event))),
+        Some(event) => Some(EventFormMode::View(Box::new(event))),
         None if show_form() => Some(EventFormMode::Create),
         _ => None,
     });
@@ -186,6 +186,7 @@ pub fn CalendarPage() -> Element {
                 EventForm {
                     mode,
                     calendars: calendars_full,
+                    events: all_events_light.clone(),
                     prefilled_date: prefilled_date(),
                     on_close: move |_| {
                         show_form.set(false);
@@ -275,7 +276,7 @@ fn build_calendar_color_map(
     calendars
         .iter()
         .map(|cal| {
-            let fallback = "#9ca3af".to_string();
+            let fallback = "#7a808a".to_string();
 
             // Look up the owning group's color; fallback if no group or no match
             let color = cal
