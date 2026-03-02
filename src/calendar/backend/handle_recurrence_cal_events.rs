@@ -146,9 +146,10 @@ pub fn expand_recurring_events(
                     // hier sind Wiederholungen
                     let mut rec_instance = master.clone();
                     rec_instance.id = Uuid::new_v4().to_string(); //Richtige neue id setzt Supabase dann wenn man etwas ändert, hierfür erstmal eine temp generieren lassen für Typesafety oder nochmal referenzierbar sein soll
-                    rec_instance.from_date_time = current_date_in_loop_as_str; //wiederholung kriegt aktuelles datum der itteration
+                    rec_instance.from_date_time = current_date_in_loop_as_str.clone(); //wiederholung kriegt aktuelles datum der itteration
                     rec_instance.to_date_time = current_end_in_loop_as_str;
                     rec_instance.recurrence_id = Some(master.id.clone());
+                    rec_instance.overrides_datetime = Some(current_date_in_loop_as_str);
                     rec_instance.rrule = None; //Recurrance instanzen haben selber keine rrule
                     rec_instance.recurrence_until = None; //recurrance instanzen haben selber kein until datum
                     result.push(rec_instance);

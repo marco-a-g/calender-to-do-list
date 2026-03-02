@@ -1,6 +1,7 @@
 //! Helper functions used all over planify.
 
 use chrono::{DateTime, Datelike, Utc};
+use serde::Deserialize;
 use server_fn::error::ServerFnError;
 use std::*;
 use uuid::Uuid;
@@ -95,9 +96,16 @@ pub async fn get_calendar_events_ids_by_recurrence_id(
     );
     let response_ids_text = get_elements_from_remote_by_url_string_unchecked(url_events).await?;
     // Json in Vec von Ids parsen
-    let ids: Vec<Uuid> = serde_json::from_str(&response_ids_text)
+
+    #[derive(Deserialize)]
+    struct IdRow {
+        id: Uuid,
+    }
+
+    let ids: Vec<IdRow> = serde_json::from_str(&response_ids_text)
         .map_err(|e| ServerFnError::new(format!("JSON Parse Events: {}", e)))?;
-    Ok(ids)
+
+    Ok(ids.into_iter().map(|r| r.id).collect())
 }
 
 /// Not used at the moment.

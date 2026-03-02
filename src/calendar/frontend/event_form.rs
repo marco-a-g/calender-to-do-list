@@ -87,6 +87,7 @@ pub fn EventForm(
             last_mod: Utc::now(),
         },
     };
+
     // needed event signals
     let mut summary = use_signal(|| initial_event.summary);
     let mut description = use_signal(|| initial_event.description);
@@ -116,6 +117,7 @@ pub fn EventForm(
     let is_loading = use_signal(|| false);
     let mut error_msg: Signal<Option<String>> = use_signal(|| None);
 
+    // for automatic switching values
     let default_calendar_id = calendars.first().map(|c| c.id).unwrap_or(Uuid::nil());
     use_effect(move || {
         let next = match action_mode() {
@@ -384,11 +386,6 @@ pub fn EventForm(
                     ",
                     disabled: is_loading(),
                     onclick: move |_| {
-                        // Editing a recurring parent requires choosing the scope first
-                        // if is_edit() && is_recurrent && !is_recurrence_exception {
-                        //     show_recurrent_scope_dialog.set(true);
-                        // } else {
-                            // distinguish between creating and editing event
                         match action_mode() {
                             EventFormMode::Create => {
                                 spawn(async move {
@@ -439,14 +436,43 @@ pub fn EventForm(
                                                     },
                                                     }
                                                 });
-                                            // wenn recurrence_exception
-                                            // } else {
-                                            //     //
-                                            // }
                                         },
                                         // wenn recurrent_scope() == RecurrentEditScope::OnlyThis
                                         Some(RecurrentEditScope::OnlyThis) => {
                                             println!("edit_instance_of_recurrent_event");
+                                            println!("
+                                            id: {:?},
+                                            summary: {:?},
+                                            description: {:?},
+                                            calendar_id: {:?},
+                                            created_at: {:?},
+                                            created_by: {:?},
+                                            from_date_time: {:?},
+                                            to_date_time: {:?},
+                                            attachment: {:?},
+                                            recurrence: {:?},
+                                            recurrence_exception: {:?},
+                                            location: {:?},
+                                            categories: {:?},
+                                            is_all_day: {:?},
+                                            last_mod: {:?},
+                                            ",
+                                            id(),
+                                            summary(),
+                                            description(),
+                                            selected_calendar_id(),
+                                            created_at(),
+                                            created_by(),
+                                            from_date(),
+                                            to_date(),
+                                            attachment(),
+                                            recurrence(),
+                                            recurrence_exception(),
+                                            location(),
+                                            categories(),
+                                            is_all_day(),
+                                            last_mod(),
+                                            );
                                             spawn(async move {
                                                 match edit_instance_of_recurrent_event(CalendarEvent{
                                                     id: id(),
@@ -664,7 +690,7 @@ pub fn RecurrencePicker(
                         label: "Frequency",
                         select {
                         class: if !is_view {field_input_class()} else {field_input_class_disabled()},
-                            value: "{recurrence().unwrap_or_default().rrule}",
+                            value: "{rrule_value}",
                             onchange: move |e| {
                                 recurrence.set(Some(Recurrent { rrule: e.value().parse::<Rrule>().unwrap_or(Rrule::Daily), ..recurrence().unwrap_or_default() }));
                             },
