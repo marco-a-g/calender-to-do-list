@@ -10,7 +10,7 @@ use uuid::Uuid;
 /// Since it stores the session, reuse it for all actions
 static SUPABASE_CLIENT: OnceLock<Client> = OnceLock::new();
 pub const SUPABASE_URL: &str = "https://wyqawnnkpusgtnhmeebn.supabase.co";
-pub const ANON_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5cWF3bm5rcHVzZ3RuaG1lZWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NDM5MjksImV4cCI6MjA4MTQxOTkyOX0.0_m5aLSKNdqiqCNFWI8Hfa5iSOKrjf97qb9ZXxnboGA";
+pub const ANON_KEY: &str = "sb_publishable_pFC_H--zfkiAc8ErS55x_Q__N0Yy4iJ";
 
 /// Holds authentication status with user-id `Uuid` if authenticated
 #[derive(Clone, Debug, PartialEq)]
