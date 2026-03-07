@@ -3,6 +3,7 @@
 use chrono::{DateTime, Datelike, Utc};
 use serde::Deserialize;
 use server_fn::error::ServerFnError;
+use std::time::Duration;
 use std::*;
 use uuid::Uuid;
 
@@ -375,4 +376,23 @@ pub fn check_overriding_recurrence(
         }
         Rrule::OnWeekDays => child_overrides_dt.weekday().num_days_from_monday() <= 5,
     }
+}
+
+/// Checks if remote host is reachable
+/// 
+/// Does not check if user is authorized, but only if a connection can be made
+/// 
+/// This is intended for offline mode
+pub async fn can_connect() -> bool {
+    let url = format!("{}/rest/v1/", SUPABASE_URL);
+    let client = reqwest::Client::new();
+
+    let res = client
+        .get(url)
+        .header("apikey", ANON_KEY)
+        .timeout(Duration::from_secs(3))
+        .send()
+        .await;
+    
+    res.is_ok()
 }

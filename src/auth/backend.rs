@@ -5,6 +5,8 @@ use std::sync::OnceLock;
 use supabase::Client;
 use uuid::Uuid;
 
+use crate::database::local::init_fetch::init_fetch_local_db::delete_db;
+
 /// Holds the supabase client for remote connection
 ///
 /// Since it stores the session, reuse it for all actions
@@ -163,6 +165,10 @@ pub async fn logout() -> Result<(), AuthError> {
     let client = get_client()?;
 
     client.auth().sign_out().await?;
+
+    // delete db so that noone can access data after logout
+    // needs further checking if data is really deleted
+    delete_db();
 
     Ok(())
 }

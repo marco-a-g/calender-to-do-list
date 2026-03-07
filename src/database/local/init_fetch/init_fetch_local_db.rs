@@ -51,17 +51,7 @@ pub async fn init_database() -> Result<(), ServerFnError> {
     if POOL_LOCAL_DB.get().is_some() {
         return Ok(());
     }
-    //====der Block kann bei finaler Verssion dann raus eigentlich, bisher ist es einfacher Änderungen in lokaler db-struktur hier im SQL skript zu ändern=====
-    println!("Initialisiere reset lokale Datenbankdateien...");
-    let db_path = Path::new(DB_PATH);
-    if db_path.exists() {
-        if let Err(e) = fs::remove_file(db_path) {
-            eprintln!("Fehler: alte db nicht gelöscht: {}", e);
-        } else {
-            println!("Alte Datenbank gelöscht.");
-        }
-    }
-    //==============================================================================================================================================================
+    
     let pool = SqlitePoolOptions::new()
         .max_connections(7) //7 fetch funktionen zum Daten ziehen
         .connect_with(CONNECTION_OPTIONS.clone())
@@ -326,4 +316,17 @@ pub async fn fetch_calendars_lokal_db() -> Result<Vec<CalendarLight>, ServerFnEr
             .await
             .map_err(|e| ServerFnError::new(format!("SQL Fehler (Calendar): {}", e)))?;
     Ok(calendars)
+}
+
+
+pub fn delete_db() {
+    println!("Initialisiere reset lokale Datenbankdateien...");
+    let db_path = Path::new(DB_PATH);
+    if db_path.exists() {
+        if let Err(e) = fs::remove_file(db_path) {
+            eprintln!("Fehler: alte db nicht gelöscht: {}", e);
+        } else {
+            println!("Alte Datenbank gelöscht.");
+        }
+    }
 }

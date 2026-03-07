@@ -19,6 +19,7 @@ use crate::groups::frontend::GroupsPage;
 use crate::groups::frontend::group_detail::GroupDetailPage;
 use crate::todos::frontend::todo_dashboard::ToDoDashboard;
 use crate::user::frontend::{create_profile::CreateProfileView, profile_view::ProfileView};
+use crate::utils::functions::can_connect;
 use dioxus::prelude::*;
 use dioxus_router::{Routable, Router};
 static CSS: Asset = asset!("/assets/tailwind.css");
@@ -66,24 +67,37 @@ enum Route {
 
 #[component]
 fn App() -> Element {
-    let auth_status = use_signal(|| AuthStatus::Unauthenticated); // only mutable for auto-login while developing
+    let auth_status = use_signal(|| AuthStatus::Unauthenticated);
     use_context_provider(|| auth_status);
     let sync_counter = use_signal(|| 0u32);
     use_context_provider(|| sync_counter);
     let auth_view = use_signal(|| AuthView::Login);
-    let mut initialized = use_signal(|| false); // use later to enable offline mode/view, maybe enum ClientState {Ready, Offline, Error(AuthError)}
+    let mut initialized = use_signal(|| None::<bool>); // not suited for offline mode because client is initializable without internet connection
+    let mut online = use_signal(|| None::<bool>); // intended for offline mode; None: didn't check, Some(true): online, Some(false): offline
     let mut db_is_ready = use_signal(|| false);
     #[allow(unused_mut)]
     ////gets flagged as unused because the the signal is updated in another file, not here
     let mut is_syncing = use_signal(|| false);
     use_context_provider(|| is_syncing);
+
+    // check for connection
+    use_effect(move || {
+        spawn(async move {
+            let res = can_connect().await;
+            online.set(Some(res));
+        });
+    });
+
     // initialize Supabase client
     use_effect(move || {
         spawn(async move {
             match init_client() {
-                Ok(_) => initialized.set(true),
-                Err(_) => initialized.set(false),
-            }
+                Ok(_) => initialized.set(Some(true)),
+                Err(_) => {
+                    initialized.set(Some(false));
+                    online.set(Some(false)); // if client couldn't be initialized, switch to offline even though internet may be accessible
+                },
+            };
         });
     });
 
