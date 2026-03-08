@@ -1,5 +1,5 @@
 use crate::Route;
-use crate::auth::backend::{AuthStatus, logout};
+use crate::auth::backend::{AuthStatus, AuthView, logout};
 use crate::database::local::sync_local_db::sync_local_to_remote_db;
 use dioxus::prelude::*;
 use dioxus_router::{Link, Outlet, use_route};
@@ -7,6 +7,7 @@ use dioxus_router::{Link, Outlet, use_route};
 #[component]
 pub fn Navbar() -> Element {
     let mut auth_status = use_context::<Signal<AuthStatus>>();
+    let mut auth_view = use_context::<Signal<AuthView>>();
     let mut sync_counter = use_context::<Signal<u32>>();
 
     let mut syncing = use_signal(|| false);
@@ -137,6 +138,7 @@ pub fn Navbar() -> Element {
                     spawn(async move{
                         if logout().await.is_ok() {
                             auth_status.set(AuthStatus::Unauthenticated);
+                            auth_view.set(AuthView::Login);
                         }
                     });
                 },
